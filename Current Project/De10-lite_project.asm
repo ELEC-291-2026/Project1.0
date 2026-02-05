@@ -63,7 +63,7 @@ Timer2_Init:
 	ret
 
 ;---------------------------------;
-; ISR for timer 2.  Runs evere ms ;
+; ISR for timer 2.  Runs every ms ;
 ;---------------------------------;
 Timer2_ISR:
 	clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in ISR
@@ -144,6 +144,19 @@ Hex_to_bcd_8bit:
 	mov R0, a
 	ret
 
+;-------MACROS--------------------;
+;Example macro to help with process %0,1,etc represents the input number, this is all pass by reference(i.e it can actually affect the variable)
+ADD_16 MAC
+    ADD A, %0     ; Add low byte
+    MOV R2, A       ; Store result back in low var
+    MOV A, R1       ; Move existing high byte to A
+    ADDC A, %1     ; Add high byte with carry
+    MOV R1, A       ; Store back in R1
+ENDMAC
+
+
+
+
 ;---------------------------------;
 ; Main program. Includes hardware ;
 ; initialization and 'forever'    ;
@@ -178,6 +191,8 @@ main:
     lcall Hex_to_bcd_8bit
 	lcall Display_BCD_7_Seg_HEX54
 	
+	;;Testing;;
+    ADD_16(#1, #2) ; This "expands" into the 5 lines above
 	; After initialization the program stays in this 'forever' loop
 loop:
 
@@ -374,4 +389,8 @@ Clear_Count3:
 Skip_Count3:
 
     ljmp loop
+    
+    
 END
+
+
