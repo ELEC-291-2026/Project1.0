@@ -19,9 +19,8 @@ T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
 
 ;PIN Assignemet
 ;Need to figure out wich ADC pins the LM335 and OP07 are on 
-;VCC equ ___
-;LM335 equ ___
-;OP07 equ ___
+LM335_ADC equ 1
+OP07_ADC equ 2
 
 
 ; Reset vector
@@ -249,6 +248,9 @@ loop:
 	mov a, #'\n'
     lcall putchar
 
+;ADC channeling example
+mov ADC_C ,LM335_ADC
+
 ;-------------------------------------------------------------------------------
 ;FSM
 ;-------------------------------------------------------------------------------
@@ -305,6 +307,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
