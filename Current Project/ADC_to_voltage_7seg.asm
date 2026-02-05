@@ -12,19 +12,19 @@ $MODMAX10
 
 dseg at 30h
 
-x:		ds	4
-y:		ds	4
-bcd:	ds	5
-tempHot:ds  5
-tempCold:ds 5
+x:			ds	4
+y:			ds	4
+bcd:		ds	5
+tempHot:	ds  5
+tempCold:	ds	5
 
 bseg
 
-mf:		dbit 1
+mf:			dbit 1
 
-FREQ   EQU 33333333
-BAUD   EQU 115200
-T2LOAD EQU 65536-(FREQ/(32*BAUD))
+FREQ   		EQU 33333333
+BAUD   		EQU 115200
+T2LOAD 		EQU 65536-(FREQ/(32*BAUD))
 
 CSEG
 
