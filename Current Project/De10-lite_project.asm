@@ -46,6 +46,7 @@ FSM_timer:  ds 1
 ; Each FSM has its own state counter
 FSM_state:  ds 1
 ; Three counters to display.
+Count3:     ds 1 ; Incremented every second. Reset to zero when KEY3 is pressed.
 
 bseg
 ; For each pushbutton we have a flag.  The corresponding FSM will set this
@@ -53,6 +54,7 @@ bseg
 mf       :  dbit 1
 
 $include(math32.asm)
+$include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
 
 cseg
 ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
@@ -65,7 +67,6 @@ ELCD_D4 equ P0.7
 ELCD_D5 equ P0.5
 ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
-$include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
 
 cseg
 ;---------------------------------;
@@ -258,12 +259,13 @@ main:
     ADD_16(#1, #2) ; This "expands" into the 5 lines above
 	; After initialization the program stays in this 'forever' loop
 loop:
-	mov ADC_C, LM335_ADC
-	tempConv()
+	
+	mov ADC_C, #LM335_ADC
+	tempConv
 	mov tempCold, bcd
 
-	mov ADC_C, OP07_ADC
-	tempConv()
+	mov ADC_C, #OP07_ADC
+	tempConv
 	mov tempHOT, bcd
 	
 
