@@ -9,6 +9,7 @@
 $NOLIST
 $MODDE1SOC
 $LIST
+$MODMAX10
 
 CLK           EQU 33333333 ; Microcontroller system crystal frequency in Hz
 TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
@@ -398,6 +399,7 @@ Skip_Count3:
     
     
 END
+
 
 
 
