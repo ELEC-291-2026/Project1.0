@@ -35,15 +35,9 @@ tempHot:	ds 5
 tempCold:	ds 5
 
 ; Each FSM has its own timer
-FSM1_timer: ds 1
-FSM2_timer: ds 1
-FSM3_timer: ds 1
-FSM4_timer: ds 1
+FSM_timer: ds 1
 ; Each FSM has its own state counter
-FSM1_state: ds 1
-FSM2_state: ds 1
-FSM3_state: ds 1
-FSM4_state: ds 1
+FSM_state: ds 1
 ; Three counters to display.
 Count1:     ds 1 ; Incremented/decremented when KEY1 is pressed.
 Count2:     ds 1 ; Incremented/decremented when KEY2 is pressed.
@@ -98,7 +92,7 @@ Timer2_ISR:
 	inc FSM1_timer 
 	inc FSM2_timer 
 	inc FSM3_timer 
-	inc FSM4_timer 
+	inc FSM_timer 
 	reti
 
 ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
@@ -231,7 +225,7 @@ main:
     mov FSM1_state, #0
     mov FSM2_state, #0
     mov FSM3_state, #0
-    mov FSM4_state, #0
+    mov FSM_state, #0
     mov Count1, #0
     mov Count2, #0
     mov Count3, #0
@@ -253,136 +247,42 @@ main:
 loop:
 
 ;-------------------------------------------------------------------------------
-; non-blocking state machine for KEY1 starts here
-	mov a, FSM1_state
-FSM1_state0:
-	cjne a, #0, FSM1_state1
-	jb KEY.1, FSM1_done
-	mov FSM1_timer, #0
-	inc FSM1_state
-	sjmp FSM1_done
-FSM1_state1:
-	cjne a, #1, FSM1_state2
-	; this is the debounce state
-	mov a, FSM1_timer
-	cjne a, #50, FSM1_done ; 50 ms passed?
-	inc FSM1_state
-	sjmp FSM1_done	
-FSM1_state2:
-	cjne a, #2, FSM1_state3
-	jb KEY.1, FSM1_state2b
-	inc FSM1_state
-	sjmp FSM1_done	
-FSM1_state2b:
-	mov FSM1_state, #0
-	sjmp FSM1_done
-FSM1_state3:
-	cjne a, #3, FSM1_done
-	jnb KEY.1, FSM1_done
-	setb Key1_flag ; Suscesfully detected a valid KEY1 press/release
-	mov FSM1_state, #0	
-FSM1_done:
-;-------------------------------------------------------------------------------
-
-;-------------------------------------------------------------------------------
-; non-blocking state machine for KEY2 starts here
-	mov a, FSM2_state
-FSM2_state0:
-	cjne a, #0, FSM2_state1
-	jb KEY.2, FSM2_done
-	mov FSM2_timer, #0
-	inc FSM2_state
-	sjmp FSM2_done
-FSM2_state1:
-	cjne a, #1, FSM2_state2
-	; this is the debounce state
-	mov a, FSM2_timer
-	cjne a, #50, FSM2_done ; 50 ms passed?
-	inc FSM2_state
-	sjmp FSM2_done	
-FSM2_state2:
-	cjne a, #2, FSM2_state3
-	jb KEY.2, FSM2_state2b
-	inc FSM2_state
-	sjmp FSM2_done	
-FSM2_state2b:
-	mov FSM2_state, #0
-	sjmp FSM2_done
-FSM2_state3:
-	cjne a, #3, FSM2_done
-	jnb KEY.2, FSM2_done
-	setb Key2_flag ; Suscesfully detected a valid KEY2 press/release
-	mov FSM2_state, #0	
-FSM2_done:
-;-------------------------------------------------------------------------------
-
-;-------------------------------------------------------------------------------
-; non-blocking state machine for KEY3 starts here
-	mov a, FSM3_state
-FSM3_state0:
-	cjne a, #0, FSM3_state1
-	jb KEY.3, FSM3_done
-	mov FSM3_timer, #0
-	inc FSM3_state
-	sjmp FSM3_done
-FSM3_state1:
-	cjne a, #1, FSM3_state2
-	; this is the debounce state
-	mov a, FSM3_timer
-	cjne a, #50, FSM3_done ; 50 ms passed?
-	inc FSM3_state
-	sjmp FSM3_done	
-FSM3_state2:
-	cjne a, #2, FSM3_state3
-	jb KEY.3, FSM3_state2b
-	inc FSM3_state
-	sjmp FSM3_done	
-FSM3_state2b:
-	mov FSM3_state, #0
-	sjmp FSM3_done
-FSM3_state3:
-	cjne a, #3, FSM3_done
-	jnb KEY.3, FSM3_done
-	setb Key3_flag ; Suscesfully detected a valid KEY3 press/release
-	mov FSM3_state, #0	
-FSM3_done:
-;-------------------------------------------------------------------------------
-
+;FSM
 ;-------------------------------------------------------------------------------
 ; non-blocking FSM for the one second counter starts here.
-	mov a, FSM4_state
+	mov a, FSM_state
 	mov LEDRA, #0
-FSM4_state0:
-	cjne a, #0, FSM4_state1
+FSM_state0:
+	cjne a, #0, FSM_state1
 	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
-	mov a, FSM4_timer
-	cjne a, #250, FSM4_done ; 250 ms passed? (Since we are usend an 8-bit variable, we need to count 250 ms four times)
-	mov FSM4_timer, #0
-	inc FSM4_state
-	sjmp FSM4_done
-FSM4_state1:	
-	cjne a, #1, FSM4_state2
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed? (Since we are usend an 8-bit variable, we need to count 250 ms four times)
+	mov FSM_timer, #0
+	inc FSM_state
+	sjmp FSM_done
+FSM_state1:	
+	cjne a, #1, FSM_state2
 	setb LEDRA.1
-	mov a, FSM4_timer
-	cjne a, #250, FSM4_done ; 250 ms passed?
-	mov FSM4_timer, #0
-	inc FSM4_state
-	sjmp FSM4_done
-FSM4_state2:	
-	cjne a, #2, FSM4_state3
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
+	inc FSM_state
+	sjmp FSM_done
+FSM_state2:	
+	cjne a, #2, FSM_state3
 	setb LEDRA.2
-	mov a, FSM4_timer
-	cjne a, #250, FSM4_done ; 250 ms passed?
-	mov FSM4_timer, #0
-	inc FSM4_state
-	sjmp FSM4_done
-FSM4_state3:	
-	cjne a, #3, FSM4_done
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
+	inc FSM_state
+	sjmp FSM_done
+FSM_state3:	
+	cjne a, #3, FSM_done
 	setb LEDRA.3
-	mov a, FSM4_timer
-	cjne a, #250, FSM4_done ; 250 ms passed?
-	mov FSM4_timer, #0
-	mov FSM4_state, #0
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
+	mov FSM_state, #0
 	mov a, Count3
 	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
 	mov Count3, #0
@@ -393,61 +293,12 @@ DisplayCount3:
     mov a, Count3
     lcall Hex_to_bcd_8bit
 	lcall Display_BCD_7_Seg_HEX54
-	mov FSM4_state, #0
-FSM4_done:
+	mov FSM_state, #0
+FSM_done:
 ;-------------------------------------------------------------------------------
-
-
-; If KEY1 was detected, increment or decrement Count1.  Notice that we are displying only
-; the least two signicant digits of a counter that can have values from 0 to 255.
-	jbc Key1_flag, Increment_Count1
-	sjmp Skip_Count1
-Increment_Count1:
-	jb SWA.0, Decrement_Count1
-	inc Count1
-	sjmp Display_Count1
-Decrement_Count1:
-	dec Count1
-Display_Count1:	
-    mov a, Count1
-    lcall Hex_to_bcd_8bit
-	lcall Display_BCD_7_Seg_HEX10
-Skip_Count1:
-
-; If KEY2 was detected, increment or decrement Count2.  Notice that we are displying only
-; the least two signicant digits of a counter that can have values from 0 to 255.
-	jbc Key2_flag, Increment_Count2
-	sjmp Skip_Count2
-Increment_Count2:
-	jb SWA.0, Decrement_Count2
-	inc Count2
-	sjmp Display_Count2
-Decrement_Count2:
-	dec Count2
-Display_Count2:	
-    mov a, Count2
-    lcall Hex_to_bcd_8bit
-	lcall Display_BCD_7_Seg_HEX32
-Skip_Count2:
-
-; When KEY3 is pressed/released it resets the one second counter (Count3)
-	jbc Key3_flag, Clear_Count3
-	sjmp Skip_Count3
-Clear_Count3:
-    mov Count3, #0
-    ; Reset also the state machine for the one second counter and its timer
-    mov FSM4_state, #0
-	mov FSM4_timer, #0
-	; Display the new count
-    mov a, Count3
-    lcall Hex_to_bcd_8bit
-	lcall Display_BCD_7_Seg_HEX54
-Skip_Count3:
-
-    ljmp loop
-    
-    
+ljmp loop
 END
+
 
 
 
