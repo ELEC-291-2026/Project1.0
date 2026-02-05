@@ -155,6 +155,34 @@ Hex_to_bcd_8bit:
 	mov R0, a
 	ret
 
+InitSerialPort:
+	; Configure serial port and baud rate
+	clr TR2 ; Disable timer 2
+	mov T2CON, #30H ; RCLK=1, TCLK=1 
+	mov RCAP2H, #high(T2LOAD)  
+	mov RCAP2L, #low(T2LOAD)
+	setb TR2 ; Enable timer 2
+	mov SCON, #52H
+	ret
+
+putchar:
+    JNB TI, putchar
+    CLR TI
+    MOV SBUF, a
+    RET
+
+SendString:
+    CLR A
+    MOVC A, @A+DPTR
+    JZ SSDone
+    LCALL putchar
+    INC DPTR
+    SJMP SendString
+SSDone:
+    ret
+
+
+
 ;-------MACROS--------------------;
 ;Example macro to help with process %0,1,etc represents the input number, this is all pass by reference(i.e it can actually affect the variable)
 ADD_16 MAC
@@ -403,6 +431,7 @@ Skip_Count3:
     
     
 END
+
 
 
 
