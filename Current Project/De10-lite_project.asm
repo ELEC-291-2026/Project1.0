@@ -31,8 +31,8 @@ dseg at 0x30
 x:		ds	4
 y:		ds	4
 bcd:	ds	5
-tempHot:ds  5
-tempCold:ds 5
+tempHot:ds  	5
+tempCold:ds 	5
 
 ; Each FSM has its own timer
 FSM1_timer: ds 1
@@ -221,6 +221,7 @@ main:
 	; Initialization of hardware
     mov SP, #0x7F
     lcall Timer2_Init
+    lcall ELCD_4BIT ; Configure LCD in four bit mode
     ; Turn off all the LEDs
     mov LEDRA, #0 ; LEDRA is bit addressable
     mov LEDRB, #0 ; LEDRB is NOT bit addresable
@@ -447,6 +448,7 @@ Skip_Count3:
     
     
 END
+
 
 
 
