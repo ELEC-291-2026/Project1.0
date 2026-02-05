@@ -23,6 +23,10 @@ org 0x002B
 	ljmp Timer2_ISR
 
 dseg at 0x30
+; For math 
+x:		ds	4
+y:		ds	4
+bcd:	ds	5
 ; Each FSM has its own timer
 FSM1_timer: ds 1
 FSM2_timer: ds 1
@@ -394,6 +398,7 @@ Skip_Count3:
     
     
 END
+
 
 
 
