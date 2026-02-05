@@ -11,12 +11,12 @@ $MODDE1SOC
 $LIST
 $MODMAX10
 
-CLK           EQU 33333333 ; Microcontroller system crystal frequency in Hz
-TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
-TIMER2_RELOAD EQU ((65536-(CLK/(12*TIMER2_RATE))))
-FREQ   EQU 33333333
-BAUD   EQU 115200
-T2LOAD EQU 65536-(FREQ/(32*BAUD))
+CLK           	EQU 33333333 ; Microcontroller system crystal frequency in Hz
+TIMER2_RATE   	EQU 1000     ; 1000Hz, for a timer tick of 1ms
+TIMER2_RELOAD 	EQU ((65536-(CLK/(12*TIMER2_RATE))))
+FREQ   			EQU 33333333
+BAUD   			EQU 115200
+T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
 
 ; Reset vector
 org 0x0000
@@ -298,6 +298,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
