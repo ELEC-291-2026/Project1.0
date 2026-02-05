@@ -14,6 +14,9 @@ $MODMAX10
 CLK           EQU 33333333 ; Microcontroller system crystal frequency in Hz
 TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD EQU ((65536-(CLK/(12*TIMER2_RATE))))
+FREQ   EQU 33333333
+BAUD   EQU 115200
+T2LOAD EQU 65536-(FREQ/(32*BAUD))
 
 ; Reset vector
 org 0x0000
@@ -49,6 +52,7 @@ bseg
 Key1_flag: dbit 1
 Key2_flag: dbit 1
 Key3_flag: dbit 1
+mf       : dbit 1
 
 $include(math32.asm)
 
@@ -399,6 +403,7 @@ Skip_Count3:
     
     
 END
+
 
 
 
