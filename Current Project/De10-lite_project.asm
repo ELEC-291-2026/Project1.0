@@ -267,7 +267,11 @@ loop:
 	mov ADC_C, #OP07_ADC
 	tempConv
 	mov tempHOT, bcd
-	
+
+	mov x, tempHot
+	mov y, tempCold
+	lcall add32
+	mov tempFinal, x
 
 
 
@@ -339,6 +343,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
