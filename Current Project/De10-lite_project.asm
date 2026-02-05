@@ -215,6 +215,26 @@ ADD_16 MAC
     MOV R1, A       ; Store back in R1
 ENDMAC
 
+
+TEMPConv MAC
+	; Load 32-bit 'x' with 12-bit adc result
+	mov x+3, #0
+	mov x+2, #0
+	mov x+1, ADC_H
+	mov x+0, ADC_L
+
+	Load_y(50300) ; VCC voltage measured
+	lcall mul32
+	Load_y(4095) ; 2^12-1
+	lcall div32
+	Load_y(27300)
+	lcall sub32
+	Load_y(100)
+	lcall mul32
+
+	lcall hex2bcd
+ENDMAC
+
 ;---------------------------------;
 ; Main program. Includes hardware ;
 ; initialization and 'forever'    ;
@@ -243,23 +263,7 @@ loop:
 	anl a, #0x07
 	mov ADC_C, a
 	
-	
-	; Load 32-bit 'x' with 12-bit adc result
-	mov x+3, #0
-	mov x+2, #0
-	mov x+1, ADC_H
-	mov x+0, ADC_L
 
-	Load_y(50300) ; VCC voltage measured
-	lcall mul32
-	Load_y(4095) ; 2^12-1
-	lcall div32
-	Load_y(27300)
-	lcall sub32
-	Load_y(100)
-	lcall mul32
-
-	lcall hex2bcd
 
 ; sends to putty
     mov a, bcd+2
@@ -331,6 +335,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
