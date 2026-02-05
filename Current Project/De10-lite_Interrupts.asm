@@ -4,4 +4,5 @@ $MODMAX10
 org 0000H
 	ljmp myprogram
 
+ahasasaa
 
