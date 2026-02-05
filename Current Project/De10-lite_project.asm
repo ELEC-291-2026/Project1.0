@@ -7,9 +7,8 @@
 ; is detected, the program resets Count3 to zero.  
 ;
 $NOLIST
-$MODDE1SOC
-$LIST
 $MODMAX10
+$LIST
 
 CLK           	EQU 33333333 ; Microcontroller system crystal frequency in Hz
 TIMER2_RATE   	EQU 1000     ; 1000Hz, for a timer tick of 1ms
@@ -89,9 +88,6 @@ Timer2_Init:
 Timer2_ISR:
 	clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in ISR
 	; Increment the timers for each FSM. That is all we do here!
-	inc FSM1_timer 
-	inc FSM2_timer 
-	inc FSM3_timer 
 	inc FSM_timer 
 	reti
 
@@ -232,9 +228,6 @@ main:
     setb EA   ; Enable Global interrupts
     
     ; Initialize variables
-    mov FSM1_state, #0
-    mov FSM2_state, #0
-    mov FSM3_state, #0
     mov FSM_state, #0
     mov Count1, #0
     mov Count2, #0
