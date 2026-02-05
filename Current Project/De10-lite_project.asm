@@ -191,24 +191,6 @@ SendString:
 SSDone:
     ret
 
-
-
-;-------MACROS--------------------;
-;Example macro to help with process %0,1,etc represents the input number, this is all pass by reference(i.e it can actually affect the variable)
-ADD_16 MAC
-    ADD A, %0     ; Add low byte
-    MOV R2, A       ; Store result back in low var
-    MOV A, R1       ; Move existing high byte to A
-    ADDC A, %1     ; Add high byte with carry
-    MOV R1, A       ; Store back in R1
-ENDMAC
-
-putchar:
-    jnb TI, putchar
-    clr TI
-    mov SBUF, a
-    ret	
-	
 Send2DigitBCD:
     mov R0, a
 
@@ -223,6 +205,16 @@ Send2DigitBCD:
     lcall putchar
 
     ret
+
+;-------MACROS--------------------;
+;Example macro to help with process %0,1,etc represents the input number, this is all pass by reference(i.e it can actually affect the variable)
+ADD_16 MAC
+    ADD A, %0     ; Add low byte
+    MOV R2, A       ; Store result back in low var
+    MOV A, R1       ; Move existing high byte to A
+    ADDC A, %1     ; Add high byte with carry
+    MOV R1, A       ; Store back in R1
+ENDMAC
 
 ;---------------------------------;
 ; Main program. Includes hardware ;
@@ -327,6 +319,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
