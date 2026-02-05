@@ -34,9 +34,9 @@ tempHot:	ds 5
 tempCold:	ds 5
 
 ; Each FSM has its own timer
-FSM_timer: ds 1
+FSM_timer:  ds 1
 ; Each FSM has its own state counter
-FSM_state: ds 1
+FSM_state:  ds 1
 ; Three counters to display.
 Count1:     ds 1 ; Incremented/decremented when KEY1 is pressed.
 Count2:     ds 1 ; Incremented/decremented when KEY2 is pressed.
@@ -45,10 +45,10 @@ Count3:     ds 1 ; Incremented every second. Reset to zero when KEY3 is pressed.
 bseg
 ; For each pushbutton we have a flag.  The corresponding FSM will set this
 ; flags to one when a valid press of the pushbutton is detected.
-Key1_flag: dbit 1
-Key2_flag: dbit 1
-Key3_flag: dbit 1
-mf       : dbit 1
+Key1_flag:  dbit 1
+Key2_flag:  dbit 1
+Key3_flag:  dbit 1
+mf       :  dbit 1
 
 $include(math32.asm)
 
@@ -204,6 +204,7 @@ Send2DigitBCD:
 
 ;-------MACROS--------------------;
 ;Example macro to help with process %0,1,etc represents the input number, this is all pass by reference(i.e it can actually affect the variable)
+
 ADD_16 MAC
     ADD A, %0     ; Add low byte
     MOV R2, A       ; Store result back in low var
@@ -217,6 +218,7 @@ ENDMAC
 ; initialization and 'forever'    ;
 ; loop.                           ;
 ;---------------------------------;
+
 main:
 	; Initialization of hardware
     mov SP, #0x7F
@@ -266,6 +268,7 @@ loop:
 ; non-blocking FSM for the one second counter starts here.
 	mov a, FSM_state
 	mov LEDRA, #0
+
 FSM_state0:
 	cjne a, #0, FSM_state1
 	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
@@ -274,6 +277,7 @@ FSM_state0:
 	mov FSM_timer, #0
 	inc FSM_state
 	sjmp FSM_done
+
 FSM_state1:	
 	cjne a, #1, FSM_state2
 	setb LEDRA.1
@@ -282,6 +286,7 @@ FSM_state1:
 	mov FSM_timer, #0
 	inc FSM_state
 	sjmp FSM_done
+
 FSM_state2:	
 	cjne a, #2, FSM_state3
 	setb LEDRA.2
@@ -290,6 +295,7 @@ FSM_state2:
 	mov FSM_timer, #0
 	inc FSM_state
 	sjmp FSM_done
+
 FSM_state3:	
 	cjne a, #3, FSM_done
 	setb LEDRA.3
