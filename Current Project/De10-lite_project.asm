@@ -216,7 +216,7 @@ ADD_16 MAC
 ENDMAC
 
 
-TEMPConv MAC
+tempConv MAC
 	; Load 32-bit 'x' with 12-bit adc result
 	mov x+3, #0
 	mov x+2, #0
@@ -259,11 +259,11 @@ main:
 	; After initialization the program stays in this 'forever' loop
 loop:
 	mov ADC_C, LM335_ADC
-	TempCONV()
+	tempConv()
 	mov tempCold, bcd
 
 	mov ADC_C, OP07_ADC
-	TempCONV()
+	tempConv()
 	mov tempHOT, bcd
 	
 
@@ -337,6 +337,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
