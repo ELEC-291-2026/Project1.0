@@ -45,6 +45,8 @@ Key1_flag: dbit 1
 Key2_flag: dbit 1
 Key3_flag: dbit 1
 
+$include(math32.asm)
+
 cseg
 ;---------------------------------;
 ; Routine to initialize the ISR   ;
@@ -392,5 +394,6 @@ Skip_Count3:
     
     
 END
+
 
 
