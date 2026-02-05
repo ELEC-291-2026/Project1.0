@@ -57,6 +57,19 @@ mf       : dbit 1
 $include(math32.asm)
 
 cseg
+; These 'equ' must match the wiring between the DE10Lite board and the LCD!
+; P0 is in connector JPIO.  Check "CV-8052 Soft Processor in the DE10Lite Board: Getting
+; Started Guide" for the details.
+ELCD_RS equ P1.7
+; ELCD_RW equ Px.x ; Not used.  Connected to ground 
+ELCD_E  equ P1.1
+ELCD_D4 equ P0.7
+ELCD_D5 equ P0.5
+ELCD_D6 equ P0.3
+ELCD_D7 equ P0.1
+$include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
+
+cseg
 ;---------------------------------;
 ; Routine to initialize the ISR   ;
 ; for timer 2                     ;
@@ -431,6 +444,7 @@ Skip_Count3:
     
     
 END
+
 
 
 
