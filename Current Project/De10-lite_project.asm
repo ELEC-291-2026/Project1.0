@@ -203,8 +203,26 @@ ADD_16 MAC
     MOV R1, A       ; Store back in R1
 ENDMAC
 
+putchar:
+    jnb TI, putchar
+    clr TI
+    mov SBUF, a
+    ret	
+	
+Send2DigitBCD:
+    mov R0, a
 
+    anl a, #0F0H        ; upper
+    swap a
+    add a, #'0'
+    lcall putchar
 
+    mov a, R0
+    anl a, #0FH         ; lower
+    add a, #'0'
+    lcall putchar
+
+    ret
 
 ;---------------------------------;
 ; Main program. Includes hardware ;
@@ -245,6 +263,17 @@ main:
     ADD_16(#1, #2) ; This "expands" into the 5 lines above
 	; After initialization the program stays in this 'forever' loop
 loop:
+
+; sends to putty
+    mov a, bcd+2
+    lcall Send2DigitBCD
+    mov a, bcd+1
+    lcall Send2DigitBCD
+    mov a, bcd+0
+    lcall Send2DigitBCD
+		
+	mov a, #'\n'
+    lcall putchar
 
 ;-------------------------------------------------------------------------------
 ;FSM
@@ -298,6 +327,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
