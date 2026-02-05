@@ -38,6 +38,8 @@ y:			ds 4
 bcd:		ds 5
 tempHot:	ds 5
 tempCold:	ds 5
+tempFinal:  ds 5
+
 
 ; Each FSM has its own timer
 FSM_timer:  ds 1
@@ -307,6 +309,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
