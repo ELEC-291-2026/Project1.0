@@ -17,6 +17,13 @@ FREQ   			EQU 33333333
 BAUD   			EQU 115200
 T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
 
+;PIN Assignemet
+;Need to figure out wich ADC pins the LM335 and OP07 are on 
+;VCC equ ___
+;LM335 equ ___
+;OP07 equ ___
+
+
 ; Reset vector
 org 0x0000
     ljmp main
@@ -38,16 +45,10 @@ FSM_timer:  ds 1
 ; Each FSM has its own state counter
 FSM_state:  ds 1
 ; Three counters to display.
-Count1:     ds 1 ; Incremented/decremented when KEY1 is pressed.
-Count2:     ds 1 ; Incremented/decremented when KEY2 is pressed.
-Count3:     ds 1 ; Incremented every second. Reset to zero when KEY3 is pressed.
 
 bseg
 ; For each pushbutton we have a flag.  The corresponding FSM will set this
 ; flags to one when a valid press of the pushbutton is detected.
-Key1_flag:  dbit 1
-Key2_flag:  dbit 1
-Key3_flag:  dbit 1
 mf       :  dbit 1
 
 $include(math32.asm)
@@ -231,21 +232,7 @@ main:
     
     ; Initialize variables
     mov FSM_state, #0
-    mov Count1, #0
-    mov Count2, #0
-    mov Count3, #0
-    
-    ; Display the initial value of each counter
-    mov a, Count1
-    lcall Hex_to_bcd_8bit
-	lcall Display_BCD_7_Seg_HEX10
-    mov a, Count2
-    lcall Hex_to_bcd_8bit
-	lcall Display_BCD_7_Seg_HEX32
-    mov a, Count3
-    lcall Hex_to_bcd_8bit
-	lcall Display_BCD_7_Seg_HEX54
-	
+
 	;;Testing;;
     ADD_16(#1, #2) ; This "expands" into the 5 lines above
 	; After initialization the program stays in this 'forever' loop
@@ -318,6 +305,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
