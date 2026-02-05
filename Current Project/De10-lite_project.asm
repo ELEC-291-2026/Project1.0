@@ -258,11 +258,16 @@ main:
     ADD_16(#1, #2) ; This "expands" into the 5 lines above
 	; After initialization the program stays in this 'forever' loop
 loop:
+	mov ADC_C, LM335_ADC
+	TempCONV()
+	mov tempCold, bcd
 
-	mov a, SWA ; The first three switches select the channel to read
-	anl a, #0x07
-	mov ADC_C, a
+	mov ADC_C, OP07_ADC
+	TempCONV()
+	mov tempHOT, bcd
 	
+
+
 
 
 ; sends to putty
@@ -335,6 +340,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
