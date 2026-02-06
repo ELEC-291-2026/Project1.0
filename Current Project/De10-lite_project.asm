@@ -226,7 +226,7 @@ tempConv_cold MAC
 
 	Load_y(50300) ; VCC voltage measured
 	lcall mul32
-	Load_y(4095) ; 2^12-1
+	Load_y(4096)
 	lcall div32
 	Load_y(27300)
 	lcall sub32
@@ -243,14 +243,11 @@ tempConv_hot MAC
 	mov x+1, ADC_H
 	mov x+0, ADC_L
 
-	Load_y(50300) ; VCC voltage measured
+	Load_y(12288)   ; gain constant
 	lcall mul32
-	Load_y(4095) ; 2^12-1
+	
+	Load_y(4096)
 	lcall div32
-	Load_y(27300)
-	lcall sub32
-	Load_y(100)
-	lcall mul32
 
 	lcall hex2bcd
 ENDMAC
@@ -362,6 +359,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
