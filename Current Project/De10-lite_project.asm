@@ -21,6 +21,7 @@ T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
 ;Need to figure out wich ADC pins the LM335 and OP07 are on 
 LM335_ADC equ 0
 OP07_ADC equ 1
+SSR_PIN equ 1.1;Place holder
 
 
 ; Reset vector
@@ -52,6 +53,7 @@ bseg
 ; For each pushbutton we have a flag.  The corresponding FSM will set this
 ; flags to one when a valid press of the pushbutton is detected.
 mf       :  dbit 1
+ssr_f    :  dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
@@ -359,6 +361,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
