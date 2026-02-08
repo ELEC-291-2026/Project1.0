@@ -48,6 +48,7 @@ bcd:		ds 5
 tempHot:	ds 5
 tempCold:	ds 5
 tempFinal:  ds 5
+timeOn:     ds 2
 ;Variables from keypad
 ;soak_temp:      ds 2      ; mode A 150 +-20
 ;soak_time:      ds 2      ; mode B 60-120
@@ -301,6 +302,17 @@ tempConv_hot MAC
 	lcall hex2bcd
 ENDMAC
 
+powerPercent MAC
+	;Convert percentage of time into a time it needs to be on %0 is percentage(i.e 20 is 20%) on, %1 is total time, %2 is the time on
+	load_x(%0)
+	load_y(100)
+	lcall div32
+	;converts x to a percentage through fractions
+	load_y(%1)
+	lcall mul32
+	load %2, x
+ENDMAC
+
 ;---------------------------------;
 ; Main program. Includes hardware ;
 ; initialization and 'forever'    ;
@@ -508,6 +520,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
