@@ -10,6 +10,17 @@ $NOLIST
 $MODMAX10
 $LIST
 
+
+;-----------------------------------;	
+	; for KEYPAD Don't delete this !!!!	;
+	;EXTRN CODE (Keypad)				;
+	;EXTRN CODE (Configure_Keypad_Pins)	;
+	;EXTRN CODE (Shift_Digits_Left)		;
+	;EXTRN CODE (Shift_Digits_Right)    ;
+	;-----------------------------------;	
+
+
+
 CLK           	EQU 33333333 ; Microcontroller system crystal frequency in Hz
 TIMER2_RATE   	EQU 1000     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD 	EQU ((65536-(CLK/(12*TIMER2_RATE))))
@@ -70,6 +81,18 @@ ELCD_D5 equ P0.5
 ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
 SSR_PIN equ P0.0;Place holder
+
+; Keypad pin definitions.  Check "CV-8052 Soft Processor in the DE10Lite Board: Getting Started Guide" for the details.
+; Pin definitions for keypad
+;ROW1 EQU P1.2
+;ROW2 EQU P1.4
+;ROW3 EQU P1.6
+;ROW4 EQU P2.0
+
+;COL1 EQU P2.2
+;COL2 EQU P2.4
+;COL3 EQU P2.6
+;COL4 EQU P3.0
 
 cseg
 ;---------------------------------;
@@ -391,6 +414,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
