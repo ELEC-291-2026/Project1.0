@@ -1,20 +1,12 @@
 $NOLIST
-$MODMAX10          
+$MODDE1SOC          
 $LIST
-
-PUBLIC Keypad
-PUBLIC Configure_Keypad_Pins
-PUBLIC Shift_Digits_Left
-PUBLIC Shift_Digits_Right
-PUBLIC Update_Display_Mode
-PUBLIC Save_Current_Parameter
 
 ; Reset vector
 CSEG at 0
     ljmp main_code
 
 ; Data Segment – Reflow Parameters
-
 DSEG at 30H
 bcd:              ds 5    ; Current input buffer (10 BCD digits)
 
@@ -91,24 +83,24 @@ Display_Mode_Indicator:
     
     cjne a, #0, mode_not_0
     ; Mode A - Soak Temperature
-    mov LEDRA, #0b10001000  ; Pattern for 'A'
+    mov LEDRA, #10001000b  ; Pattern for 'A'
     ret
 mode_not_0:
     
     cjne a, #1, mode_not_1
     ; Mode B - Soak Time
-    mov LEDRA, #0b10000011  ; Pattern for 'b'
+    mov LEDRA, #10000011b  ; Pattern for 'b'
     ret
 mode_not_1:
     
     cjne a, #2, mode_not_2
     ; Mode C - Reflow Temperature
-    mov LEDRA, #0b11000110  ; Pattern for 'C'
+    mov LEDRA, #11000110b  ; Pattern for 'C'
     ret
 mode_not_2:
     
     ; Mode D - Reflow Time
-    mov LEDRA, #0b10100001  ; Pattern for 'd'
+    mov LEDRA, #10100001b  ; Pattern for 'd'
     ret
 
 ;---------------------------------------------------------
@@ -117,32 +109,39 @@ mode_not_2:
 Display_Current_Parameter:
     push dpl
     push dph
+    push R0
     
     mov a, current_mode
     
     cjne a, #0, disp_param_1
     ; Display Soak Temperature
-    lcall BCD_From_Parameter
-    mov dptr, #soak_temp
-    sjmp disp_param_show
+    mov R0, #soak_temp
+    sjmp disp_param_load
     
 disp_param_1:
     cjne a, #1, disp_param_2
     ; Display Soak Time
-    mov dptr, #soak_time
-    sjmp disp_param_show
+    mov R0, #soak_time
+    sjmp disp_param_load
     
 disp_param_2:
     cjne a, #2, disp_param_3
     ; Display Reflow Temperature
-    mov dptr, #reflow_temp
-    sjmp disp_param_show
+    mov R0, #reflow_temp
+    sjmp disp_param_load
     
 disp_param_3:
     ; Display Reflow Time
-    mov dptr, #reflow_time
+    mov R0, #reflow_time
 
-disp_param_show:
+disp_param_load:
+    ; Load 16-bit value from memory
+    mov a, @R0
+    mov R2, a       ; Low byte in R2
+    inc R0
+    mov a, @R0
+    mov R3, a       ; High byte in R3
+    
     ; Convert 16-bit parameter to BCD and display
     lcall Convert_Word_to_BCD
     
@@ -151,12 +150,13 @@ disp_param_show:
     showBCD(bcd+1, HEX2, HEX3)
     showBCD(bcd+2, HEX4, HEX5)
     
+    pop R0
     pop dph
     pop dpl
     ret
 
 ;---------------------------------------------------------
-; Convert 16-bit word pointed by DPTR to BCD in bcd buffer
+; Convert 16-bit word in R2(low):R3(high) to BCD in bcd buffer
 ;---------------------------------------------------------
 Convert_Word_to_BCD:
     push acc
@@ -166,12 +166,11 @@ Convert_Word_to_BCD:
     push R2
     push R3
     
-    ; Read 16-bit value
-    movx a, @dptr
-    mov R2, a       ; Low byte
-    inc dptr
-    movx a, @dptr
-    mov R3, a       ; High byte
+    ; Save input
+    mov a, R2
+    push acc
+    mov a, R3
+    push acc
     
     ; Clear BCD buffer
     clr a
@@ -180,6 +179,12 @@ Convert_Word_to_BCD:
     mov bcd+2, a
     mov bcd+3, a
     mov bcd+4, a
+    
+    ; Restore input
+    pop acc
+    mov R3, a
+    pop acc
+    mov R2, a
     
     ; Binary to BCD conversion (double-dabble algorithm)
     mov R0, #16     ; 16 bits to convert
@@ -195,7 +200,6 @@ convert_loop:
     mov R3, a
     
     ; Shift BCD left and add carry
-    mov R1, #3      ; 3 BCD bytes needed for 16-bit (max 65535)
     mov a, bcd+0
     rlc a
     da a
@@ -219,12 +223,6 @@ convert_loop:
     pop R0
     pop b
     pop acc
-    ret
-
-;---------------------------------------------------------
-; BCD_From_Parameter - Helper stub
-;---------------------------------------------------------
-BCD_From_Parameter:
     ret
 
 ;---------------------------------------------------------
@@ -310,10 +308,10 @@ ENDMAC
 ; Configure keypad GPIO pins
 ;---------------------------------------------------------
 Configure_Keypad_Pins:
-    orl P1MOD, #0b_01010100
-    orl P2MOD, #0b_00000001
-    anl P2MOD, #0b_10101011
-    anl P3MOD, #0b_11111110
+    orl P1MOD, #01010100b
+    orl P2MOD, #00000001b
+    anl P2MOD, #10101011b
+    anl P3MOD, #11111110b
     ret
 
 ; Pin definitions
@@ -488,8 +486,6 @@ Save_Current_Parameter:
     push b
     push R0
     push R1
-    push dpl
-    push dph
     
     ; Convert BCD to 16-bit binary
     lcall BCD_to_Binary_16bit
@@ -529,8 +525,6 @@ save_done:
     lcall Wait25ms
     mov LEDRB, #0x00
     
-    pop dph
-    pop dpl
     pop R1
     pop R0
     pop b
@@ -546,15 +540,14 @@ BCD_to_Binary_16bit:
     push b
     push R2
     push R3
+    push R4
+    push R5
     
     ; Initialize result to 0
     mov R0, #0
     mov R1, #0
     
-    ; Process only first 3 BCD bytes (handles up to 999,999)
-    ; But for 16-bit we max at 65,535
-    
-    ; Start with bcd+2 (ten-thousands and thousands)
+    ; Process bcd+2 (ten-thousands and thousands)
     mov a, bcd+2
     anl a, #0F0h
     swap a
@@ -567,8 +560,9 @@ BCD_to_Binary_16bit:
     anl a, #0Fh
     add a, R2       ; Add thousands digit
     ; Now a = total thousands
+    mov R4, a       ; Save in R4
     
-    ; Multiply by 1000
+    ; Multiply by 1000 = multiply by 100, then by 10
     mov b, #100
     mul ab          ; ab = thousands * 100
     mov R2, a
@@ -576,11 +570,17 @@ BCD_to_Binary_16bit:
     
     mov a, R2
     mov b, #10
-    mul ab          ; ab = (thousands*100) * 10
+    mul ab          ; ab = (thousands*100) * 10 (low part)
     add a, R0
     mov R0, a
     mov a, b
     addc a, R1
+    mov R1, a
+    
+    mov a, R3
+    mov b, #10
+    mul ab          ; ab = (thousands*100) * 10 (high part)
+    add a, R1
     mov R1, a
     
     ; Process bcd+1 (hundreds and tens)
@@ -616,16 +616,12 @@ BCD_to_Binary_16bit:
     addc a, R1
     mov R1, a
     
+    pop R5
+    pop R4
     pop R3
     pop R2
     pop b
     pop acc
-    ret
-
-;---------------------------------------------------------
-; Update display mode (optional external call)
-;---------------------------------------------------------
-Update_Display_Mode:
     ret
 
 ;---------------------------------------------------------
