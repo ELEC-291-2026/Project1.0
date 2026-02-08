@@ -10,6 +10,14 @@ $NOLIST
 $MODMAX10
 $LIST
 
+	;-----------------------------------;	
+	; for KEYPAD Don't delete this !!!!	;
+	;EXTRN CODE (Keypad)				;
+	;EXTRN CODE (Configure_Keypad_Pins)	;
+	;EXTRN CODE (Shift_Digits_Left)		;
+	;EXTRN CODE (Shift_Digits_Right)    ;
+	;-----------------------------------;	
+
 CLK           	EQU 33333333 ; Microcontroller system crystal frequency in Hz
 TIMER2_RATE   	EQU 1000     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD 	EQU ((65536-(CLK/(12*TIMER2_RATE))))
@@ -62,6 +70,7 @@ cseg
 ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
 ; P0 is in connector JPIO.  Check "CV-8052 Soft Processor in the DE10Lite Board: Getting
 ; Started Guide" for the details.
+
 ELCD_RS equ P1.7
 ; ELCD_RW equ Px.x ; Not used.  Connected to ground 
 ELCD_E  equ P1.1
@@ -69,7 +78,19 @@ ELCD_D4 equ P0.7
 ELCD_D5 equ P0.5
 ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
-SSR_PIN equ P0.0;Place holder
+SSR_PIN equ 1.1;Place holder
+
+; Keypad pin definitions.  Check "CV-8052 Soft Processor in the DE10Lite Board: Getting Started Guide" for the details.
+; Pin definitions for keypad
+;ROW1 EQU P1.2
+;ROW2 EQU P1.4
+;ROW3 EQU P1.6
+;ROW4 EQU P2.0
+
+;COL1 EQU P2.2
+;COL2 EQU P2.4
+;COL3 EQU P2.6
+;COL4 EQU P3.0
 
 cseg
 ;---------------------------------;
@@ -263,9 +284,6 @@ ENDMAC
 
 main:
 
-	mov SP, #7FH ; Set the beginning of the stack (more on this later)
-	mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
-	mov LEDRB, #0
 	
 	; Initialization of hardware
     mov SP, #0x7F
@@ -281,32 +299,8 @@ main:
 
 	;;Testing;;
     ADD_16(#1, #2) ; This "expands" into the 5 lines above
-	; After initialization the program stays in this 'forever' loop	
-	
+	; After initialization the program stays in this 'forever' loop
 loop:
-	clr a
-	mov a, SWA
-	
-	anl a, #0x01
-	
-	cjne a, #0x01, done2
-	
-	mov LEDRA, a
-	
-	setb SSR_PIN
-	
-	sjmp done3
-	
-	done2:
-	
-	clr SSR_PIN
-	mov LEDRA, #0x00
-	
-	done3:
-	
-	sjmp loop
-	
-	
 	
 	mov ADC_C, #LM335_ADC
 	tempConv_cold ; Macro call
@@ -321,8 +315,6 @@ loop:
 	lcall add32
 	mov tempFinal, x
 
-
-	
 
 ; sends to putty
     mov a, bcd+2
