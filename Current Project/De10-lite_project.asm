@@ -11,19 +11,12 @@ $MODMAX10
 $LIST
 
 
-;-----------------------------------;	
-	; for KEYPAD Don't delete this !!!!	;
-	;EXTRN CODE (Keypad)				;
-	;EXTRN CODE (Configure_Keypad_Pins)	;
-	;EXTRN CODE (Shift_Digits_Left)		;
-	;EXTRN CODE (Shift_Digits_Right)    ;
-	;-----------------------------------;	
-
-
 
 CLK           	EQU 33333333 ; Microcontroller system crystal frequency in Hz
 TIMER2_RATE   	EQU 1000     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD 	EQU ((65536-(CLK/(12*TIMER2_RATE))))
+TIMER0_RATE     EQU 1024    ; 2048Hz squarewave (peak amplitude of CEM-1203 speaker)
+TIMER0_RELOAD   EQU ((65536-(CLK/TIMER0_RATE)))
 FREQ   			EQU 33333333
 BAUD   			EQU 115200
 T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
@@ -42,6 +35,10 @@ org 0x0000
 ; Timer/Counter 2 overflow interrupt vector
 org 0x002B
 	ljmp Timer2_ISR
+
+; Timer/Counter 0 overflow interrupt vector
+org 0x000B
+	ljmp Timer0_ISR
 
 dseg at 0x30
 ; For math 
@@ -82,22 +79,41 @@ ELCD_D5 equ P0.5
 ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
 SSR_PIN equ P0.0
-FUNC_PIN equ P0.2
+START_BUTTON equ P0.2
 SOUND_OUT equ P0.4
 
-; Keypad pin definitions.  Check "CV-8052 Soft Processor in the DE10Lite Board: Getting Started Guide" for the details.
-; Pin definitions for keypad
-;ROW1 EQU P1.2
-;ROW2 EQU P1.4
-;ROW3 EQU P1.6
-;ROW4 EQU P2.0
-
-;COL1 EQU P2.2
-;COL2 EQU P2.4
-;COL3 EQU P2.6
-;COL4 EQU P3.0
-
 cseg
+;---------------------------------;
+; Routine to initialize the ISR   ;
+; for timer 0                     ;
+;---------------------------------;
+Timer0_Init:
+	orl CKCON, #0b00001000 ; Input for timer 0 is sysclk/1
+	mov a, TMOD
+	anl a, #0xf0 ; 11110000 Clear the bits for timer 0
+	orl a, #0x01 ; 00000001 Configure timer 0 as 16-timer
+	mov TMOD, a
+	mov TH0, Timer0Reload+1
+	mov TL0, Timer0Reload+0
+	; Enable the timer and interrupts
+    setb ET0  ; Enable timer 0 interrupt
+    setb TR0  ; Start timer 0
+	ret
+
+;---------------------------------;
+; ISR for timer 0.  Set to execute;
+; every 1/4096Hz to generate a    ;
+; 2048 Hz wave at pin SOUND_OUT   ;
+;---------------------------------;
+
+Timer0_ISR:
+	clr TR0
+	mov TH0, Timer0Reload+1
+	mov TL0, Timer0Reload+0
+	setb TR0
+	cpl SOUND_OUT ; Connect speaker the pin assigned to 'SOUND_OUT'!
+	reti
+
 ;---------------------------------;
 ; Routine to initialize the ISR   ;
 ; for timer 2                     ;
@@ -289,6 +305,14 @@ ENDMAC
 
 main:
 	mov P0MOD, #0x01 ;configures P0.0
+
+	; Stops interupts for speaker
+	clr TR0
+    clr ET0
+
+	; Speaker frequency
+	mov Timer0Reload+1, #high(TIMER0_RELOAD)
+	mov Timer0Reload+0, #low(TIMER0_RELOAD)
 	
 	mov SP, #7FH ; Set the beginning of the stack (more on this later)
 	mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
@@ -397,7 +421,7 @@ FSM_state0:
 	mov a, FSM_timer
 
 	
-	jnb button, FSM_done; only moves on when button is high
+	jnb START_BUTTON, FSM_done; only moves on when button is high
 	inc FSM_state
 	sjmp FSM_done
 
@@ -472,6 +496,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
