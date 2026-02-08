@@ -2,11 +2,6 @@ $NOLIST
 $MODMAX10          
 $LIST
 
-PUBLIC Keypad
-PUBLIC Configure_Keypad_Pins
-PUBLIC Shift_Digits_Left
-PUBLIC Shift_Digits_Right
-
 ; Reset vector – when MCU starts it jumps to main_code
 CSEG at 0
     ljmp main_code        ; Jump to main program

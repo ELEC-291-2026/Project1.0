@@ -1,0 +1,582 @@
+                  2   $LIST
+0000              4   
+0000              5   ; Reset vector – when MCU starts it jumps to main_code
+0000              6   CSEG at 0
+0000 02027C       7       ljmp main_code        ; Jump to main program
+0003              8   
+0003              9   ; Data Segment – reserve RAM for BCD digits
+0003             10   
+0030             11   DSEG at 30H
+0030             12   bcd:    ds 5              ; Reserve 5 bytes → stores 10 BCD digits (2 per byte)
+0035             13   
+0035             14   ; Code Segment
+0035             15   
+0003             16   CSEG
+0003             17   
+0003             18   ; Lookup table for 7-segment display patterns (common anode)
+0003             19   ; Index 0–F → segment pattern
+0003             20   
+0003             21   myLUT:
+0003 C0F9A4B0    22       DB 0xC0, 0xF9, 0xA4, 0xB0, 0x99        ; digits 0–4
+     99
+0008 9282F880    23       DB 0x92, 0x82, 0xF8, 0x80, 0x90        ; digits 5–9
+     90
+000D 8883C6A1    24       DB 0x88, 0x83, 0xC6, 0xA1, 0x86, 0x8E  ; A–F
+     868E
+0013             25   
+0013             26   ;---------------------------------------------------------
+0013             27   ; Macro: showBCD
+0013             28   ; Input : one byte containing two BCD digits
+0013             29   ; Output: two 7-seg displays
+0013             30   ;---------------------------------------------------------
+0013             31   
+                 32   showBCD MAC
+                 33       ; ---- Display lower nibble (LSD) ----
+                 34       mov A, %0          ; Load BCD byte
+                 35       anl a, #0fh        ; Keep lower 4 bits
+                 36       movc A, @A+dptr    ; Convert using LUT
+                 37       mov %1, A          ; Output to first HEX display
+                 38   
+                 39       ; ---- Display upper nibble (MSD) ----
+                 40       mov A, %0
+                 41       swap a             ; Swap nibbles
+                 42       anl a, #0fh
+                 43       movc A, @A+dptr
+                 44       mov %2, A          ; Output to second HEX display
+                 45   ENDMAC
+0013             46   
+0013             47   
+0013             48   ; Display routine – show BCD number on HEX displays
+0013             49   
+0013             50   Display:
+0013 900003      51       mov dptr, #myLUT   ; Point to lookup table
+0016             52   
+0016             53       ; If digits 10–7 (bcd+3 and bcd+4) are NOT zero
+0016             54       ; → turn ON LEDR7 as overflow indicator
+0016             55   
+0016 E533        56       mov a, bcd+3
+0018 4534        57       orl a, bcd+4
+001A 6004        58       jz Display_L1
+001C D2EF        59       setb LEDRA.7       ; Alert LED on
+001E 8002        60       sjmp Display_L2
+0020             61   Display_L1:
+0020 C2EF        62       clr LEDRA.7        ; Alert LED off
+0022             63   Display_L2:
+0022             64   
+0022             65       ; If KEY3 pressed → show HIGH digits (most significant)
+0022             66       ; Otherwise show LOW digits
+0022             67   
+0022 30FB2F      68       jnb key.3, Display_high_digits
+0025             69   
+0025             70       ; Show lower 6 digits
+0025             71       ; ---- Display lower nibble (LSD) ----
+0025 E530        71       mov A, bcd+0          ; Load BCD byte
+0027 540F        71       anl a, #0fh        ; Keep lower 4 bits
+0029 93          71       movc A, @A+dptr    ; Convert using LUT
+002A F591        71       mov HEX0, A          ; Output to first HEX display
+002C             71   
+002C             71       ; ---- Display upper nibble (MSD) ----
+002C E530        71       mov A, bcd+0
+002E C4          71       swap a             ; Swap nibbles
+002F 540F        71       anl a, #0fh
+0031 93          71       movc A, @A+dptr
+0032 F592        71       mov HEX1, A          ; Output to second HEX display
+0034             72       ; ---- Display lower nibble (LSD) ----
+0034 E531        72       mov A, bcd+1          ; Load BCD byte
+0036 540F        72       anl a, #0fh        ; Keep lower 4 bits
+0038 93          72       movc A, @A+dptr    ; Convert using LUT
+0039 F593        72       mov HEX2, A          ; Output to first HEX display
+003B             72   
+003B             72       ; ---- Display upper nibble (MSD) ----
+003B E531        72       mov A, bcd+1
+003D C4          72       swap a             ; Swap nibbles
+003E 540F        72       anl a, #0fh
+0040 93          72       movc A, @A+dptr
+0041 F594        72       mov HEX3, A          ; Output to second HEX display
+0043             73       ; ---- Display lower nibble (LSD) ----
+0043 E532        73       mov A, bcd+2          ; Load BCD byte
+0045 540F        73       anl a, #0fh        ; Keep lower 4 bits
+0047 93          73       movc A, @A+dptr    ; Convert using LUT
+0048 F58E        73       mov HEX4, A          ; Output to first HEX display
+004A             73   
+004A             73       ; ---- Display upper nibble (MSD) ----
+004A E532        73       mov A, bcd+2
+004C C4          73       swap a             ; Swap nibbles
+004D 540F        73       anl a, #0fh
+004F 93          73       movc A, @A+dptr
+0050 F58F        73       mov HEX5, A          ; Output to second HEX display
+0052 8024        74       sjmp Display_end
+0054             75   
+0054             76   Display_high_digits:
+0054             77       ; Show upper 4 digits
+0054             78       ; ---- Display lower nibble (LSD) ----
+0054 E533        78       mov A, bcd+3          ; Load BCD byte
+0056 540F        78       anl a, #0fh        ; Keep lower 4 bits
+0058 93          78       movc A, @A+dptr    ; Convert using LUT
+0059 F591        78       mov HEX0, A          ; Output to first HEX display
+005B             78   
+005B             78       ; ---- Display upper nibble (MSD) ----
+005B E533        78       mov A, bcd+3
+005D C4          78       swap a             ; Swap nibbles
+005E 540F        78       anl a, #0fh
+0060 93          78       movc A, @A+dptr
+0061 F592        78       mov HEX1, A          ; Output to second HEX display
+0063             79       ; ---- Display lower nibble (LSD) ----
+0063 E534        79       mov A, bcd+4          ; Load BCD byte
+0065 540F        79       anl a, #0fh        ; Keep lower 4 bits
+0067 93          79       movc A, @A+dptr    ; Convert using LUT
+0068 F593        79       mov HEX2, A          ; Output to first HEX display
+006A             79   
+006A             79       ; ---- Display upper nibble (MSD) ----
+006A E534        79       mov A, bcd+4
+006C C4          79       swap a             ; Swap nibbles
+006D 540F        79       anl a, #0fh
+006F 93          79       movc A, @A+dptr
+0070 F594        79       mov HEX3, A          ; Output to second HEX display
+0072             80   
+0072             81       ; Blank remaining displays
+0072 758EFF      82       mov HEX4, #0xff
+0075 758FFF      83       mov HEX5, #0xff
+0078             84   
+0078             85   Display_end:
+0078 22          86       ret
+0079             87   
+0079             88   ; Macro: Rotate Left through Carry
+                 89   MYRLC MAC
+                 90       mov a, %0
+                 91       rlc a
+                 92       mov %0, a
+                 93   ENDMAC
+0079             94   
+0079             95   
+0079             96   ; Shift all BCD digits LEFT by 4 bits
+0079             97   ; → makes room for new digit in LSD
+0079             98   
+0079             99   Shift_Digits_Left:
+0079 7804       100       mov R0, #4         ; Need 4 bit shifts
+007B            101   
+007B            102   Shift_Digits_Left_L0:
+007B C3         103       clr c              ; Clear carry before shift
+007C E530       104       mov a, bcd+0
+007E 33         104       rlc a
+007F F530       104       mov bcd+0, a
+0081 E531       105       mov a, bcd+1
+0083 33         105       rlc a
+0084 F531       105       mov bcd+1, a
+0086 E532       106       mov a, bcd+2
+0088 33         106       rlc a
+0089 F532       106       mov bcd+2, a
+008B E533       107       mov a, bcd+3
+008D 33         107       rlc a
+008E F533       107       mov bcd+3, a
+0090 E534       108       mov a, bcd+4
+0092 33         108       rlc a
+0093 F534       108       mov bcd+4, a
+0095 D8E4       109       djnz R0, Shift_Digits_Left_L0
+0097            110   
+0097            111       ; Insert new digit from R7 into lowest nibble
+0097 EF         112       mov a, R7
+0098 4530       113       orl a, bcd+0
+009A F530       114       mov bcd+0, a
+009C 22         115       ret
+009D            116   
+009D            117   ; Macro: Rotate Right through Carry
+009D            118   
+                119   MYRRC MAC
+                120       mov a, %0
+                121       rrc a
+                122       mov %0, a
+                123   ENDMAC
+009D            124   
+009D            125   
+009D            126   ; Shift digits RIGHT by 4 bits
+009D            127   ; → used for BACKSPACE (delete last digit)
+009D            128   
+009D            129   Shift_Digits_Right:
+009D 7804       130       mov R0, #4
+009F            131   
+009F            132   Shift_Digits_Right_L0:
+009F C3         133       clr c
+00A0 E534       134       mov a, bcd+4
+00A2 13         134       rrc a
+00A3 F534       134       mov bcd+4, a
+00A5 E533       135       mov a, bcd+3
+00A7 13         135       rrc a
+00A8 F533       135       mov bcd+3, a
+00AA E532       136       mov a, bcd+2
+00AC 13         136       rrc a
+00AD F532       136       mov bcd+2, a
+00AF E531       137       mov a, bcd+1
+00B1 13         137       rrc a
+00B2 F531       137       mov bcd+1, a
+00B4 E530       138       mov a, bcd+0
+00B6 13         138       rrc a
+00B7 F530       138       mov bcd+0, a
+00B9 D8E4       139       djnz R0, Shift_Digits_Right_L0
+00BB 22         140       ret
+00BC            141   
+00BC            142   
+00BC            143   ; 25 ms delay (software debounce)
+00BC            144   
+00BC            145   Wait25ms:
+00BC 780F       146       mov R0, #15
+00BE 794A       147   L3: mov R1, #74
+00C0 7AFA       148   L2: mov R2, #250
+00C2 DAFE       149   L1: djnz R2, L1
+00C4 D9FA       150       djnz R1, L2
+00C6 D8F6       151       djnz R0, L3
+00C8 22         152       ret
+00C9            153   
+00C9            154   
+00C9            155   ; Macro: Check one keypad column
+00C9            156   ; If pressed → return code in R7, set Carry
+00C9            157   
+                158   CHECK_COLUMN MAC
+                159       jb %0, CHECK_COL_%M
+                160       mov R7, %1         ; Key value
+                161       jnb %0, $          ; Wait release
+                162       setb c             ; Indicate key found
+                163       ret
+                164   CHECK_COL_%M:
+                165   ENDMAC
+00C9            166   
+00C9            167   
+00C9            168   ; Configure GPIO directions for keypad
+00C9            169   
+00C9            170   Configure_Keypad_Pins:
+00C9 439B54     171       orl P1MOD, #0b_01010100 ; Rows as output
+00CC 439C01     172       orl P2MOD, #0b_00000001
+00CF 539CAB     173       anl P2MOD, #0b_10101011 ; Columns as input
+00D2 539DFE     174       anl P3MOD, #0b_11111110
+00D5 22         175       ret
+00D6            176   
+00D6            177   ; Pin definitions for keypad
+00D6            178   ROW1 EQU P1.2
+00D6            179   ROW2 EQU P1.4
+00D6            180   ROW3 EQU P1.6
+00D6            181   ROW4 EQU P2.0
+00D6            182   
+00D6            183   COL1 EQU P2.2
+00D6            184   COL2 EQU P2.4
+00D6            185   COL3 EQU P2.6
+00D6            186   COL4 EQU P3.0
+00D6            187   
+00D6            188   ; Keypad scanning routine
+00D6            189   ; Output:
+00D6            190   ;   C = 1 → key pressed, code in R7
+00D6            191   ;   C = 0 → no key
+00D6            192   
+00D6            193   Keypad:
+00D6            194   
+00D6            195       ; KEY1 acts as BACKSPACE / ERASE
+00D6            196       
+00D6 20F90E     197       jb KEY.1, keypad_L0
+00D9 1200BC     198       lcall Wait25ms
+00DC 20F908     199       jb KEY.1, keypad_L0
+00DF 30F9FD     200       jnb KEY.1, $
+00E2 12009D     201       lcall Shift_Digits_Right
+00E5 C3         202       clr c
+00E6 22         203       ret
+00E7            204   
+00E7            205   keypad_L0:
+00E7            206       
+00E7            207       ; Drive all rows LOW → check if any column LOW
+00E7            208       
+00E7 C292       209       clr ROW1
+00E9 C294       210       clr ROW2
+00EB C296       211       clr ROW3
+00ED C2A0       212       clr ROW4
+00EF            213   
+00EF A2A2       214       mov c, COL1
+00F1 82A4       215       anl c, COL2
+00F3 82A6       216       anl c, COL3
+00F5 82B0       217       anl c, COL4
+00F7 5002       218       jnc Keypad_Debounce
+00F9 C3         219       clr c
+00FA 22         220       ret
+00FB            221   
+00FB            222   Keypad_Debounce:
+00FB            223       ; Wait and check again to avoid bouncing
+00FB 1200BC     224       lcall Wait25ms
+00FE            225   
+00FE A2A2       226       mov c, COL1
+0100 82A4       227       anl c, COL2
+0102 82A6       228       anl c, COL3
+0104 82B0       229       anl c, COL4
+0106 5002       230       jnc Keypad_Key_Code
+0108 C3         231       clr c
+0109 22         232       ret
+010A            233   
+010A            234   Keypad_Key_Code:
+010A            235       ; Prepare to scan each row individually
+010A D292       236       setb ROW1
+010C D294       237       setb ROW2
+010E D296       238       setb ROW3
+0110 D2A0       239       setb ROW4
+0112            240   
+0112            241       ; SW0 selects layout orientation
+0112 30E803     242       jnb SWA.0, keypad_default
+0115 0201CA     243       ljmp keypad_90deg
+0118            244   
+0118            245   
+0118            246   ; Default keypad layout
+0118            247   
+0118            248   keypad_default:
+0118            249   
+0118 C292       250       clr ROW1
+011A 20A207     251       jb COL1, CHECK_COL_16
+011D 7F01       251       mov R7, #01H         ; Key value
+011F 30A2FD     251       jnb COL1, $          ; Wait release
+0122 D3         251       setb c             ; Indicate key found
+0123 22         251       ret
+0124            251   CHECK_COL_16:
+0124 20A407     252       jb COL2, CHECK_COL_17
+0127 7F02       252       mov R7, #02H         ; Key value
+0129 30A4FD     252       jnb COL2, $          ; Wait release
+012C D3         252       setb c             ; Indicate key found
+012D 22         252       ret
+012E            252   CHECK_COL_17:
+012E 20A607     253       jb COL3, CHECK_COL_18
+0131 7F03       253       mov R7, #03H         ; Key value
+0133 30A6FD     253       jnb COL3, $          ; Wait release
+0136 D3         253       setb c             ; Indicate key found
+0137 22         253       ret
+0138            253   CHECK_COL_18:
+0138 20B007     254       jb COL4, CHECK_COL_19
+013B 7F0A       254       mov R7, #0AH         ; Key value
+013D 30B0FD     254       jnb COL4, $          ; Wait release
+0140 D3         254       setb c             ; Indicate key found
+0141 22         254       ret
+0142            254   CHECK_COL_19:
+0142 D292       255       setb ROW1
+0144            256   
+0144 C294       257       clr ROW2
+0146 20A207     258       jb COL1, CHECK_COL_20
+0149 7F04       258       mov R7, #04H         ; Key value
+014B 30A2FD     258       jnb COL1, $          ; Wait release
+014E D3         258       setb c             ; Indicate key found
+014F 22         258       ret
+0150            258   CHECK_COL_20:
+0150 20A407     259       jb COL2, CHECK_COL_21
+0153 7F05       259       mov R7, #05H         ; Key value
+0155 30A4FD     259       jnb COL2, $          ; Wait release
+0158 D3         259       setb c             ; Indicate key found
+0159 22         259       ret
+015A            259   CHECK_COL_21:
+015A 20A607     260       jb COL3, CHECK_COL_22
+015D 7F06       260       mov R7, #06H         ; Key value
+015F 30A6FD     260       jnb COL3, $          ; Wait release
+0162 D3         260       setb c             ; Indicate key found
+0163 22         260       ret
+0164            260   CHECK_COL_22:
+0164 20B007     261       jb COL4, CHECK_COL_23
+0167 7F0B       261       mov R7, #0BH         ; Key value
+0169 30B0FD     261       jnb COL4, $          ; Wait release
+016C D3         261       setb c             ; Indicate key found
+016D 22         261       ret
+016E            261   CHECK_COL_23:
+016E D294       262       setb ROW2
+0170            263   
+0170 C296       264       clr ROW3
+0172 20A207     265       jb COL1, CHECK_COL_24
+0175 7F07       265       mov R7, #07H         ; Key value
+0177 30A2FD     265       jnb COL1, $          ; Wait release
+017A D3         265       setb c             ; Indicate key found
+017B 22         265       ret
+017C            265   CHECK_COL_24:
+017C 20A407     266       jb COL2, CHECK_COL_25
+017F 7F08       266       mov R7, #08H         ; Key value
+0181 30A4FD     266       jnb COL2, $          ; Wait release
+0184 D3         266       setb c             ; Indicate key found
+0185 22         266       ret
+0186            266   CHECK_COL_25:
+0186 20A607     267       jb COL3, CHECK_COL_26
+0189 7F09       267       mov R7, #09H         ; Key value
+018B 30A6FD     267       jnb COL3, $          ; Wait release
+018E D3         267       setb c             ; Indicate key found
+018F 22         267       ret
+0190            267   CHECK_COL_26:
+0190 20B007     268       jb COL4, CHECK_COL_27
+0193 7F0C       268       mov R7, #0CH         ; Key value
+0195 30B0FD     268       jnb COL4, $          ; Wait release
+0198 D3         268       setb c             ; Indicate key found
+0199 22         268       ret
+019A            268   CHECK_COL_27:
+019A D296       269       setb ROW3
+019C            270   
+019C C2A0       271       clr ROW4
+019E 20A207     272       jb COL1, CHECK_COL_28
+01A1 7F0E       272       mov R7, #0EH         ; Key value
+01A3 30A2FD     272       jnb COL1, $          ; Wait release
+01A6 D3         272       setb c             ; Indicate key found
+01A7 22         272       ret
+01A8            272   CHECK_COL_28:
+01A8 20A407     273       jb COL2, CHECK_COL_29
+01AB 7F00       273       mov R7, #00H         ; Key value
+01AD 30A4FD     273       jnb COL2, $          ; Wait release
+01B0 D3         273       setb c             ; Indicate key found
+01B1 22         273       ret
+01B2            273   CHECK_COL_29:
+01B2 20A607     274       jb COL3, CHECK_COL_30
+01B5 7F0F       274       mov R7, #0FH         ; Key value
+01B7 30A6FD     274       jnb COL3, $          ; Wait release
+01BA D3         274       setb c             ; Indicate key found
+01BB 22         274       ret
+01BC            274   CHECK_COL_30:
+01BC 20B007     275       jb COL4, CHECK_COL_31
+01BF 7F0D       275       mov R7, #0DH         ; Key value
+01C1 30B0FD     275       jnb COL4, $          ; Wait release
+01C4 D3         275       setb c             ; Indicate key found
+01C5 22         275       ret
+01C6            275   CHECK_COL_31:
+01C6 D2A0       276       setb ROW4
+01C8            277   
+01C8 C3         278       clr c
+01C9 22         279       ret
+01CA            280   
+01CA            281   
+01CA            282   ; Rotated keypad layout (90° CCW)
+01CA            283   
+01CA            284   keypad_90deg:
+01CA C292       285       clr ROW1
+01CC 20A207     286       jb COL1, CHECK_COL_32
+01CF 7F0A       286       mov R7, #0AH         ; Key value
+01D1 30A2FD     286       jnb COL1, $          ; Wait release
+01D4 D3         286       setb c             ; Indicate key found
+01D5 22         286       ret
+01D6            286   CHECK_COL_32:
+01D6 20A407     287       jb COL2, CHECK_COL_33
+01D9 7F0B       287       mov R7, #0BH         ; Key value
+01DB 30A4FD     287       jnb COL2, $          ; Wait release
+01DE D3         287       setb c             ; Indicate key found
+01DF 22         287       ret
+01E0            287   CHECK_COL_33:
+01E0 20A607     288       jb COL3, CHECK_COL_34
+01E3 7F0C       288       mov R7, #0CH         ; Key value
+01E5 30A6FD     288       jnb COL3, $          ; Wait release
+01E8 D3         288       setb c             ; Indicate key found
+01E9 22         288       ret
+01EA            288   CHECK_COL_34:
+01EA 20B007     289       jb COL4, CHECK_COL_35
+01ED 7F0D       289       mov R7, #0DH         ; Key value
+01EF 30B0FD     289       jnb COL4, $          ; Wait release
+01F2 D3         289       setb c             ; Indicate key found
+01F3 22         289       ret
+01F4            289   CHECK_COL_35:
+01F4 D292       290       setb ROW1
+01F6            291   
+01F6 C294       292       clr ROW2
+01F8 20A207     293       jb COL1, CHECK_COL_36
+01FB 7F03       293       mov R7, #03H         ; Key value
+01FD 30A2FD     293       jnb COL1, $          ; Wait release
+0200 D3         293       setb c             ; Indicate key found
+0201 22         293       ret
+0202            293   CHECK_COL_36:
+0202 20A407     294       jb COL2, CHECK_COL_37
+0205 7F06       294       mov R7, #06H         ; Key value
+0207 30A4FD     294       jnb COL2, $          ; Wait release
+020A D3         294       setb c             ; Indicate key found
+020B 22         294       ret
+020C            294   CHECK_COL_37:
+020C 20A607     295       jb COL3, CHECK_COL_38
+020F 7F09       295       mov R7, #09H         ; Key value
+0211 30A6FD     295       jnb COL3, $          ; Wait release
+0214 D3         295       setb c             ; Indicate key found
+0215 22         295       ret
+0216            295   CHECK_COL_38:
+0216 20B007     296       jb COL4, CHECK_COL_39
+0219 7F0F       296       mov R7, #0FH         ; Key value
+021B 30B0FD     296       jnb COL4, $          ; Wait release
+021E D3         296       setb c             ; Indicate key found
+021F 22         296       ret
+0220            296   CHECK_COL_39:
+0220 D294       297       setb ROW2
+0222            298   
+0222 C296       299       clr ROW3
+0224 20A207     300       jb COL1, CHECK_COL_40
+0227 7F02       300       mov R7, #02H         ; Key value
+0229 30A2FD     300       jnb COL1, $          ; Wait release
+022C D3         300       setb c             ; Indicate key found
+022D 22         300       ret
+022E            300   CHECK_COL_40:
+022E 20A407     301       jb COL2, CHECK_COL_41
+0231 7F05       301       mov R7, #05H         ; Key value
+0233 30A4FD     301       jnb COL2, $          ; Wait release
+0236 D3         301       setb c             ; Indicate key found
+0237 22         301       ret
+0238            301   CHECK_COL_41:
+0238 20A607     302       jb COL3, CHECK_COL_42
+023B 7F08       302       mov R7, #08H         ; Key value
+023D 30A6FD     302       jnb COL3, $          ; Wait release
+0240 D3         302       setb c             ; Indicate key found
+0241 22         302       ret
+0242            302   CHECK_COL_42:
+0242 20B007     303       jb COL4, CHECK_COL_43
+0245 7F00       303       mov R7, #00H         ; Key value
+0247 30B0FD     303       jnb COL4, $          ; Wait release
+024A D3         303       setb c             ; Indicate key found
+024B 22         303       ret
+024C            303   CHECK_COL_43:
+024C D296       304       setb ROW3
+024E            305   
+024E C2A0       306       clr ROW4
+0250 20A207     307       jb COL1, CHECK_COL_44
+0253 7F01       307       mov R7, #01H         ; Key value
+0255 30A2FD     307       jnb COL1, $          ; Wait release
+0258 D3         307       setb c             ; Indicate key found
+0259 22         307       ret
+025A            307   CHECK_COL_44:
+025A 20A407     308       jb COL2, CHECK_COL_45
+025D 7F04       308       mov R7, #04H         ; Key value
+025F 30A4FD     308       jnb COL2, $          ; Wait release
+0262 D3         308       setb c             ; Indicate key found
+0263 22         308       ret
+0264            308   CHECK_COL_45:
+0264 20A607     309       jb COL3, CHECK_COL_46
+0267 7F07       309       mov R7, #07H         ; Key value
+0269 30A6FD     309       jnb COL3, $          ; Wait release
+026C D3         309       setb c             ; Indicate key found
+026D 22         309       ret
+026E            309   CHECK_COL_46:
+026E 20B007     310       jb COL4, CHECK_COL_47
+0271 7F0E       310       mov R7, #0EH         ; Key value
+0273 30B0FD     310       jnb COL4, $          ; Wait release
+0276 D3         310       setb c             ; Indicate key found
+0277 22         310       ret
+0278            310   CHECK_COL_47:
+0278 D2A0       311       setb ROW4
+027A            312   
+027A C3         313       clr c
+027B 22         314       ret
+027C            315   
+027C            316   
+027C            317   ; MAIN PROGRAM
+027C            318   
+027C            319   main_code:
+027C 75817F     320       mov SP, #7FH       ; Initialize stack pointer
+027F            321   
+027F E4         322       clr a
+0280 F5E8       323       mov LEDRA, a       ; Clear LEDs
+0282 F595       324       mov LEDRB, a
+0284            325   
+0284            326       ; Clear all BCD digits
+0284 F530       327       mov bcd+0, a
+0286 F531       328       mov bcd+1, a
+0288 F532       329       mov bcd+2, a
+028A F533       330       mov bcd+3, a
+028C F534       331       mov bcd+4, a
+028E            332   
+028E 1200C9     333       lcall Configure_Keypad_Pins
+0291            334   
+0291            335   
+0291            336   ; Main loop
+0291            337   
+0291            338   forever:
+0291 1200D6     339       lcall Keypad       ; Scan keypad
+0294 120013     340       lcall Display      ; Update HEX displays
+0297 50F8       341       jnc forever        ; If no key → loop
+0299            342   
+0299 120079     343       lcall Shift_Digits_Left  ; Insert new digit
+029C 020291     344       ljmp forever
+029F            345   
+029F            346   end

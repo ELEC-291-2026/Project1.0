@@ -1,5 +1,5 @@
 @echo off
 C:
-cd "\Users\pamel\Downloads\DE10Lite_asm_Examples\Current Project\"
-"C:\Program Files\CrossIDE\Call51\Bin\a51.exe" -l "C:\Users\pamel\Downloads\DE10Lite_asm_Examples\Current Project\ADC_to_voltage_7seg.asm"
-echo Crosside_Action Set_Hex_File C:\Users\pamel\Downloads\DE10Lite_asm_Examples\Current Project\ADC_to_voltage_7seg.HEX
+cd "\Users\nguye\Project1.0\Current Project\"
+"C:\CrossIDE\Call51\Bin\a51.exe" -l "C:\Users\nguye\Project1.0\Current Project\Read_keypad.asm"
+echo Crosside_Action Set_Hex_File C:\Users\nguye\Project1.0\Current Project\Read_keypad.HEX
