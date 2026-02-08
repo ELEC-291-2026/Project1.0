@@ -21,7 +21,7 @@ T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
 ;Need to figure out wich ADC pins the LM335 and OP07 are on 
 LM335_ADC equ 0
 OP07_ADC equ 1
-SSR_PIN equ 1.1;Place holder
+
 
 
 ; Reset vector
@@ -69,6 +69,7 @@ ELCD_D4 equ P0.7
 ELCD_D5 equ P0.5
 ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
+SSR_PIN equ 1.1;Place holder
 
 cseg
 ;---------------------------------;
@@ -361,6 +362,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
