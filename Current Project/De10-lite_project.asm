@@ -374,6 +374,8 @@ FSMcheck:
 	mov LEDRA, #0
 
 FSM_state0:
+	;Power of 0%
+	;If start is yes go to state 1, else stay in state 0
 	cjne a, #0, FSM_state1
 	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
 	mov a, FSM_timer
@@ -383,6 +385,8 @@ FSM_state0:
 	sjmp FSM_done
 
 FSM_state1:	
+	;Power of 100%
+	;if temp is <= 150 stay, if >150 go to state2
 	cjne a, #1, FSM_state2
 	setb LEDRA.1
 	mov a, FSM_timer
@@ -392,6 +396,8 @@ FSM_state1:
 	sjmp FSM_done
 
 FSM_state2:	
+	;Power of 20%(on for 20% of time)
+	;Sec is <=60s stay, if > 60s go to state 3
 	cjne a, #2, FSM_state3
 	setb LEDRA.2
 	mov a, FSM_timer
@@ -401,6 +407,36 @@ FSM_state2:
 	sjmp FSM_done
 
 FSM_state3:	
+	;Power of 100%
+	;If temp <= 220c stay else go to state 4
+	cjne a, #3, FSM_done
+	setb LEDRA.3
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
+	mov FSM_state, #0
+	mov a, Count3
+	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
+	mov Count3, #0
+	sjmp DisplayCount3
+
+FSM_state4:
+	;Power of 20%
+	;If sec is <=45s else go to state 5
+	cjne a, #3, FSM_done
+	setb LEDRA.3
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
+	mov FSM_state, #0
+	mov a, Count3
+	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
+	mov Count3, #0
+	sjmp DisplayCount3
+
+FSM_state5:
+	;Power of 0%
+	;if temp >= 60 stay, else go to state 0
 	cjne a, #3, FSM_done
 	setb LEDRA.3
 	mov a, FSM_timer
@@ -422,6 +458,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
