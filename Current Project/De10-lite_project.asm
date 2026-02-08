@@ -345,10 +345,9 @@ main:
     
     ; Initialize variables
     mov FSM_state, #0
-
-	;;Testing;;
-    ADD_16(#1, #2) ; This "expands" into the 5 lines above
-	; After initialization the program stays in this 'forever' loop	
+	clr SSR_PIN
+	clr mf
+	;May have to reset the other vars idk to tbh
 	
 loop:
 
@@ -435,6 +434,7 @@ FSM_state0:
 	noChange:
 	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
 	mov a, FSM_timer
+	clr SSR_PIN
 
 	
 	jnb START_BUTTON, FSM_done; only moves on when button is high
@@ -541,6 +541,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
