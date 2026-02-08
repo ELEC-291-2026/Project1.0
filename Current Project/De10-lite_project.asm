@@ -69,7 +69,7 @@ ELCD_D4 equ P0.7
 ELCD_D5 equ P0.5
 ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
-SSR_PIN equ 1.1;Place holder
+SSR_PIN equ P0.0;Place holder
 
 cseg
 ;---------------------------------;
@@ -262,6 +262,11 @@ ENDMAC
 ;---------------------------------;
 
 main:
+
+	mov SP, #7FH ; Set the beginning of the stack (more on this later)
+	mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
+	mov LEDRB, #0
+	
 	; Initialization of hardware
     mov SP, #0x7F
     lcall Timer2_Init
@@ -276,8 +281,32 @@ main:
 
 	;;Testing;;
     ADD_16(#1, #2) ; This "expands" into the 5 lines above
-	; After initialization the program stays in this 'forever' loop
+	; After initialization the program stays in this 'forever' loop	
+	
 loop:
+	clr a
+	mov a, SWA
+	
+	anl a, #0x01
+	
+	cjne a, #0x01, done2
+	
+	mov LEDRA, a
+	
+	setb SSR_PIN
+	
+	sjmp done3
+	
+	done2:
+	
+	clr SSR_PIN
+	mov LEDRA, #0x00
+	
+	done3:
+	
+	sjmp loop
+	
+	
 	
 	mov ADC_C, #LM335_ADC
 	tempConv_cold ; Macro call
@@ -293,7 +322,7 @@ loop:
 	mov tempFinal, x
 
 
-
+	
 
 ; sends to putty
     mov a, bcd+2
