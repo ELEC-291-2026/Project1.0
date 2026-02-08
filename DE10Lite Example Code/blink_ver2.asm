@@ -1,0 +1,42 @@
+; Blinky.asm: blinks LEDR0 of the CV-8052 each second.
+$MODMAX10
+
+org 0000H
+	ljmp myprogram
+
+;For a 33.333333MHz clock, one machine cycle takes 30ns
+WaitHalfSec:
+	mov R2, #90
+L3: mov R1, #250
+L2: mov R0, #250
+L1: djnz R0, L1 ; 3 machine cycles-> 3*30ns*250=22.5us
+	djnz R1, L2 ; 22.5us*250=5.625ms
+	djnz R2, L3 ; 5.625ms*90=0.506s (approximately)
+	ret
+	
+myprogram:
+	mov SP, #7FH ; Set the beginning of the stack (more on this later)
+	mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
+	mov LEDRB, #0
+
+M0:
+    mov A, SWA        ; Read switch value
+    mov R0, A         ; Store index
+
+    mov A, #01H       ; Start with bit 0 set
+
+ShiftLoop:
+    jz DoneShift      ; If index = 0, done
+    rl A              ; Shift left
+    djnz R0, ShiftLoop
+
+DoneShift:
+    mov LEDRA, A      ; Turn on selected LED
+	mov LEDRB, A
+    lcall WaitHalfSec
+    mov LEDRA, #0     ; Turn it off
+    mov LEDRB, #0
+	
+	lcall WaitHalfSec
+	sjmp M0
+END
