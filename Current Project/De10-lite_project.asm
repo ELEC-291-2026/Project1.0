@@ -427,6 +427,31 @@ FSM_state3:
 	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
 	mov Count3, #0
 	sjmp DisplayCount3
+
+FSM_state4:	
+	cjne a, #3, FSM_done
+	setb LEDRA.3
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
+	mov FSM_state, #0
+	mov a, Count3
+	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
+	mov Count3, #0
+	sjmp DisplayCount3
+
+FSM_state5:	
+	cjne a, #3, FSM_done
+	setb LEDRA.3
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
+	mov FSM_state, #0
+	mov a, Count3
+	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
+	mov Count3, #0
+	sjmp DisplayCount3
+
 IncCount3:
 	inc Count3
 DisplayCount3:
@@ -435,9 +460,11 @@ DisplayCount3:
 	lcall Display_BCD_7_Seg_HEX54
 	mov FSM_state, #0
 FSM_done:
+
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
