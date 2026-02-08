@@ -277,11 +277,11 @@ main:
 loop:
 	
 	mov ADC_C, #LM335_ADC
-	tempConv_cold
+	tempConv_cold ; Macro call
 	mov tempCold, bcd
 
 	mov ADC_C, #OP07_ADC
-	tempConv_hot
+	tempConv_hot ; Macro call
 	mov tempHOT, bcd
 
 	mov x, tempHot
@@ -359,6 +359,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
