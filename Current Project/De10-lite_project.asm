@@ -81,7 +81,9 @@ ELCD_D4 equ P0.7
 ELCD_D5 equ P0.5
 ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
-SSR_PIN equ P0.0;Place holder
+SSR_PIN equ P0.0
+FUNC_PIN equ P0.2
+SOUND_OUT equ P0.4
 
 ; Keypad pin definitions.  Check "CV-8052 Soft Processor in the DE10Lite Board: Getting Started Guide" for the details.
 ; Pin definitions for keypad
@@ -470,6 +472,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
