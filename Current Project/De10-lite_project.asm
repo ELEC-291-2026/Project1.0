@@ -349,8 +349,14 @@ loop:
 	lcall add32
 	mov tempFinal, x
 
+	;Keypad Setup
+	mov active_param, #0
+    lcall Load_Param_Into_BCD
 
-	
+    lcall Configure_Keypad_Pins
+
+
+
 ljmp FSMcheck ; Skips putty straight into FSM for now
 
 ; sends to putty
@@ -375,8 +381,17 @@ FSMcheck:
 
 FSM_state0:
 	cjne a, #0, FSM_state1
+
+	lcall Keypad       ; Scan keypad
+    lcall Display      ; Update HEX displays (or later, LCD)
+    jnc noChange
+
+    lcall Shift_Digits_Left 
+
+	noChange:
 	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
 	mov a, FSM_timer
+
 	cjne a, #250, FSM_done ; 250 ms passed? (Since we are usend an 8-bit variable, we need to count 250 ms four times)
 	mov FSM_timer, #0
 	inc FSM_state
@@ -422,6 +437,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
