@@ -439,7 +439,7 @@ FSM_state0:
 	
 	jnb START_BUTTON, FSM_done; only moves on when button is high
 	inc FSM_state
-	sjmp FSM_done
+	ljmp FSM_done
 
 FSM_state1:	
 	;Only move to next stat if temp > 150c
@@ -454,7 +454,7 @@ FSM_state1:
 	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
 	jnb mf, FSM_done 
 	inc FSM_state
-	sjmp FSM_done
+	ljmp FSM_done
 
 FSM_state2:	
 	;state management
@@ -480,20 +480,22 @@ FSM_state2:
 	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
 	jnb mf, FSM_done
 	inc FSM_state
-	sjmp FSM_done
+	ljmp FSM_done
 
 FSM_state3:	
 	;Only moves on when the temp is > 220c
 	cjne a, #3, FSM_done
 	setb LEDRA.3
-	mov a, FSM_timer
-	cjne a, #250, FSM_done ; 250 ms passed?
-	mov FSM_timer, #0
-	mov FSM_state, #0
-	mov a, Count3
-	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
-	mov Count3, #0
-	sjmp DisplayCount3
+
+	setb SSR_PIN
+
+	;if temp > 150
+	load_x(temp_final)
+	load_y(reflow_temp)
+	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+	jnb mf, FSM_done 
+	inc FSM_state
+	ljmp FSM_done
 
 FSM_state4:	
 	;only moves on after 45s
@@ -533,6 +535,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
