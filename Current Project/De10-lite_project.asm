@@ -381,6 +381,7 @@ FSMcheck:
 	mov LEDRA, #0
 
 FSM_state0:
+	;Only moves on to state 1 once start button is pressed
 	cjne a, #0, FSM_state1
 
 	lcall Keypad       ; Scan keypad
@@ -393,8 +394,8 @@ FSM_state0:
 	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
 	mov a, FSM_timer
 
-	cjne a, #250, FSM_done ; 250 ms passed? (Since we are usend an 8-bit variable, we need to count 250 ms four times)
-	mov FSM_timer, #0
+	
+	jnb button, FSM_done; only moves on when button is high
 	inc FSM_state
 	sjmp FSM_done
 
@@ -464,6 +465,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
