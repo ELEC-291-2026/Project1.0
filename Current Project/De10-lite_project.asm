@@ -501,40 +501,47 @@ FSM_state4:
 	;only moves on after 45s
 	cjne a, #3, FSM_done
 	setb LEDRA.3
-	mov a, FSM_timer
-	cjne a, #250, FSM_done ; 250 ms passed?
-	mov FSM_timer, #0
-	mov FSM_state, #0
-	mov a, Count3
-	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
-	mov Count3, #0
-	sjmp DisplayCount3
+
+	powerPercent(20, reflow_time, time_on)
+	;While time is < timeOn ssr remains on, otherwise off
+	load_x(FSM_timer)
+	load_y(time_on)
+	jnb mf, ssr_off1
+	setb SSR_PIN
+	sjmp ssr_on1
+
+	ssr_off1:
+		clr SSR_PIN
+
+	ssr_on1:
+
+	;If time in this state > soak time then we move on
+	load_x(FSM_timer)
+	load_y(reflow_time)
+	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+	jnb mf, FSM_done
+	inc FSM_state
+	ljmp FSM_done
 
 FSM_state5:	
 	;only resets when temp is < 60c
 	cjne a, #3, FSM_done
 	setb LEDRA.3
-	mov a, FSM_timer
-	cjne a, #250, FSM_done ; 250 ms passed?
-	mov FSM_timer, #0
-	mov FSM_state, #0
-	mov a, Count3
-	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
-	mov Count3, #0
-	sjmp DisplayCount3
 
-IncCount3:
-	inc Count3
-DisplayCount3:
-    mov a, Count3
-    lcall Hex_to_bcd_8bit
-	lcall Display_BCD_7_Seg_HEX54
-	mov FSM_state, #0
+	clr SSR_PIN
+
+	load_x(temp_final)
+	load_y(60)
+	lcall x_lt_y ;returns a mf of 1 when (x < y)
+	jnb mf, FSM_done
+	move FSM_state, #0x00
+
 FSM_done:
 
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
