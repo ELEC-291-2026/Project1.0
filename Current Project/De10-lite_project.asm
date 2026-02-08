@@ -431,11 +431,15 @@ FSM_state0:
 
 FSM_state1:	
 	;Only move to next stat if temp > 150c
-	cjne a, #1, FSM_state2
+	cjne a, #1, FSM_state
 	setb LEDRA.1
-	mov a, FSM_timer
-	cjne a, #250, FSM_done ; 250 ms passed?
-	mov FSM_timer, #0
+
+	setb SSR_PIN
+
+	;if temp > 150
+	load_y(150)
+	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+	jnb mf, FSM_done 
 	inc FSM_state
 	sjmp FSM_done
 
@@ -500,6 +504,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
