@@ -285,7 +285,8 @@ ENDMAC
 ;---------------------------------;
 
 main:
-
+	mov P0MOD, #0x01 ;configures P0.0
+	
 	mov SP, #7FH ; Set the beginning of the stack (more on this later)
 	mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
 	mov LEDRB, #0
