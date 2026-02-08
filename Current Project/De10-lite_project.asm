@@ -49,10 +49,10 @@ tempHot:	ds 5
 tempCold:	ds 5
 tempFinal:  ds 5
 ;Variables from keypad
-;soak_temp:      ds 2      ; mode A
-;soak_time:      ds 2      ; mode B
-;reflow_temp:    ds 2      ; mode C
-;reflow_time:    ds 2      ; mode D
+;soak_temp:      ds 2      ; mode A 150 +-20
+;soak_time:      ds 2      ; mode B 60-120
+;reflow_temp:    ds 2      ; mode C 230 < 240
+;reflow_time:    ds 2      ; mode D  30 < 45
 
 ; Each FSM has its own timer
 FSM_timer:  ds 1
@@ -500,6 +500,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
