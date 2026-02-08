@@ -308,28 +308,32 @@ main:
 	; After initialization the program stays in this 'forever' loop	
 	
 loop:
+
+	; skips over test code
+	sjmp ADCcheck
+
+	; Oven Test code START -------------------------------------
+	; ON OFF SWITCH OVEN ON PIN P0.0
 	clr a
 	mov a, SWA
 	
 	anl a, #0x01
-	
 	cjne a, #0x01, done2
 	
 	setb LEDRA.0
-	
 	setb SSR_PIN
 	
 	sjmp done3
 	
 	done2:
-	
 	clr SSR_PIN
 	clr LEDRA.0
 	
 	done3:
-	
 	sjmp loop
 	
+	; Oven Test code END  -------------------------------------
+	ADCcheck:
 	
 	
 	mov ADC_C, #LM335_ADC
