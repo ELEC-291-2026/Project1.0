@@ -400,6 +400,7 @@ FSM_state0:
 	sjmp FSM_done
 
 FSM_state1:	
+	;Only move to next stat if temp > 150c
 	cjne a, #1, FSM_state2
 	setb LEDRA.1
 	mov a, FSM_timer
@@ -409,6 +410,7 @@ FSM_state1:
 	sjmp FSM_done
 
 FSM_state2:	
+	;Only moves on to next state after 60s
 	cjne a, #2, FSM_state3
 	setb LEDRA.2
 	mov a, FSM_timer
@@ -418,6 +420,7 @@ FSM_state2:
 	sjmp FSM_done
 
 FSM_state3:	
+	;Only moves on when the temp is > 220c
 	cjne a, #3, FSM_done
 	setb LEDRA.3
 	mov a, FSM_timer
@@ -430,6 +433,7 @@ FSM_state3:
 	sjmp DisplayCount3
 
 FSM_state4:	
+	;only moves on after 45s
 	cjne a, #3, FSM_done
 	setb LEDRA.3
 	mov a, FSM_timer
@@ -442,6 +446,7 @@ FSM_state4:
 	sjmp DisplayCount3
 
 FSM_state5:	
+	;only resets when temp is < 60c
 	cjne a, #3, FSM_done
 	setb LEDRA.3
 	mov a, FSM_timer
@@ -465,6 +470,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
