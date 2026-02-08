@@ -437,19 +437,23 @@ FSM_state1:
 	setb SSR_PIN
 
 	;if temp > 150
-	load_y(150)
+	load_x(temp_final)
+	load_y(soak_temp)
 	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
 	jnb mf, FSM_done 
 	inc FSM_state
 	sjmp FSM_done
 
 FSM_state2:	
-	;Only moves on to next state after 60s
+	;state management
 	cjne a, #2, FSM_state3
 	setb LEDRA.2
-	mov a, FSM_timer
-	cjne a, #250, FSM_done ; 250 ms passed?
-	mov FSM_timer, #0
+
+	;If time in this state > soak time then we move on
+	load_x(FSM_timer)
+	load_y(soak_time)
+	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+	jnb mf, FSM_done
 	inc FSM_state
 	sjmp FSM_done
 
@@ -504,6 +508,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
