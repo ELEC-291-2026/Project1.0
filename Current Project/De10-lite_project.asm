@@ -461,6 +461,19 @@ FSM_state2:
 	cjne a, #2, FSM_state3
 	setb LEDRA.2
 
+	powerPercent(20, soak_time, time_on)
+	;While time is < timeOn ssr remains on, otherwise off
+	load_x(FSM_timer)
+	load_y(time_on)
+	jnb mf, ssr_off
+	setb SSR_PIN
+	sjmp ssr_on
+
+	ssr_off:
+		clr SSR_PIN
+
+	ssr_on:
+
 	;If time in this state > soak time then we move on
 	load_x(FSM_timer)
 	load_y(soak_time)
@@ -520,6 +533,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
