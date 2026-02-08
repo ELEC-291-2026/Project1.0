@@ -1,247 +1,139 @@
 $NOLIST
-$MODDE1SOC          
+$MODMAX10          
 $LIST
 
-; Reset vector
+PUBLIC Keypad
+PUBLIC Configure_Keypad_Pins
+PUBLIC Shift_Digits_Left
+PUBLIC Shift_Digits_Right
+
+; Reset vector – when MCU starts it jumps to main_code
 CSEG at 0
-    ljmp main_code
+    ljmp main_code        ; Jump to main program
 
-; Data Segment – Reflow Parameters
+; -------------------------------------------------
+; Data Segment – reserve RAM for BCD digits & params
+; -------------------------------------------------
+
 DSEG at 30H
-bcd:              ds 5    ; Current input buffer (10 BCD digits)
+bcd:            ds 5      ; Reserve 5 bytes → stores 10 BCD digits (2 per byte)
 
-; Reflow Profile Parameters (stored separately)
-soak_temp:        ds 2    ; Soak temperature (°C) - 16 bit
-soak_time:        ds 2    ; Soak time (seconds) - 16 bit
-reflow_temp:      ds 2    ; Reflow temperature (°C) - 16 bit
-reflow_time:      ds 2    ; Reflow time (seconds) - 16 bit
+; Reflow parameters, each stored as 4 BCD digits (2 bytes)
+; A: Soak temperature
+; B: Soak time
+; C: Reflow temperature
+; D: Reflow time
 
-; Current mode and display state
-current_mode:     ds 1    ; 0=Soak Temp, 1=Soak Time, 2=Reflow Temp, 3=Reflow Time
-parameter_saved:  ds 1    ; Flag: 1 = parameter has been saved
-input_active:     ds 1    ; Flag: 1 = user is entering a value
+soak_temp:      ds 2      ; mode A
+soak_time:      ds 2      ; mode B
+reflow_temp:    ds 2      ; mode C
+reflow_time:    ds 2      ; mode D
 
+active_param:   ds 1      ; 0 = A, 1 = B, 2 = C, 3 = D
+
+; -------------------------------------------------
 ; Code Segment
+; -------------------------------------------------
+
 CSEG
 
-; Lookup table for 7-segment display
+; Lookup table for 7-segment display patterns (common anode)
+; Index 0–F → segment pattern
+
 myLUT:
-    DB 0xC0, 0xF9, 0xA4, 0xB0, 0x99        ; 0–4
-    DB 0x92, 0x82, 0xF8, 0x80, 0x90        ; 5–9
+    DB 0xC0, 0xF9, 0xA4, 0xB0, 0x99        ; digits 0–4
+    DB 0x92, 0x82, 0xF8, 0x80, 0x90        ; digits 5–9
     DB 0x88, 0x83, 0xC6, 0xA1, 0x86, 0x8E  ; A–F
 
 ;---------------------------------------------------------
-; Macro: showBCD - Display one byte as two 7-seg digits
+; Macro: showBCD
+; Input : one byte containing two BCD digits
+; Output: two 7-seg displays
+;   %0 = bcd byte
+;   %1 = HEX low
+;   %2 = HEX high
 ;---------------------------------------------------------
-showBCD MAC
-    mov A, %0
-    anl a, #0fh
-    movc A, @A+dptr
-    mov %1, A
 
+showBCD MAC
+    ; ---- Display lower nibble (LSD) ----
+    mov A, %0          ; Load BCD byte
+    anl a, #0fh        ; Keep lower 4 bits
+    movc A, @A+dptr    ; Convert using LUT
+    mov %1, A          ; Output to first HEX display
+
+    ; ---- Display upper nibble (MSD) ----
     mov A, %0
-    swap a
+    swap a             ; Swap nibbles
     anl a, #0fh
     movc A, @A+dptr
-    mov %2, A
+    mov %2, A          ; Output to second HEX display
 ENDMAC
 
-;---------------------------------------------------------
-; Display routine – Shows current mode and parameter value
-;---------------------------------------------------------
+
+; -------------------------------------------------
+; Display routine – show BCD number on HEX displays
+; KEY3: 0 → show high digits, 1 → show low digits
+; LEDRA.7: overflow indicator if bcd+3 or bcd+4 != 0
+; -------------------------------------------------
+
 Display:
-    mov dptr, #myLUT
+    mov dptr, #myLUT   ; Point to lookup table
 
-    ; Check if we're in input mode or display mode
-    mov a, input_active
-    jz Display_Saved_Value
+    ; If digits 10–7 (bcd+3 and bcd+4) are NOT zero
+    ; → turn ON LEDR7 as overflow indicator
 
-Display_Input_Value:
-    ; Show what user is currently typing
+    mov a, bcd+3
+    orl a, bcd+4
+    jz Display_L1
+    setb LEDRA.7       ; Alert LED on
+    sjmp Display_L2
+Display_L1:
+    clr LEDRA.7        ; Alert LED off
+Display_L2:
+
+    ; If KEY3 pressed (assuming active low) → show HIGH digits
+    ; Otherwise show LOW digits
+
+    jnb key.3, Display_high_digits
+
+    ; Show lower 6 digits
     showBCD(bcd+0, HEX0, HEX1)
     showBCD(bcd+1, HEX2, HEX3)
     showBCD(bcd+2, HEX4, HEX5)
-    
-    ; Use LEDRA to show current mode
-    lcall Display_Mode_Indicator
     sjmp Display_end
 
-Display_Saved_Value:
-    ; Show the saved parameter for current mode
-    lcall Display_Current_Parameter
-    lcall Display_Mode_Indicator
+Display_high_digits:
+    ; Show upper 4 digits
+    showBCD(bcd+3, HEX0, HEX1)
+    showBCD(bcd+4, HEX2, HEX3)
+
+    ; Blank remaining displays
+    mov HEX4, #0xff
+    mov HEX5, #0xff
 
 Display_end:
     ret
 
-;---------------------------------------------------------
-; Display mode indicator on LEDRA
-; A=Soak Temp, B=Soak Time, C=Reflow Temp, D=Reflow Time
-;---------------------------------------------------------
-Display_Mode_Indicator:
-    mov a, current_mode
-    
-    cjne a, #0, mode_not_0
-    ; Mode A - Soak Temperature
-    mov LEDRA, #10001000b  ; Pattern for 'A'
-    ret
-mode_not_0:
-    
-    cjne a, #1, mode_not_1
-    ; Mode B - Soak Time
-    mov LEDRA, #10000011b  ; Pattern for 'b'
-    ret
-mode_not_1:
-    
-    cjne a, #2, mode_not_2
-    ; Mode C - Reflow Temperature
-    mov LEDRA, #11000110b  ; Pattern for 'C'
-    ret
-mode_not_2:
-    
-    ; Mode D - Reflow Time
-    mov LEDRA, #10100001b  ; Pattern for 'd'
-    ret
-
-;---------------------------------------------------------
-; Display the current parameter value on 7-segment displays
-;---------------------------------------------------------
-Display_Current_Parameter:
-    push dpl
-    push dph
-    push R0
-    
-    mov a, current_mode
-    
-    cjne a, #0, disp_param_1
-    ; Display Soak Temperature
-    mov R0, #soak_temp
-    sjmp disp_param_load
-    
-disp_param_1:
-    cjne a, #1, disp_param_2
-    ; Display Soak Time
-    mov R0, #soak_time
-    sjmp disp_param_load
-    
-disp_param_2:
-    cjne a, #2, disp_param_3
-    ; Display Reflow Temperature
-    mov R0, #reflow_temp
-    sjmp disp_param_load
-    
-disp_param_3:
-    ; Display Reflow Time
-    mov R0, #reflow_time
-
-disp_param_load:
-    ; Load 16-bit value from memory
-    mov a, @R0
-    mov R2, a       ; Low byte in R2
-    inc R0
-    mov a, @R0
-    mov R3, a       ; High byte in R3
-    
-    ; Convert 16-bit parameter to BCD and display
-    lcall Convert_Word_to_BCD
-    
-    mov dptr, #myLUT
-    showBCD(bcd+0, HEX0, HEX1)
-    showBCD(bcd+1, HEX2, HEX3)
-    showBCD(bcd+2, HEX4, HEX5)
-    
-    pop R0
-    pop dph
-    pop dpl
-    ret
-
-;---------------------------------------------------------
-; Convert 16-bit word in R2(low):R3(high) to BCD in bcd buffer
-;---------------------------------------------------------
-Convert_Word_to_BCD:
-    push acc
-    push b
-    push R0
-    push R1
-    push R2
-    push R3
-    
-    ; Save input
-    mov a, R2
-    push acc
-    mov a, R3
-    push acc
-    
-    ; Clear BCD buffer
-    clr a
-    mov bcd+0, a
-    mov bcd+1, a
-    mov bcd+2, a
-    mov bcd+3, a
-    mov bcd+4, a
-    
-    ; Restore input
-    pop acc
-    mov R3, a
-    pop acc
-    mov R2, a
-    
-    ; Binary to BCD conversion (double-dabble algorithm)
-    mov R0, #16     ; 16 bits to convert
-    
-convert_loop:
-    ; Shift binary left
-    clr c
-    mov a, R2
-    rlc a
-    mov R2, a
-    mov a, R3
-    rlc a
-    mov R3, a
-    
-    ; Shift BCD left and add carry
-    mov a, bcd+0
-    rlc a
-    da a
-    mov bcd+0, a
-    
-    mov a, bcd+1
-    rlc a
-    da a
-    mov bcd+1, a
-    
-    mov a, bcd+2
-    rlc a
-    da a
-    mov bcd+2, a
-    
-    djnz R0, convert_loop
-    
-    pop R3
-    pop R2
-    pop R1
-    pop R0
-    pop b
-    pop acc
-    ret
-
-;---------------------------------------------------------
+; -------------------------------------------------
 ; Macro: Rotate Left through Carry
-;---------------------------------------------------------
+; -------------------------------------------------
+
 MYRLC MAC
     mov a, %0
     rlc a
     mov %0, a
 ENDMAC
 
-;---------------------------------------------------------
-; Shift BCD digits LEFT (make room for new digit)
-;---------------------------------------------------------
+; -------------------------------------------------
+; Shift all BCD digits LEFT by 4 bits
+; → makes room for new digit in LSD (R7)
+; -------------------------------------------------
+
 Shift_Digits_Left:
-    mov R0, #4
+    mov R0, #4         ; Need 4 bit shifts (one nibble)
 
 Shift_Digits_Left_L0:
-    clr c
+    clr c              ; Clear carry before shift
     MYRLC(bcd+0)
     MYRLC(bcd+1)
     MYRLC(bcd+2)
@@ -249,24 +141,29 @@ Shift_Digits_Left_L0:
     MYRLC(bcd+4)
     djnz R0, Shift_Digits_Left_L0
 
-    ; Insert new digit from R7
+    ; Insert new digit from R7 into lowest nibble safely
+    ; Keep upper nibble of bcd+0 unchanged
+    anl bcd+0, #0F0h   ; clear lower nibble
     mov a, R7
-    orl a, bcd+0
-    mov bcd+0, a
+    anl a, #0Fh        ; ensure only 0–F
+    orl bcd+0, a
     ret
 
-;---------------------------------------------------------
+; -------------------------------------------------
 ; Macro: Rotate Right through Carry
-;---------------------------------------------------------
+; -------------------------------------------------
+
 MYRRC MAC
     mov a, %0
     rrc a
     mov %0, a
 ENDMAC
 
-;---------------------------------------------------------
-; Shift digits RIGHT (backspace)
-;---------------------------------------------------------
+; -------------------------------------------------
+; Shift digits RIGHT by 4 bits
+; → used for BACKSPACE (delete last digit)
+; -------------------------------------------------
+
 Shift_Digits_Right:
     mov R0, #4
 
@@ -280,9 +177,11 @@ Shift_Digits_Right_L0:
     djnz R0, Shift_Digits_Right_L0
     ret
 
-;---------------------------------------------------------
-; Wait 25ms (debounce delay)
-;---------------------------------------------------------
+
+; -------------------------------------------------
+; 25 ms delay (software debounce)
+; -------------------------------------------------
+
 Wait25ms:
     mov R0, #15
 L3: mov R1, #74
@@ -292,29 +191,100 @@ L1: djnz R2, L1
     djnz R0, L3
     ret
 
-;---------------------------------------------------------
-; Macro: Check one keypad column
-;---------------------------------------------------------
-CHECK_COLUMN MAC
-    jb %0, CHECK_COL_%M
-    mov R7, %1
-    jnb %0, $
-    setb c
+
+; -------------------------------------------------
+; Helper routines for parameter storage
+; Each parameter value lives in bcd+0..bcd+1
+; active_param: 0=A, 1=B, 2=C, 3=D
+; -------------------------------------------------
+
+; Save current BCD (bcd+0..bcd+1) into active parameter
+Save_Current_BCD_Into_Param:
+    mov a, active_param
+    cjne a, #0, Save_NotA
+    ; A: soak_temp
+    mov soak_temp,   bcd+0
+    mov soak_temp+1, bcd+1
     ret
+Save_NotA:
+    cjne a, #1, Save_NotB
+    ; B: soak_time
+    mov soak_time,   bcd+0
+    mov soak_time+1, bcd+1
+    ret
+Save_NotB:
+    cjne a, #2, Save_NotC
+    ; C: reflow_temp
+    mov reflow_temp,   bcd+0
+    mov reflow_temp+1, bcd+1
+    ret
+Save_NotC:
+    ; D: reflow_time (default case)
+    mov reflow_time,   bcd+0
+    mov reflow_time+1, bcd+1
+    ret
+
+
+; Load active parameter into BCD (bcd+0..bcd+1)
+; Clear the higher digits.
+Load_Param_Into_BCD:
+    mov bcd+2, #00h
+    mov bcd+3, #00h
+    mov bcd+4, #00h
+
+    mov a, active_param
+    cjne a, #0, Load_NotA
+    ; A: soak_temp
+    mov bcd+0, soak_temp
+    mov bcd+1, soak_temp+1
+    ret
+Load_NotA:
+    cjne a, #1, Load_NotB
+    ; B: soak_time
+    mov bcd+0, soak_time
+    mov bcd+1, soak_time+1
+    ret
+Load_NotB:
+    cjne a, #2, Load_NotC
+    ; C: reflow_temp
+    mov bcd+0, reflow_temp
+    mov bcd+1, reflow_temp+1
+    ret
+Load_NotC:
+    ; D: reflow_time (default)
+    mov bcd+0, reflow_time
+    mov bcd+1, reflow_time+1
+    ret
+
+
+; -------------------------------------------------
+; Macro: Check one keypad column
+; If pressed → R7 = key value, C=1, jump to Key_Found
+; %0 = column bit, %1 = key code (immediate)
+; -------------------------------------------------
+
+CHECK_COLUMN MAC
+    jb %0, CHECK_COL_%M      ; if column=1 → no key here → skip
+    mov R7, %1               ; store key code
+    jnb %0, $                ; wait until key is released
+    setb c                   ; mark "key found"
+    sjmp Key_Found           ; classify key (digit vs mode)
 CHECK_COL_%M:
 ENDMAC
 
-;---------------------------------------------------------
-; Configure keypad GPIO pins
-;---------------------------------------------------------
+
+; -------------------------------------------------
+; Configure GPIO directions for keypad
+; -------------------------------------------------
+
 Configure_Keypad_Pins:
-    orl P1MOD, #01010100b
-    orl P2MOD, #00000001b
-    anl P2MOD, #10101011b
-    anl P3MOD, #11111110b
+    orl P1MOD, #0b_01010100  ; Rows as output
+    orl P2MOD, #0b_00000001
+    anl P2MOD, #0b_10101011  ; Columns as input
+    anl P3MOD, #0b_11111110
     ret
 
-; Pin definitions
+; Pin definitions for keypad
 ROW1 EQU P1.2
 ROW2 EQU P1.4
 ROW3 EQU P1.6
@@ -325,39 +295,29 @@ COL2 EQU P2.4
 COL3 EQU P2.6
 COL4 EQU P3.0
 
-;---------------------------------------------------------
-; Keypad scanning with mode switching support
-; Returns: C=1 if key pressed, key code in R7
-;---------------------------------------------------------
-Keypad:
-    ; KEY1 = BACKSPACE
-    jb KEY.1, keypad_check_save
-    lcall Wait25ms
-    jb KEY.1, keypad_check_save
-    jnb KEY.1, $
-    
-    ; Only backspace if in input mode
-    mov a, input_active
-    jz keypad_check_save
-    lcall Shift_Digits_Right
-    clr c
-    ret
+; -------------------------------------------------
+; Keypad scanning routine
+; Output:
+;   C = 1 → numeric key pressed, code in R7 (0–9, maybe E/F)
+;   C = 0 → no digit (no key, mode key, or backspace)
+; -------------------------------------------------
 
-keypad_check_save:
-    ; KEY3 = SAVE current parameter
-    jb KEY.3, keypad_L0
-    lcall Wait25ms
-    jb KEY.3, keypad_L0
-    jnb KEY.3, $
+Keypad:
+
+    ; KEY1 acts as BACKSPACE / ERASE
     
-    ; Save current parameter and exit input mode
-    lcall Save_Current_Parameter
-    mov input_active, #0
-    clr c
+    jb KEY.1, keypad_L0      ; if KEY1=1 (not pressed) → skip
+    lcall Wait25ms
+    jb KEY.1, keypad_L0      ; still high? → bounce, skip
+    jnb KEY.1, $             ; wait for release (KEY1 low while pressed)
+    lcall Shift_Digits_Right ; delete LSD for active parameter
+    clr c                    ; no digit returned
     ret
 
 keypad_L0:
-    ; Check if any key pressed
+    
+    ; Drive all rows LOW → check if any column LOW
+    
     clr ROW1
     clr ROW2
     clr ROW3
@@ -367,12 +327,14 @@ keypad_L0:
     anl c, COL2
     anl c, COL3
     anl c, COL4
-    jnc Keypad_Debounce
+    jnc Keypad_Debounce      ; if any column low → possible key
     clr c
     ret
 
 Keypad_Debounce:
+    ; Wait and check again to avoid bouncing
     lcall Wait25ms
+
     mov c, COL1
     anl c, COL2
     anl c, COL3
@@ -382,318 +344,202 @@ Keypad_Debounce:
     ret
 
 Keypad_Key_Code:
+    ; Prepare to scan each row individually
     setb ROW1
     setb ROW2
     setb ROW3
     setb ROW4
 
-    ; Default layout only
+    ; SW0 selects layout orientation
+    jnb SWA.0, keypad_default
+    ljmp keypad_90deg
+
+
+; -------------------------------------------------
+; Default keypad layout
+; -------------------------------------------------
+; Mapping (default):
+;   Row1: 1  2  3  A(0Ah)
+;   Row2: 4  5  6  B(0Bh)
+;   Row3: 7  8  9  C(0Ch)
+;   Row4: E  0  F  D(0Dh)
+; -------------------------------------------------
+
+keypad_default:
+
     clr ROW1
     CHECK_COLUMN(COL1, #01H)
     CHECK_COLUMN(COL2, #02H)
     CHECK_COLUMN(COL3, #03H)
-    CHECK_COLUMN(COL4, #0AH)    ; 'A' key
+    CHECK_COLUMN(COL4, #0AH)
     setb ROW1
 
     clr ROW2
     CHECK_COLUMN(COL1, #04H)
     CHECK_COLUMN(COL2, #05H)
     CHECK_COLUMN(COL3, #06H)
-    CHECK_COLUMN(COL4, #0BH)    ; 'B' key
+    CHECK_COLUMN(COL4, #0BH)
     setb ROW2
 
     clr ROW3
     CHECK_COLUMN(COL1, #07H)
     CHECK_COLUMN(COL2, #08H)
     CHECK_COLUMN(COL3, #09H)
-    CHECK_COLUMN(COL4, #0CH)    ; 'C' key
+    CHECK_COLUMN(COL4, #0CH)
     setb ROW3
 
     clr ROW4
     CHECK_COLUMN(COL1, #0EH)
     CHECK_COLUMN(COL2, #00H)
     CHECK_COLUMN(COL3, #0FH)
-    CHECK_COLUMN(COL4, #0DH)    ; 'D' key
+    CHECK_COLUMN(COL4, #0DH)
     setb ROW4
 
+    ; If we reached here, no key found
     clr c
     ret
 
-;---------------------------------------------------------
-; Check if key is a mode switch (A/B/C/D)
-; Input: R7 = key code
-; Output: C=1 if mode switch, C=0 otherwise
-;---------------------------------------------------------
-Check_Mode_Switch:
+
+; -------------------------------------------------
+; Rotated keypad layout (90° CCW)
+; -------------------------------------------------
+
+keypad_90deg:
+    clr ROW1
+    CHECK_COLUMN(COL1, #0AH)
+    CHECK_COLUMN(COL2, #0BH)
+    CHECK_COLUMN(COL3, #0CH)
+    CHECK_COLUMN(COL4, #0DH)
+    setb ROW1
+
+    clr ROW2
+    CHECK_COLUMN(COL1, #03H)
+    CHECK_COLUMN(COL2, #06H)
+    CHECK_COLUMN(COL3, #09H)
+    CHECK_COLUMN(COL4, #0FH)
+    setb ROW2
+
+    clr ROW3
+    CHECK_COLUMN(COL1, #02H)
+    CHECK_COLUMN(COL2, #05H)
+    CHECK_COLUMN(COL3, #08H)
+    CHECK_COLUMN(COL4, #00H)
+    setb ROW3
+
+    clr ROW4
+    CHECK_COLUMN(COL1, #01H)
+    CHECK_COLUMN(COL2, #04H)
+    CHECK_COLUMN(COL3, #07H)
+    CHECK_COLUMN(COL4, #0EH)
+    setb ROW4
+
+    ; If we reached here, no key found
+    clr c
+    ret
+
+
+; -------------------------------------------------
+; Key_Found:
+;   R7 = key code (0–F), C = 1 when we get here.
+;   A/B/C/D (0Ah–0Dh) → mode select, no digit
+;   Others → numeric digit, C stays 1
+; -------------------------------------------------
+
+Key_Found:
     mov a, R7
-    
-    cjne a, #0AH, check_mode_B
-    ; 'A' pressed - Switch to Soak Temperature mode
-    mov current_mode, #0
-    clr a
-    mov bcd+0, a
-    mov bcd+1, a
-    mov bcd+2, a
-    mov input_active, #1
-    setb c
+
+    ; --- Mode A (soak temperature) ---
+    cjne a, #0AH, Check_Mode_B
+    lcall Save_Current_BCD_Into_Param
+    mov active_param, #0       ; A: soak_temp
+    lcall Load_Param_Into_BCD
+    ; Optional: indicate mode with LEDs (e.g., LEDRB = active_param)
+    ; mov a, active_param
+    ; mov LEDRB, a
+    clr c                      ; not a digit
     ret
-    
-check_mode_B:
-    cjne a, #0BH, check_mode_C
-    ; 'B' pressed - Switch to Soak Time mode
-    mov current_mode, #1
-    clr a
-    mov bcd+0, a
-    mov bcd+1, a
-    mov bcd+2, a
-    mov input_active, #1
-    setb c
-    ret
-    
-check_mode_C:
-    cjne a, #0CH, check_mode_D
-    ; 'C' pressed - Switch to Reflow Temperature mode
-    mov current_mode, #2
-    clr a
-    mov bcd+0, a
-    mov bcd+1, a
-    mov bcd+2, a
-    mov input_active, #1
-    setb c
-    ret
-    
-check_mode_D:
-    cjne a, #0DH, not_mode_switch
-    ; 'D' pressed - Switch to Reflow Time mode
-    mov current_mode, #3
-    clr a
-    mov bcd+0, a
-    mov bcd+1, a
-    mov bcd+2, a
-    mov input_active, #1
-    setb c
-    ret
-    
-not_mode_switch:
+
+Check_Mode_B:
+    cjne a, #0BH, Check_Mode_C
+    lcall Save_Current_BCD_Into_Param
+    mov active_param, #1       ; B: soak_time
+    lcall Load_Param_Into_BCD
+    ; mov a, active_param
+    ; mov LEDRB, a
     clr c
     ret
 
-;---------------------------------------------------------
-; Save current BCD input to appropriate parameter register
-;---------------------------------------------------------
-Save_Current_Parameter:
-    push acc
-    push b
-    push R0
-    push R1
-    
-    ; Convert BCD to 16-bit binary
-    lcall BCD_to_Binary_16bit
-    ; Result in R0(low), R1(high)
-    
-    ; Save to appropriate parameter based on mode
-    mov a, current_mode
-    
-    cjne a, #0, save_param_1
-    ; Save to Soak Temperature
-    mov soak_temp, R0
-    mov soak_temp+1, R1
-    sjmp save_done
-    
-save_param_1:
-    cjne a, #1, save_param_2
-    ; Save to Soak Time
-    mov soak_time, R0
-    mov soak_time+1, R1
-    sjmp save_done
-    
-save_param_2:
-    cjne a, #2, save_param_3
-    ; Save to Reflow Temperature
-    mov reflow_temp, R0
-    mov reflow_temp+1, R1
-    sjmp save_done
-    
-save_param_3:
-    ; Save to Reflow Time
-    mov reflow_time, R0
-    mov reflow_time+1, R1
-
-save_done:
-    ; Flash LEDRB to confirm save
-    mov LEDRB, #0xFF
-    lcall Wait25ms
-    mov LEDRB, #0x00
-    
-    pop R1
-    pop R0
-    pop b
-    pop acc
+Check_Mode_C:
+    cjne a, #0CH, Check_Mode_D
+    lcall Save_Current_BCD_Into_Param
+    mov active_param, #2       ; C: reflow_temp
+    lcall Load_Param_Into_BCD
+    ; mov a, active_param
+    ; mov LEDRB, a
+    clr c
     ret
 
-;---------------------------------------------------------
-; Convert BCD (in bcd buffer) to 16-bit binary
-; Output: R0 = low byte, R1 = high byte
-;---------------------------------------------------------
-BCD_to_Binary_16bit:
-    push acc
-    push b
-    push R2
-    push R3
-    push R4
-    push R5
-    
-    ; Initialize result to 0
-    mov R0, #0
-    mov R1, #0
-    
-    ; Process bcd+2 (ten-thousands and thousands)
-    mov a, bcd+2
-    anl a, #0F0h
-    swap a
-    ; a = ten-thousands digit
-    mov b, #10
-    mul ab          ; a = digit * 10
-    mov R2, a       ; R2 = thousands part
-    
-    mov a, bcd+2
-    anl a, #0Fh
-    add a, R2       ; Add thousands digit
-    ; Now a = total thousands
-    mov R4, a       ; Save in R4
-    
-    ; Multiply by 1000 = multiply by 100, then by 10
-    mov b, #100
-    mul ab          ; ab = thousands * 100
-    mov R2, a
-    mov R3, b       ; R3:R2 = thousands * 100
-    
-    mov a, R2
-    mov b, #10
-    mul ab          ; ab = (thousands*100) * 10 (low part)
-    add a, R0
-    mov R0, a
-    mov a, b
-    addc a, R1
-    mov R1, a
-    
-    mov a, R3
-    mov b, #10
-    mul ab          ; ab = (thousands*100) * 10 (high part)
-    add a, R1
-    mov R1, a
-    
-    ; Process bcd+1 (hundreds and tens)
-    mov a, bcd+1
-    anl a, #0F0h
-    swap a
-    ; a = hundreds digit
-    mov b, #100
-    mul ab
-    add a, R0
-    mov R0, a
-    mov a, b
-    addc a, R1
-    mov R1, a
-    
-    mov a, bcd+1
-    anl a, #0Fh
-    ; a = tens digit
-    mov b, #10
-    mul ab
-    add a, R0
-    mov R0, a
-    mov a, b
-    addc a, R1
-    mov R1, a
-    
-    ; Process bcd+0 (ones)
-    mov a, bcd+0
-    anl a, #0Fh
-    add a, R0
-    mov R0, a
-    mov a, #0
-    addc a, R1
-    mov R1, a
-    
-    pop R5
-    pop R4
-    pop R3
-    pop R2
-    pop b
-    pop acc
+Check_Mode_D:
+    cjne a, #0DH, Not_Mode_Key
+    lcall Save_Current_BCD_Into_Param
+    mov active_param, #3       ; D: reflow_time
+    lcall Load_Param_Into_BCD
+    ; mov a, active_param
+    ; mov LEDRB, a
+    clr c
     ret
 
-;---------------------------------------------------------
+Not_Mode_Key:
+    ; Not A/B/C/D → treat as numeric digit key
+    ; R7 contains the digit code; C remains 1
+    ret
+
+
+; -------------------------------------------------
 ; MAIN PROGRAM
-;---------------------------------------------------------
-main_code:
-    mov SP, #7FH
+; -------------------------------------------------
 
-    ; Initialize LEDs
+main_code:
+    mov SP, #7FH       ; Initialize stack pointer
+
     clr a
-    mov LEDRA, a
+    mov LEDRA, a       ; Clear LEDs
     mov LEDRB, a
 
-    ; Clear BCD buffer
+    ; Clear all BCD digits
     mov bcd+0, a
     mov bcd+1, a
     mov bcd+2, a
     mov bcd+3, a
     mov bcd+4, a
 
-    ; Initialize parameters to defaults
-    ; Soak Temp = 150°C
-    mov soak_temp, #150
-    mov soak_temp+1, #0
-    
-    ; Soak Time = 90 seconds
-    mov soak_time, #90
-    mov soak_time+1, #0
-    
-    ; Reflow Temp = 220°C
-    mov reflow_temp, #220
-    mov reflow_temp+1, #0
-    
-    ; Reflow Time = 40 seconds
-    mov reflow_time, #40
-    mov reflow_time+1, #0
-    
-    ; Start in Soak Temperature mode
-    mov current_mode, #0
-    mov input_active, #0
-    mov parameter_saved, #0
+    ; Clear parameter storage
+    mov soak_temp,   a
+    mov soak_temp+1, a
+    mov soak_time,   a
+    mov soak_time+1, a
+    mov reflow_temp,   a
+    mov reflow_temp+1, a
+    mov reflow_time,   a
+    mov reflow_time+1, a
+
+    ; Start in mode A: soak temperature
+    mov active_param, #0
+    lcall Load_Param_Into_BCD
 
     lcall Configure_Keypad_Pins
 
-;---------------------------------------------------------
+
+; -------------------------------------------------
 ; Main loop
-;---------------------------------------------------------
+; -------------------------------------------------
+
 forever:
-    lcall Keypad        ; Scan for keys
-    lcall Display       ; Update display
-    jnc forever         ; No key? Loop
-    
-    ; Key was pressed, check if it's a mode switch
-    lcall Check_Mode_Switch
-    jc forever          ; Was mode switch, don't process as digit
-    
-    ; Check if it's a valid digit (0-9)
-    mov a, R7
-    cjne a, #0EH, check_valid_digit  ; 0E is '*', skip it
-    sjmp forever
-    
-check_valid_digit:
-    cjne a, #0FH, digit_ok    ; 0F is '#', skip it
-    sjmp forever
-    
-digit_ok:
-    ; Valid digit (0-9), only process if in input mode
-    mov a, input_active
-    jz forever
-    
-    ; Shift and add digit
-    lcall Shift_Digits_Left
+    lcall Keypad       ; Scan keypad
+    lcall Display      ; Update HEX displays (or later, LCD)
+    jnc forever        ; If C=0 → no digit to insert (mode/backspace/none)
+
+    lcall Shift_Digits_Left  ; If C=1 → numeric key; insert new digit from R7
     ljmp forever
 
 end
