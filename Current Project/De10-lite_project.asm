@@ -39,6 +39,10 @@ OP07_ADC equ 1
 org 0x0000
     ljmp main
 
+; Timer/Counter 0 overflow interrupt vector
+org 0x000B
+	ljmp Timer0_ISR
+
 ; Timer/Counter 2 overflow interrupt vector
 org 0x002B
 	ljmp Timer2_ISR
@@ -94,11 +98,44 @@ SSR_PIN equ P0.0;Place holder
 ;COL3 EQU P2.6
 ;COL4 EQU P3.0
 
-cseg
+;---------------------------------;
+; Routine to initialize the ISR   ;
+; for timer 0                     ;
+;---------------------------------;
+Timer0_Init:
+	orl CKCON, #0b00001000 ; Input for timer 0 is sysclk/1
+	mov a, TMOD
+	anl a, #0xf0 ; 11110000 Clear the bits for timer 0
+	orl a, #0x01 ; 00000001 Configure timer 0 as 16-timer
+	mov TMOD, a
+	mov TH0, Timer0Reload+1
+	mov TL0, Timer0Reload+0
+	; Enable the timer and interrupts
+    setb ET0  ; Enable timer 0 interrupt
+    setb TR0  ; Start timer 0
+	ret
+
+;---------------------------------;
+; ISR for timer 0.  Set to execute;
+; every 1/4096Hz to generate a    ;
+; 2048 Hz wave at pin SOUND_OUT   ;
+;---------------------------------;
+
+Timer0_ISR:
+	;clr TF0  ; According to the data sheet this is done for us already.
+	; Timer 0 doesn't have 16-bit auto-reload, so
+	clr TR0
+	mov TH0, Timer0Reload+1
+	mov TL0, Timer0Reload+0
+	setb TR0
+	cpl SOUND_OUT ; Connect speaker the pin assigned to 'SOUND_OUT'!
+	reti
+
 ;---------------------------------;
 ; Routine to initialize the ISR   ;
 ; for timer 2                     ;
 ;---------------------------------;
+
 Timer2_Init:
 	mov T2CON, #0 ; Stop timer/counter.  Autoreload mode.
 	mov TH2, #high(TIMER2_RELOAD)
@@ -458,6 +495,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
