@@ -268,9 +268,10 @@ CHECK_COLUMN MAC
     mov R7, %1               ; store key code
     jnb %0, $                ; wait until key is released
     setb c                   ; mark "key found"
-    sjmp Key_Found           ; classify key (digit vs mode)
+    ljmp Key_Found           ; use long jump instead of short
 CHECK_COL_%M:
 ENDMAC
+
 
 
 ; -------------------------------------------------
