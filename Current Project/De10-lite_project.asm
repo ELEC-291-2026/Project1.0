@@ -70,7 +70,7 @@ state_flag	: dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
-$include(Read_Keypad.asm)
+$include(keypad_lib_2.asm)
 
 cseg
 ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
@@ -379,6 +379,7 @@ Initial_ALL:
 	mov tempHot+2, #0
 	mov tempHot+3, #0
 	
+	mov active_param, #0
 		
 	clr EA
     lcall Load_Param_Into_BCD
@@ -461,9 +462,6 @@ loop:
 	mov tempFinal+2, x+2
 	mov tempFinal+3, x+3
 	setb EA
-
-	;Keypad Setup -----------------------------------
-	mov active_param, #0
     
 	
     
