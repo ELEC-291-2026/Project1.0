@@ -1,0 +1,868 @@
+; main project file
+$NOLIST
+$MODMAX10
+$LIST
+
+CLK           	EQU 33333333 ; Microcontroller system crystal frequency in Hz
+TIMER2_RATE   	EQU 1000     ; 1000Hz, for a timer tick of 1ms
+TIMER2_RELOAD 	EQU ((65536-(CLK/(12*TIMER2_RATE))))
+TIMER0_RATE     EQU 1024     ; 2048Hz squarewave (peak amplitude of CEM-1203 speaker)
+TIMER0_RELOAD   EQU ((65536-(CLK/TIMER0_RATE)))
+FREQ   			EQU 33333333
+BAUD   			EQU 115200
+T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
+
+;PIN Assignment
+;Need to figure out which ADC pins the LM335 and OP07 are on
+LM335_ADC equ 0
+OP07_ADC equ 1
+
+;--------------------------------------------------
+; Reset and interrupt vectors
+;--------------------------------------------------
+org 0x0000
+    ljmp main
+
+; Timer/Counter 0 overflow interrupt vector
+org 0x000B
+	ljmp Timer0_ISR
+
+; Timer/Counter 2 overflow interrupt vector
+org 0x002B
+	ljmp Timer2_ISR
+
+;--------------------------------------------------
+; Data segment
+;--------------------------------------------------
+dseg at 0x30
+
+; For math
+x:			ds 4
+y:			ds 4
+bcd:		ds 5
+
+math_space: ds 5
+
+tempHot:	ds 4
+tempCold:	ds 4
+tempFinal:  ds 4
+timeOn:     ds 2
+
+;Variables from keypad
+soak_temp:      ds 2      ; mode A 150 +-20
+soak_time:      ds 2      ; mode B 60-120
+reflow_temp:    ds 2      ; mode C 230 < 240
+reflow_time:    ds 2      ; mode D  30 < 45
+active_param:   ds 1
+
+Timer0Reload:   ds 2
+
+; Each FSM has its own timer
+FSM_timer:          ds 1
+QuarterSecondsCounter: ds 1
+SecondsCounter:     ds 1
+SecondsCounterTotal: ds 1
+; Each FSM has its own state counter
+FSM_state:          ds 1
+
+bseg
+; button flags
+mf       	: dbit 1
+ssr_f    	: dbit 1
+state_flag	: dbit 1
+
+$include(math32.asm)
+$include(LCD_4bit_DE10Lite_no_RW.inc) ; LCD library
+$include(keypad_lib.asm)
+
+cseg
+; These 'equ' must match the wiring between the DE10Lite board and the LCD!
+ELCD_RS equ P1.7
+; ELCD_RW equ Px.x ; Not used.  Connected to ground
+ELCD_E  equ P1.1
+ELCD_D4 equ P0.7
+ELCD_D5 equ P0.5
+ELCD_D6 equ P0.3
+ELCD_D7 equ P0.1
+SSR_PIN equ P0.0
+SOUND_OUT equ P0.4
+START_BUTTON equ P1.5
+
+;---------------------------------;
+; Timer0 init and ISR             ;
+;---------------------------------;
+Timer0_Init:
+	mov a, TMOD
+	anl a, #0F0h       ; Clear the bits for timer 0
+	orl a, #01h        ; Configure timer 0 as 16-bit timer
+	mov TMOD, a
+	
+	mov TH0, Timer0Reload+1
+	mov TL0, Timer0Reload+0
+	
+	; Enable the timer and interrupts
+    setb ET0  ; Enable timer 0 interrupt
+    setb TR0  ; Start timer 0
+	ret
+
+; ISR for timer 0 -> 2048 Hz at SOUND_OUT
+Timer0_ISR:
+	clr TR0
+	mov TH0, Timer0Reload+1
+	mov TL0, Timer0Reload+0
+	setb TR0
+	cpl SOUND_OUT       ; Toggle speaker pin
+	reti
+
+;---------------------------------;
+; Timer2 init and ISR             ;
+;---------------------------------;
+Timer2_Init:
+	mov T2CON, #0       ; Stop timer/counter.  Autoreload mode.
+	mov TH2, #high(TIMER2_RELOAD)
+	mov TL2, #low(TIMER2_RELOAD)
+	; Set the reload value
+	mov RCAP2H, #high(TIMER2_RELOAD)
+	mov RCAP2L, #low(TIMER2_RELOAD)
+	; Enable the timer and interrupts
+    setb ET2  ; Enable timer 2 interrupt
+    setb TR2  ; Enable timer 2
+	ret
+
+; ISR for timer 2.  Runs every ms
+Timer2_ISR:
+	clr TF2              ; Timer 2 doesn't clear TF2 automatically
+	inc FSM_timer 
+	
+	mov a, FSM_timer
+	cjne a, #250, FSM_timer_done
+	
+	inc QuarterSecondsCounter
+	mov FSM_timer, #0x00
+	
+	mov a, QuarterSecondsCounter
+	cjne a, #4, FSM_timer_done
+	
+	mov QuarterSecondsCounter, #0x00
+	inc SecondsCounter
+	inc SecondsCounterTotal ; total timer
+	
+FSM_timer_done:
+	reti
+
+;--------------------------------------------------
+; 7-seg LUT and helpers (for debug)
+;--------------------------------------------------
+T_7seg:
+    DB 40H, 79H, 24H, 30H, 19H, 12H, 02H, 78H, 00H, 10H
+
+; Displays a BCD number in R0 on HEX1-HEX0
+Display_BCD_7_Seg_HEX10:
+	mov dptr, #T_7seg
+
+	mov a, R0
+	swap a
+	anl a, #0FH
+	movc a, @a+dptr
+	mov HEX1, a
+	
+	mov a, R0
+	anl a, #0FH
+	movc a, @a+dptr
+	mov HEX0, a
+	
+	ret
+
+; Displays BCD in R0 on HEX3-HEX2
+Display_BCD_7_Seg_HEX32:
+	mov dptr, #T_7seg
+
+	mov a, R0
+	swap a
+	anl a, #0FH
+	movc a, @a+dptr
+	mov HEX3, a
+	
+	mov a, R0
+	anl a, #0FH
+	movc a, @a+dptr
+	mov HEX2, a
+	
+	ret
+
+; Displays BCD in R0 on HEX5-HEX4
+Display_BCD_7_Seg_HEX54:
+	mov dptr, #T_7seg
+
+	mov a, R0
+	swap a
+	anl a, #0FH
+	movc a, @a+dptr
+	mov HEX5, a
+	
+	mov a, R0
+	anl a, #0FH
+	movc a, @a+dptr
+	mov HEX4, a
+	
+	ret
+
+; Convert 8-bit hex in A to packed BCD in [R1:R0]
+Hex_to_bcd_8bit:
+	mov b, #100
+	div ab
+	mov R1, a   ; hundreds
+	mov a, b
+	mov b, #10
+	div ab      ; tens in a, units in b 
+	swap a
+	anl a, #0F0h
+	orl a, b
+	mov R0, a
+	ret
+
+;--------------------------------------------------
+; LCD UI messages
+;--------------------------------------------------
+Show_Heating_Message:
+    lcall ELCD_Clr
+    mov dptr, #msg_heat
+    lcall ELCD_Write_String
+    ret
+
+Show_Soak_Message:
+    lcall ELCD_Clr
+    mov dptr, #msg_soak
+    lcall ELCD_Write_String
+    ret
+
+Show_Reflow_Message:
+    lcall ELCD_Clr
+    mov dptr, #msg_reflow
+    lcall ELCD_Write_String
+    ret
+
+Show_Cooling_Message:
+    lcall ELCD_Clr
+    mov dptr, #msg_cool
+    lcall ELCD_Write_String
+    ret
+
+msg_heat:   DB 'Heating...', 0
+msg_soak:   DB 'Soak Stage', 0
+msg_reflow: DB 'Reflow Stage', 0
+msg_cool:   DB 'Cooling...', 0
+
+; Labels for parameter edit UI
+msg_param_A:    DB 'A: Soak Temp', 0
+msg_param_B:    DB 'B: Soak Time', 0
+msg_param_C:    DB 'C: Refl Temp', 0
+msg_param_D:    DB 'D: Refl Time', 0
+
+msg_val_prefix: DB 'Val:', 0
+
+;--------------------------------------------------
+; Macros for math32
+;--------------------------------------------------
+ADD_16 MAC
+    ADD A, %0     ; Add low byte
+    MOV R2, A
+    MOV A, R1
+    ADDC A, %1
+    MOV R1, A
+ENDMAC
+
+Load_X_Var16 MAC
+    mov x+0, %0+0
+    mov x+1, %0+1
+    mov x+2, #0
+    mov x+3, #0
+ENDMAC
+
+Load_Y_Var16 MAC
+    mov y+0, %0+0
+    mov y+1, %0+1
+    mov y+2, #0
+    mov y+3, #0
+ENDMAC
+
+Load_X_Var8 MAC
+    mov x+0, %0+0
+    mov x+1, #0
+    mov x+2, #0
+    mov x+3, #0
+ENDMAC
+
+Load_Y_Var8 MAC
+    mov y+0, %0+0
+    mov y+1, #0
+    mov y+2, #0
+    mov y+3, #0
+ENDMAC
+
+tempConv_cold MAC
+	; Load 32-bit 'x' with 12-bit adc result
+	mov x+3, #0
+	mov x+2, #0
+	mov x+1, ADC_H
+	mov x+0, ADC_L
+
+	Load_y(50300) ; VCC voltage measured
+	lcall mul32
+	Load_y(4096)
+	lcall div32
+	Load_y(27300)
+	lcall sub32
+	Load_y(100)
+	lcall mul32
+
+	lcall hex2bcd
+ENDMAC
+
+tempConv_hot MAC
+	; Load 32-bit 'x' with 12-bit adc result
+	mov x+3, #0
+	mov x+2, #0
+	mov x+1, ADC_H
+	mov x+0, ADC_L
+
+	Load_y(12288)   ; gain constant
+	lcall mul32
+	
+	Load_y(4096)
+	lcall div32
+
+	lcall hex2bcd
+ENDMAC
+
+powerPercent MAC
+	; %0 = percent (8-bit), %1 = total time (16-bit), %2 = timeOn (16-bit)
+	mov x+0, %0
+	mov x+1, #0
+	mov x+2, #0
+	mov x+3, #0
+
+	Load_Y_Var16(%1)
+	lcall mul32
+	
+	load_y(100)
+	lcall div32
+	
+	mov %2+0, x+0
+	mov %2+1, x+1
+ENDMAC
+
+;--------------------------------------------------
+; Save/restore BCD buffer when math uses bcd[]
+;--------------------------------------------------
+Save_BCD:
+    mov  math_space+0, bcd+0
+    mov  math_space+1, bcd+1
+    mov  math_space+2, bcd+2
+    mov  math_space+3, bcd+3
+    mov  math_space+4, bcd+4
+    ret
+
+Restore_BCD:
+    mov  bcd+0, math_space+0
+    mov  bcd+1, math_space+1
+    mov  bcd+2, math_space+2
+    mov  bcd+3, math_space+3
+    mov  bcd+4, math_space+4
+    ret
+
+;--------------------------------------------------
+; Display active parameter & value on LCD
+;--------------------------------------------------
+Display_ActiveParam_LCD:
+    ; Clear LCD
+    lcall ELCD_Clr
+
+    ; ---- Line 1: label ----
+    mov  A, #0
+    mov  R0, A      ; row 0
+    mov  R1, A      ; col 0
+    lcall ELCD_GotoXY
+
+    mov  A, active_param
+    cjne A, #0, DAPL_NotA
+    mov  dptr, #msg_param_A
+    sjmp DAPL_Label
+
+DAPL_NotA:
+    cjne A, #1, DAPL_NotB
+    mov  dptr, #msg_param_B
+    sjmp DAPL_Label
+
+DAPL_NotB:
+    cjne A, #2, DAPL_NotC
+    mov  dptr, #msg_param_C
+    sjmp DAPL_Label
+
+DAPL_NotC:
+    mov  dptr, #msg_param_D
+
+DAPL_Label:
+    lcall ELCD_Write_String
+
+    ; ---- Line 2: "Val: xxxx" ----
+    mov  A, #1
+    mov  R0, A      ; row 1
+    mov  R1, #0     ; col 0
+    lcall ELCD_GotoXY
+
+    mov  dptr, #msg_val_prefix
+    lcall ELCD_Write_String
+
+    ; Save keypad BCD buffer
+    lcall Save_BCD
+
+    ; Load selected parameter into x (32-bit)
+    mov  A, active_param
+    cjne A, #0, DAPV_NotA
+    ; soak_temp
+    mov  x+0, soak_temp
+    mov  x+1, soak_temp+1
+    sjmp DAPV_Conv
+
+DAPV_NotA:
+    cjne A, #1, DAPV_NotB
+    ; soak_time
+    mov  x+0, soak_time
+    mov  x+1, soak_time+1
+    sjmp DAPV_Conv
+
+DAPV_NotB:
+    cjne A, #2, DAPV_NotC
+    ; reflow_temp
+    mov  x+0, reflow_temp
+    mov  x+1, reflow_temp+1
+    sjmp DAPV_Conv
+
+DAPV_NotC:
+    ; reflow_time
+    mov  x+0, reflow_time
+    mov  x+1, reflow_time+1
+
+DAPV_Conv:
+    mov  x+2, #0
+    mov  x+3, #0
+
+    ; x -> BCD in bcd[]
+    lcall hex2bcd
+
+    ; thousands
+    mov  A, bcd+1
+    swap A
+    anl  A, #0Fh
+    add  A, #'0'
+    lcall ELCD_Write_Char
+
+    ; hundreds
+    mov  A, bcd+1
+    anl  A, #0Fh
+    add  A, #'0'
+    lcall ELCD_Write_Char
+
+    ; tens
+    mov  A, bcd+0
+    swap A
+    anl  A, #0Fh
+    add  A, #'0'
+    lcall ELCD_Write_Char
+
+    ; ones
+    mov  A, bcd+0
+    anl  A, #0Fh
+    add  A, #'0'
+    lcall ELCD_Write_Char
+
+    ; Restore keypad BCD buffer
+    lcall Restore_BCD
+
+    ret
+
+;---------------------------------;
+; Hardware/variable initialization;
+;---------------------------------;
+Initial_ALL:
+
+   	clr EA ;disable global interrupts
+   	
+   	; Initialization of hardware
+    lcall Timer2_Init
+    lcall ELCD_4BIT ; Configure LCD in four bit mode
+
+   	; Initialize stack and LEDs
+   	mov SP, #7FH
+	mov LEDRA, #0
+	mov LEDRB, #0
+	
+   	; Initialize variables
+    mov FSM_state, #0x00
+	clr SSR_PIN
+	clr mf
+	clr ssr_f
+	setb state_flag ; new state flag
+	
+	mov SecondsCounterTotal, #0x00
+    mov QuarterSecondsCounter, #0x00
+    
+    ; Default reflow profile parameters
+    mov soak_temp+0,    #150    ; 150
+    mov soak_temp+1,    #0
+	mov soak_time+0,    #60     ; 60
+	mov soak_time+1,    #0
+	mov reflow_temp+0,  #230    ; 230
+	mov reflow_temp+1,  #0
+	mov reflow_time+0,  #30     ; 30
+	mov reflow_time+1,  #30
+	
+	mov tempFinal+0, #0
+	mov tempFinal+1, #0
+	mov tempFinal+2, #0
+	mov tempFinal+3, #0
+	
+	mov tempCold+0, #0
+	mov tempCold+1, #0
+	mov tempCold+2, #0
+	mov tempCold+3, #0
+	
+	mov tempHot+0, #0
+	mov tempHot+1, #0
+	mov tempHot+2, #0
+	mov tempHot+3, #0
+
+	; Speaker frequency
+	mov Timer0Reload+1, #high(TIMER0_RELOAD)
+	mov Timer0Reload+0, #low(TIMER0_RELOAD)
+	
+	; Stop interrupts for speaker
+	clr TR0
+    clr ET0
+
+    ; Keypad / parameter init
+    mov active_param, #0        ; start in mode A (soak_temp)
+    lcall Load_Param_Into_BCD   ; load soak_temp into bcd
+    lcall Configure_Keypad_Pins ; setup keypad I/O
+
+	setb EA ;enable global interrupts
+	
+	ret
+	
+;---------------------------------;
+; Main program                    ;
+;---------------------------------;
+main:
+	mov P0MOD, #0x01 ;configures P0.0 as output
+	; Configure P1.5 as input (0 = input)
+	anl P1MOD, #0DFh   ; 1101 1111 -> clear bit 5
+
+	lcall Initial_ALL
+	
+loop:
+	
+	; Debug: show some info on 7-seg without corrupting keypad bcd
+	clr EA
+
+    ; SecondsCounter on HEX1-0
+    lcall Save_BCD
+	Load_X_Var8(SecondsCounter)
+	lcall hex2bcd
+	mov R0, bcd+0
+	lcall Display_BCD_7_Seg_HEX10
+    lcall Restore_BCD
+	
+    ; SecondsCounterTotal on HEX3-2
+    lcall Save_BCD
+	Load_X_Var8(SecondsCounterTotal)
+	lcall hex2bcd
+	mov R0, bcd+0
+	lcall Display_BCD_7_Seg_HEX32
+    lcall Restore_BCD
+	
+    ; tempFinal on HEX5-4
+    lcall Save_BCD
+	load_x(tempFinal)
+	lcall hex2bcd
+	mov R0, bcd+0
+	lcall Display_BCD_7_Seg_HEX54
+    lcall Restore_BCD
+	
+	setb EA
+
+	; skips over old oven test code, jump into ADC section
+	sjmp ADCcheck
+
+; --- Oven test code (kept, but unreachable due to sjmp ADCcheck) ---
+	; ...
+; --- End oven test ---
+
+ADCcheck:
+	
+	; ALL TEMP MATH -------------------------
+	clr EA
+	mov ADC_C, #LM335_ADC
+	tempConv_cold
+	mov tempCold+0, bcd+0
+	mov tempCold+1, bcd+1
+	mov tempCold+2, bcd+2
+	mov tempCold+3, bcd+3
+	
+	mov ADC_C, #OP07_ADC
+	tempConv_hot
+	mov tempHot+0, bcd+0
+	mov tempHot+1, bcd+1
+	mov tempHot+2, bcd+2
+	mov tempHot+3, bcd+3
+	
+	; Add temperatures
+	mov x+0, tempHot+0
+	mov x+1, tempHot+1
+	mov x+2, tempHot+2
+	mov x+3, tempHot+3
+	
+	mov y+0, tempCold+0
+	mov y+1, tempCold+1
+	mov y+2, tempCold+2
+	mov y+3, tempCold+3
+	
+	lcall add32
+	
+	mov tempFinal+0, x+0
+	mov tempFinal+1, x+1
+	mov tempFinal+2, x+2
+	mov tempFinal+3, x+3
+	setb EA
+
+;-------------------------------------------------------------------------------
+; FSM
+;-------------------------------------------------------------------------------
+
+; Clears second counter per state on transition
+	jnb state_flag, no_new_state
+	
+	clr state_flag
+	clr EA
+	mov SecondsCounter, #0x00
+	setb EA
+no_new_state:
+
+	mov a, FSM_state
+	mov LEDRA, #0
+
+FSM_state0:
+	; Waiting for start; parameter edit mode
+	cjne a, #0, FSM_state1
+
+    ; ---- Keypad parameter UI ----
+    lcall Keypad        ; A/B/C/D modes, *, #, digits
+
+    jnc FSM0_NoDigit    ; C=0 → mode/backspace/clear/no key
+
+    ; C=1 → digit pressed
+    lcall Shift_Digits_Left
+
+FSM0_NoDigit:
+    ; Update LCD with currently active parameter + value
+    clr EA
+    lcall Display_ActiveParam_LCD
+    setb EA
+
+	setb LEDRA.0
+	clr SSR_PIN
+
+	jb SWA.0, FSM_done   ; manual override
+
+	jnb START_BUTTON, start_pressed   ; active LOW button
+
+	sjmp FSM_done        ; not pressed → stay here
+
+start_pressed:
+    clr EA
+    lcall Show_Heating_Message
+    setb EA
+
+    setb state_flag
+    inc FSM_state
+    ljmp FSM_done
+
+FSM_state1:	
+	; Heating to soak temperature
+	cjne a, #1, FSM_state2
+	setb LEDRA.1
+
+	setb SSR_PIN
+
+	; if tempFinal > soak_temp
+	clr EA
+	load_x(tempFinal)
+	Load_Y_Var16(soak_temp)
+	clr mf
+	lcall x_gt_y
+	setb EA
+	
+	jb SWA.1, FSM_done_state_1_skip
+	
+	jnb mf, FSM_done_state_1_Continue 
+	sjmp FSM_done_state_1_Skip
+FSM_done_state_1_Continue:
+	ljmp FSM_done
+	
+FSM_done_state_1_Skip:
+    clr EA
+    lcall Show_Soak_Message
+    setb EA
+	setb state_flag
+	inc FSM_state
+	ljmp FSM_done
+
+FSM_state2:	
+	; Soak stage
+	cjne a, #2, FSM_state3_continue_move
+	sjmp FSM_state3_skip_move
+FSM_state3_continue_move:
+	ljmp FSM_state3
+FSM_state3_skip_move:
+	
+	setb LEDRA.2
+	
+	clr EA
+	powerPercent(#20, soak_time, timeOn)
+	; SSR duty cycle according to timeOn
+	Load_X_Var8(SecondsCounter)	
+	Load_Y_Var16(timeOn)
+	clr mf
+	lcall x_gt_y
+	setb EA
+
+	jnb mf, ssr_off
+	setb SSR_PIN
+	sjmp ssr_on
+
+ssr_off:
+	clr SSR_PIN
+ssr_on:
+
+	; After soak_time, move on
+	clr EA
+	Load_X_Var8(SecondsCounter) 
+	Load_Y_Var16(soak_time)
+	clr mf  
+	lcall x_gt_y
+	setb EA
+	
+	jb SWA.2, FSM_done_state_2_skip
+	
+	jnb mf, FSM_done_state_2_Continue
+	sjmp FSM_done_state_2_Skip
+FSM_done_state_2_Continue:
+	ljmp FSM_done
+FSM_done_state_2_Skip:
+	
+	setb state_flag
+	inc FSM_state
+	ljmp FSM_done
+
+FSM_state3:	
+	; Heating to reflow temperature
+	cjne a, #3, FSM_state4
+	setb LEDRA.3
+
+	setb SSR_PIN
+
+	; if tempFinal > reflow_temp
+	clr EA
+	Load_X_Var16(reflow_temp)
+	load_y(tempFinal)
+	clr mf
+	lcall x_gt_y
+	setb EA
+	
+	jb SWA.3, FSM_done_state_3_skip
+	
+	jb mf, FSM_done_state_3_Continue 
+	sjmp FSM_done_state_3_Skip
+FSM_done_state_3_Continue:
+	ljmp FSM_done
+FSM_done_state_3_Skip:
+    clr EA
+    lcall Show_Reflow_Message
+    setb EA
+	setb state_flag
+	inc FSM_state
+	ljmp FSM_done
+
+FSM_state4:	
+	; Reflow hold stage
+	cjne a, #4, FSM_state5_continue_move
+	sjmp FSM_state5_skip_move
+FSM_state5_continue_move:
+	ljmp FSM_state5
+FSM_state5_skip_move:
+	
+	setb LEDRA.4
+	
+	clr EA
+	powerPercent(#20, reflow_time, timeOn)
+	; SSR duty cycle
+	Load_X_Var8(SecondsCounter)
+	Load_Y_Var16(timeOn)
+	clr mf  
+	lcall x_gt_y 
+	setb EA
+
+	jnb mf, ssr_off1
+	setb SSR_PIN
+	sjmp ssr_on1
+
+ssr_off1:
+	clr SSR_PIN
+ssr_on1:
+
+	; when SecondsCounter > reflow_time, move on
+	clr EA
+	Load_X_Var16(reflow_time)
+	Load_Y_Var8(SecondsCounter)
+	clr mf
+	lcall x_gt_y
+	setb EA
+	
+	jb SWA.4, FSM_done_state_4_Skip
+	jb mf, FSM_done
+	
+FSM_done_state_4_Skip:
+    clr EA
+    lcall Show_Cooling_Message
+    setb EA
+
+	setb state_flag
+	inc FSM_state
+	ljmp FSM_done
+
+FSM_state5:	
+	; Cooling until tempFinal < 60C
+	cjne a, #5, FSM_done
+	setb LEDRA.5
+
+	clr SSR_PIN
+	
+	clr EA
+	load_x(tempFinal)
+	load_y(60)
+	clr mf
+	lcall x_lt_y
+	setb EA
+	
+	jb SWA.5, FSM_done_state_5_Skip
+	jnb mf, FSM_done
+	
+FSM_done_state_5_Skip:
+	setb state_flag
+	mov FSM_state, #0x00
+
+FSM_done:
+
+;-------------------------------------------------------------------------------
+ljmp loop
+END
