@@ -1,17 +1,17 @@
                   2   $LIST
 0000              4   
-0000              5   
-0000              6   
-0000              7   ; Reset vector – when MCU starts it jumps to main_code
+0000              5   ;--------------------------------------------------
+0000              6   ; Reset vector - when MCU starts it jumps to main_code
+0000              7   ;--------------------------------------------------
 0000              8   CSEG at 0
-0000 020350       9       ljmp main_code        ; Jump to main program
+0000 020368       9       ljmp main_code        ; Jump to main program
 0003             10   
-0003             11   ; -------------------------------------------------
-0003             12   ; Data Segment – reserve RAM for BCD digits & params
-0003             13   ; -------------------------------------------------
+0003             11   ;--------------------------------------------------
+0003             12   ; Data Segment - reserve RAM for BCD digits & params
+0003             13   ;--------------------------------------------------
 0003             14   
 0030             15   DSEG at 30H
-0030             16   bcd:            ds 5      ; Reserve 5 bytes ? stores 10 BCD digits (2 per byte)
+0030             16   bcd:            ds 5      ; 5 bytes = 10 BCD digits (2 per byte)
 0035             17   
 0035             18   ; Reflow parameters, each stored as 4 BCD digits (2 bytes)
 0035             19   ; A: Soak temperature
@@ -26,754 +26,772 @@
 003D             28   
 003D             29   active_param:   ds 1      ; 0 = A, 1 = B, 2 = C, 3 = D
 003E             30   
-003E             31   ; -------------------------------------------------
+003E             31   ;--------------------------------------------------
 003E             32   ; Code Segment
-003E             33   ; -------------------------------------------------
+003E             33   ;--------------------------------------------------
 003E             34   
 0003             35   CSEG
 0003             36   
-0003             37   ; Lookup table for 7-segment display patterns (common anode)
-0003             38   ; Index 0–F ? segment pattern
-0003             39   
-0003             40   myLUT:
-0003 C0F9A4B0    41       DB 0xC0, 0xF9, 0xA4, 0xB0, 0x99        ; digits 0–4
+0003             37   ;--------------------------------------------------
+0003             38   ; Lookup table for 7-segment display patterns (common anode)
+0003             39   ; Index 0-F = segment pattern
+0003             40   ;--------------------------------------------------
+0003             41   
+0003             42   myLUT:
+0003 C0F9A4B0    43       DB 0C0h, 0F9h, 0A4h, 0B0h, 099h        ; digits 0-4
      99
-0008 9282F880    42       DB 0x92, 0x82, 0xF8, 0x80, 0x90        ; digits 5–9
+0008 9282F880    44       DB 092h, 082h, 0F8h, 080h, 090h        ; digits 5-9
      90
-000D 8883C6A1    43       DB 0x88, 0x83, 0xC6, 0xA1, 0x86, 0x8E  ; A–F
+000D 8883C6A1    45       DB 088h, 083h, 0C6h, 0A1h, 086h, 08Eh  ; A-F
      868E
-0013             44   
-0013             45   ;---------------------------------------------------------
-0013             46   ; Macro: showBCD
-0013             47   ; Input : one byte containing two BCD digits
-0013             48   ; Output: two 7-seg displays
-0013             49   ;   %0 = bcd byte
-0013             50   ;   %1 = HEX low
-0013             51   ;   %2 = HEX high
-0013             52   ;---------------------------------------------------------
-0013             53   
-                 54   showBCD MAC
-                 55       ; ---- Display lower nibble (LSD) ----
-                 56       mov A, %0          ; Load BCD byte
-                 57       anl a, #0fh        ; Keep lower 4 bits
-                 58       movc A, @A+dptr    ; Convert using LUT
-                 59       mov %1, A          ; Output to first HEX display
-                 60   
-                 61       ; ---- Display upper nibble (MSD) ----
-                 62       mov A, %0
-                 63       swap a             ; Swap nibbles
-                 64       anl a, #0fh
-                 65       movc A, @A+dptr
-                 66       mov %2, A          ; Output to second HEX display
-                 67   ENDMAC
-0013             68   
-0013             69   
-0013             70   ; -------------------------------------------------
-0013             71   ; Display routine – show BCD number on HEX displays
-0013             72   ; KEY3: 0 ? show high digits, 1 ? show low digits
-0013             73   ; LEDRA.7: overflow indicator if bcd+3 or bcd+4 != 0
-0013             74   ; -------------------------------------------------
-0013             75   
-0013             76   Display:
-0013 900003      77       mov dptr, #myLUT   ; Point to lookup table
-0016             78   
-0016             79       ; If digits 10–7 (bcd+3 and bcd+4) are NOT zero
-0016             80       ; ? turn ON LEDR7 as overflow indicator
-0016             81   
-0016 E533        82       mov a, bcd+3
-0018 4534        83       orl a, bcd+4
-001A 6004        84       jz Display_L1
-001C D2EF        85       setb LEDRA.7       ; Alert LED on
-001E 8002        86       sjmp Display_L2
-0020             87   Display_L1:
-0020 C2EF        88       clr LEDRA.7        ; Alert LED off
-0022             89   Display_L2:
-0022             90   
-0022             91       ; If KEY3 pressed (assuming active low) ? show HIGH digits
-0022             92       ; Otherwise show LOW digits
-0022             93   
-0022 30FB2F      94       jnb key.3, Display_high_digits
-0025             95   
-0025             96       ; Show lower 6 digits
-0025             97       ; ---- Display lower nibble (LSD) ----
-0025 E530        97       mov A, bcd+0          ; Load BCD byte
-0027 540F        97       anl a, #0fh        ; Keep lower 4 bits
-0029 93          97       movc A, @A+dptr    ; Convert using LUT
-002A F591        97       mov HEX0, A          ; Output to first HEX display
-002C             97   
-002C             97       ; ---- Display upper nibble (MSD) ----
-002C E530        97       mov A, bcd+0
-002E C4          97       swap a             ; Swap nibbles
-002F 540F        97       anl a, #0fh
-0031 93          97       movc A, @A+dptr
-0032 F592        97       mov HEX1, A          ; Output to second HEX display
-0034             98       ; ---- Display lower nibble (LSD) ----
-0034 E531        98       mov A, bcd+1          ; Load BCD byte
-0036 540F        98       anl a, #0fh        ; Keep lower 4 bits
-0038 93          98       movc A, @A+dptr    ; Convert using LUT
-0039 F593        98       mov HEX2, A          ; Output to first HEX display
-003B             98   
-003B             98       ; ---- Display upper nibble (MSD) ----
-003B E531        98       mov A, bcd+1
-003D C4          98       swap a             ; Swap nibbles
-003E 540F        98       anl a, #0fh
-0040 93          98       movc A, @A+dptr
-0041 F594        98       mov HEX3, A          ; Output to second HEX display
-0043             99       ; ---- Display lower nibble (LSD) ----
-0043 E532        99       mov A, bcd+2          ; Load BCD byte
-0045 540F        99       anl a, #0fh        ; Keep lower 4 bits
-0047 93          99       movc A, @A+dptr    ; Convert using LUT
-0048 F58E        99       mov HEX4, A          ; Output to first HEX display
-004A             99   
-004A             99       ; ---- Display upper nibble (MSD) ----
-004A E532        99       mov A, bcd+2
-004C C4          99       swap a             ; Swap nibbles
-004D 540F        99       anl a, #0fh
-004F 93          99       movc A, @A+dptr
-0050 F58F        99       mov HEX5, A          ; Output to second HEX display
-0052 8024       100       sjmp Display_end
-0054            101   
-0054            102   Display_high_digits:
-0054            103       ; Show upper 4 digits
-0054            104       ; ---- Display lower nibble (LSD) ----
-0054 E533       104       mov A, bcd+3          ; Load BCD byte
-0056 540F       104       anl a, #0fh        ; Keep lower 4 bits
-0058 93         104       movc A, @A+dptr    ; Convert using LUT
-0059 F591       104       mov HEX0, A          ; Output to first HEX display
-005B            104   
-005B            104       ; ---- Display upper nibble (MSD) ----
-005B E533       104       mov A, bcd+3
-005D C4         104       swap a             ; Swap nibbles
-005E 540F       104       anl a, #0fh
-0060 93         104       movc A, @A+dptr
-0061 F592       104       mov HEX1, A          ; Output to second HEX display
-0063            105       ; ---- Display lower nibble (LSD) ----
-0063 E534       105       mov A, bcd+4          ; Load BCD byte
-0065 540F       105       anl a, #0fh        ; Keep lower 4 bits
-0067 93         105       movc A, @A+dptr    ; Convert using LUT
-0068 F593       105       mov HEX2, A          ; Output to first HEX display
-006A            105   
-006A            105       ; ---- Display upper nibble (MSD) ----
-006A E534       105       mov A, bcd+4
-006C C4         105       swap a             ; Swap nibbles
-006D 540F       105       anl a, #0fh
-006F 93         105       movc A, @A+dptr
-0070 F594       105       mov HEX3, A          ; Output to second HEX display
-0072            106   
-0072            107       ; Blank remaining displays
-0072 758EFF     108       mov HEX4, #0xff
-0075 758FFF     109       mov HEX5, #0xff
-0078            110   
-0078            111   Display_end:
-0078 22         112       ret
-0079            113   
-0079            114   ; -------------------------------------------------
-0079            115   ; Macro: Rotate Left through Carry
-0079            116   ; -------------------------------------------------
-0079            117   
-                118   MYRLC MAC
-                119       mov a, %0
-                120       rlc a
-                121       mov %0, a
-                122   ENDMAC
-0079            123   
-0079            124   ; -------------------------------------------------
-0079            125   ; Shift all BCD digits LEFT by 4 bits
-0079            126   ; ? makes room for new digit in LSD (R7)
-0079            127   ; -------------------------------------------------
-0079            128   
-0079            129   Shift_Digits_Left:
-0079 7804       130       mov R0, #4         ; Need 4 bit shifts (one nibble)
-007B            131   
-007B            132   Shift_Digits_Left_L0:
-007B C3         133       clr c              ; Clear carry before shift
-007C E530       134       mov a, bcd+0
-007E 33         134       rlc a
-007F F530       134       mov bcd+0, a
-0081 E531       135       mov a, bcd+1
-0083 33         135       rlc a
-0084 F531       135       mov bcd+1, a
-0086 E532       136       mov a, bcd+2
-0088 33         136       rlc a
-0089 F532       136       mov bcd+2, a
-008B E533       137       mov a, bcd+3
-008D 33         137       rlc a
-008E F533       137       mov bcd+3, a
-0090 E534       138       mov a, bcd+4
-0092 33         138       rlc a
-0093 F534       138       mov bcd+4, a
-0095 D8E4       139       djnz R0, Shift_Digits_Left_L0
-0097            140   
-0097            141       ; Insert new digit from R7 into lowest nibble safely
-0097            142       ; Keep upper nibble of bcd+0 unchanged
-0097 5330F0     143       anl bcd+0, #0F0h   ; clear lower nibble
-009A EF         144       mov a, R7
-009B 540F       145       anl a, #0Fh        ; ensure only 0–F
-009D 4230       146       orl bcd+0, a
-009F 22         147       ret
-00A0            148   
-00A0            149   ; -------------------------------------------------
-00A0            150   ; Macro: Rotate Right through Carry
-00A0            151   ; -------------------------------------------------
-00A0            152   
-                153   MYRRC MAC
-                154       mov a, %0
-                155       rrc a
-                156       mov %0, a
-                157   ENDMAC
-00A0            158   
-00A0            159   ; -------------------------------------------------
-00A0            160   ; Shift digits RIGHT by 4 bits
-00A0            161   ; ? used for BACKSPACE (delete last digit)
-00A0            162   ; -------------------------------------------------
-00A0            163   
-00A0            164   Shift_Digits_Right:
-00A0 7804       165       mov R0, #4
-00A2            166   
-00A2            167   Shift_Digits_Right_L0:
-00A2 C3         168       clr c
-00A3 E534       169       mov a, bcd+4
-00A5 13         169       rrc a
-00A6 F534       169       mov bcd+4, a
-00A8 E533       170       mov a, bcd+3
-00AA 13         170       rrc a
-00AB F533       170       mov bcd+3, a
-00AD E532       171       mov a, bcd+2
-00AF 13         171       rrc a
-00B0 F532       171       mov bcd+2, a
-00B2 E531       172       mov a, bcd+1
-00B4 13         172       rrc a
-00B5 F531       172       mov bcd+1, a
-00B7 E530       173       mov a, bcd+0
-00B9 13         173       rrc a
-00BA F530       173       mov bcd+0, a
-00BC D8E4       174       djnz R0, Shift_Digits_Right_L0
-00BE 22         175       ret
-00BF            176   
-00BF            177   
-00BF            178   ; -------------------------------------------------
-00BF            179   ; 25 ms delay (software debounce)
-00BF            180   ; -------------------------------------------------
-00BF            181   
-00BF            182   Wait25ms:
-00BF 780F       183       mov R0, #15
-00C1 794A       184   L3: mov R1, #74
-00C3 7AFA       185   L2: mov R2, #250
-00C5 DAFE       186   L1: djnz R2, L1
-00C7 D9FA       187       djnz R1, L2
-00C9 D8F6       188       djnz R0, L3
-00CB 22         189       ret
-00CC            190   
-00CC            191   
-00CC            192   ; -------------------------------------------------
-00CC            193   ; Helper routines for parameter storage
-00CC            194   ; Each parameter value lives in bcd+0..bcd+1
-00CC            195   ; active_param: 0=A, 1=B, 2=C, 3=D
-00CC            196   ; -------------------------------------------------
-00CC            197   
-00CC            198   ; Save current BCD (bcd+0..bcd+1) into active parameter
-00CC            199   Save_Current_BCD_Into_Param:
-00CC E53D       200       mov a, active_param
-00CE B40007     201       cjne a, #0, Save_NotA
-00D1            202       ; A: soak_temp
-00D1 853035     203       mov soak_temp,   bcd+0
-00D4 853136     204       mov soak_temp+1, bcd+1
-00D7 22         205       ret
-00D8            206   Save_NotA:
-00D8 B40107     207       cjne a, #1, Save_NotB
-00DB            208       ; B: soak_time
-00DB 853037     209       mov soak_time,   bcd+0
-00DE 853138     210       mov soak_time+1, bcd+1
-00E1 22         211       ret
-00E2            212   Save_NotB:
-00E2 B40207     213       cjne a, #2, Save_NotC
-00E5            214       ; C: reflow_temp
-00E5 853039     215       mov reflow_temp,   bcd+0
-00E8 85313A     216       mov reflow_temp+1, bcd+1
-00EB 22         217       ret
-00EC            218   Save_NotC:
-00EC            219       ; D: reflow_time (default case)
-00EC 85303B     220       mov reflow_time,   bcd+0
-00EF 85313C     221       mov reflow_time+1, bcd+1
-00F2 22         222       ret
-00F3            223   
-00F3            224   
-00F3            225   ; Load active parameter into BCD (bcd+0..bcd+1)
-00F3            226   ; Clear the higher digits.
-00F3            227   Load_Param_Into_BCD:
-00F3 753200     228       mov bcd+2, #00h
-00F6 753300     229       mov bcd+3, #00h
-00F9 753400     230       mov bcd+4, #00h
-00FC            231   
-00FC E53D       232       mov a, active_param
-00FE B40007     233       cjne a, #0, Load_NotA
-0101            234       ; A: soak_temp
-0101 853530     235       mov bcd+0, soak_temp
-0104 853631     236       mov bcd+1, soak_temp+1
-0107 22         237       ret
-0108            238   Load_NotA:
-0108 B40107     239       cjne a, #1, Load_NotB
-010B            240       ; B: soak_time
-010B 853730     241       mov bcd+0, soak_time
-010E 853831     242       mov bcd+1, soak_time+1
-0111 22         243       ret
-0112            244   Load_NotB:
-0112 B40207     245       cjne a, #2, Load_NotC
-0115            246       ; C: reflow_temp
-0115 853930     247       mov bcd+0, reflow_temp
-0118 853A31     248       mov bcd+1, reflow_temp+1
-011B 22         249       ret
-011C            250   Load_NotC:
-011C            251       ; D: reflow_time (default)
-011C 853B30     252       mov bcd+0, reflow_time
-011F 853C31     253       mov bcd+1, reflow_time+1
-0122 22         254       ret
-0123            255   
-0123            256   
-0123            257   ; -------------------------------------------------
-0123            258   ; Macro: Check one keypad column
-0123            259   ; If pressed ? R7 = key value, C=1, jump to Key_Found
-0123            260   ; %0 = column bit, %1 = key code (immediate)
-0123            261   ; -------------------------------------------------
-0123            262   
-                263   CHECK_COLUMN MAC
-                264       jb %0, CHECK_COL_%M      ; if column=1 ? no key here ? skip
-                265       mov R7, %1               ; store key code
-                266       jnb %0, $                ; wait until key is released
-                267       setb c                   ; mark "key found"
-                268       ljmp Key_Found           ; use long jump instead of short
-                269   CHECK_COL_%M:
-                270   ENDMAC
-0123            271   
-0123            272   
+0013             46   
+0013             47   ;--------------------------------------------------
+0013             48   ; Macro: showBCD
+0013             49   ; Input : one byte containing two BCD digits
+0013             50   ; Output: two 7-seg displays
+0013             51   ;   %0 = bcd byte
+0013             52   ;   %1 = HEX low
+0013             53   ;   %2 = HEX high
+0013             54   ;--------------------------------------------------
+0013             55   
+                 56   showBCD MAC
+                 57       ; ---- Display lower nibble (LSD) ----
+                 58       mov  A, %0           ; Load BCD byte
+                 59       anl  A, #0Fh         ; Keep lower 4 bits
+                 60       movc A, @A+dptr      ; Convert using LUT
+                 61       mov  %1, A           ; Output to first HEX display
+                 62   
+                 63       ; ---- Display upper nibble (MSD) ----
+                 64       mov  A, %0
+                 65       swap A               ; Swap nibbles
+                 66       anl  A, #0Fh
+                 67       movc A, @A+dptr
+                 68       mov  %2, A           ; Output to second HEX display
+                 69   ENDMAC
+0013             70   
+0013             71   
+0013             72   ;--------------------------------------------------
+0013             73   ; Display routine - show BCD number on HEX displays
+0013             74   ; KEY3: 0 = show high digits, 1 = show low digits
+0013             75   ; LEDRA.7: overflow indicator if bcd+3 or bcd+4 != 0
+0013             76   ;--------------------------------------------------
+0013             77   
+0013             78   Display:
+0013 900003      79       mov dptr, #myLUT     ; Point to lookup table
+0016             80   
+0016             81       ; If digits 10-7 (bcd+3 and bcd+4) are NOT zero
+0016             82       ; turn ON LEDRA.7 as overflow indicator
+0016             83   
+0016 E533        84       mov A, bcd+3
+0018 4534        85       orl A, bcd+4
+001A 6004        86       jz  Display_L1
+001C D2EF        87       setb LEDRA.7         ; Alert LED on
+001E 8002        88       sjmp Display_L2
+0020             89   Display_L1:
+0020 C2EF        90       clr LEDRA.7          ; Alert LED off
+0022             91   Display_L2:
+0022             92   
+0022             93       ; If KEY3 pressed (assuming active low) show HIGH digits
+0022             94       ; Otherwise show LOW digits
+0022             95   
+0022 30FB2F      96       jnb KEY.3, Display_high_digits
+0025             97   
+0025             98       ; Show lower 6 digits
+0025             99       ; ---- Display lower nibble (LSD) ----
+0025 E530        99       mov  A, bcd+0           ; Load BCD byte
+0027 540F        99       anl  A, #0Fh         ; Keep lower 4 bits
+0029 93          99       movc A, @A+dptr      ; Convert using LUT
+002A F591        99       mov  HEX0, A           ; Output to first HEX display
+002C             99   
+002C             99       ; ---- Display upper nibble (MSD) ----
+002C E530        99       mov  A, bcd+0
+002E C4          99       swap A               ; Swap nibbles
+002F 540F        99       anl  A, #0Fh
+0031 93          99       movc A, @A+dptr
+0032 F592        99       mov  HEX1, A           ; Output to second HEX display
+0034            100       ; ---- Display lower nibble (LSD) ----
+0034 E531       100       mov  A, bcd+1           ; Load BCD byte
+0036 540F       100       anl  A, #0Fh         ; Keep lower 4 bits
+0038 93         100       movc A, @A+dptr      ; Convert using LUT
+0039 F593       100       mov  HEX2, A           ; Output to first HEX display
+003B            100   
+003B            100       ; ---- Display upper nibble (MSD) ----
+003B E531       100       mov  A, bcd+1
+003D C4         100       swap A               ; Swap nibbles
+003E 540F       100       anl  A, #0Fh
+0040 93         100       movc A, @A+dptr
+0041 F594       100       mov  HEX3, A           ; Output to second HEX display
+0043            101       ; ---- Display lower nibble (LSD) ----
+0043 E532       101       mov  A, bcd+2           ; Load BCD byte
+0045 540F       101       anl  A, #0Fh         ; Keep lower 4 bits
+0047 93         101       movc A, @A+dptr      ; Convert using LUT
+0048 F58E       101       mov  HEX4, A           ; Output to first HEX display
+004A            101   
+004A            101       ; ---- Display upper nibble (MSD) ----
+004A E532       101       mov  A, bcd+2
+004C C4         101       swap A               ; Swap nibbles
+004D 540F       101       anl  A, #0Fh
+004F 93         101       movc A, @A+dptr
+0050 F58F       101       mov  HEX5, A           ; Output to second HEX display
+0052 8024       102       sjmp Display_end
+0054            103   
+0054            104   Display_high_digits:
+0054            105       ; Show upper 4 digits
+0054            106       ; ---- Display lower nibble (LSD) ----
+0054 E533       106       mov  A, bcd+3           ; Load BCD byte
+0056 540F       106       anl  A, #0Fh         ; Keep lower 4 bits
+0058 93         106       movc A, @A+dptr      ; Convert using LUT
+0059 F591       106       mov  HEX0, A           ; Output to first HEX display
+005B            106   
+005B            106       ; ---- Display upper nibble (MSD) ----
+005B E533       106       mov  A, bcd+3
+005D C4         106       swap A               ; Swap nibbles
+005E 540F       106       anl  A, #0Fh
+0060 93         106       movc A, @A+dptr
+0061 F592       106       mov  HEX1, A           ; Output to second HEX display
+0063            107       ; ---- Display lower nibble (LSD) ----
+0063 E534       107       mov  A, bcd+4           ; Load BCD byte
+0065 540F       107       anl  A, #0Fh         ; Keep lower 4 bits
+0067 93         107       movc A, @A+dptr      ; Convert using LUT
+0068 F593       107       mov  HEX2, A           ; Output to first HEX display
+006A            107   
+006A            107       ; ---- Display upper nibble (MSD) ----
+006A E534       107       mov  A, bcd+4
+006C C4         107       swap A               ; Swap nibbles
+006D 540F       107       anl  A, #0Fh
+006F 93         107       movc A, @A+dptr
+0070 F594       107       mov  HEX3, A           ; Output to second HEX display
+0072            108   
+0072            109       ; Blank remaining displays
+0072 758EFF     110       mov HEX4, #0FFh
+0075 758FFF     111       mov HEX5, #0FFh
+0078            112   
+0078            113   Display_end:
+0078 22         114       ret
+0079            115   
+0079            116   ;--------------------------------------------------
+0079            117   ; Macro: Rotate Left through Carry
+0079            118   ;--------------------------------------------------
+0079            119   
+                120   MYRLC MAC
+                121       mov A, %0
+                122       rlc A
+                123       mov %0, A
+                124   ENDMAC
+0079            125   
+0079            126   ;--------------------------------------------------
+0079            127   ; Shift all BCD digits LEFT by 4 bits
+0079            128   ; Makes room for new digit in LSD (R7)
+0079            129   ;--------------------------------------------------
+0079            130   
+0079            131   Shift_Digits_Left:
+0079 7804       132       mov R0, #4           ; 4 bit shifts (one nibble)
+007B            133   
+007B            134   Shift_Digits_Left_L0:
+007B C3         135       clr C                ; Clear carry before shift
+007C E530       136       mov A, bcd+0
+007E 33         136       rlc A
+007F F530       136       mov bcd+0, A
+0081 E531       137       mov A, bcd+1
+0083 33         137       rlc A
+0084 F531       137       mov bcd+1, A
+0086 E532       138       mov A, bcd+2
+0088 33         138       rlc A
+0089 F532       138       mov bcd+2, A
+008B E533       139       mov A, bcd+3
+008D 33         139       rlc A
+008E F533       139       mov bcd+3, A
+0090 E534       140       mov A, bcd+4
+0092 33         140       rlc A
+0093 F534       140       mov bcd+4, A
+0095 D8E4       141       djnz R0, Shift_Digits_Left_L0
+0097            142   
+0097            143       ; Insert new digit from R7 into lowest nibble safely
+0097            144       ; Keep upper nibble of bcd+0 unchanged
+0097 5330F0     145       anl  bcd+0, #0F0h    ; clear lower nibble
+009A EF         146       mov  A, R7
+009B 540F       147       anl  A, #0Fh         ; ensure only 0-F
+009D 4230       148       orl  bcd+0, A
+009F 22         149       ret
+00A0            150   
+00A0            151   ;--------------------------------------------------
+00A0            152   ; Macro: Rotate Right through Carry
+00A0            153   ;--------------------------------------------------
+00A0            154   
+                155   MYRRC MAC
+                156       mov A, %0
+                157       rrc A
+                158       mov %0, A
+                159   ENDMAC
+00A0            160   
+00A0            161   ;--------------------------------------------------
+00A0            162   ; Shift digits RIGHT by 4 bits
+00A0            163   ; Used for BACKSPACE (delete last digit)
+00A0            164   ;--------------------------------------------------
+00A0            165   
+00A0            166   Shift_Digits_Right:
+00A0 7804       167       mov R0, #4
+00A2            168   
+00A2            169   Shift_Digits_Right_L0:
+00A2 C3         170       clr C
+00A3 E534       171       mov A, bcd+4
+00A5 13         171       rrc A
+00A6 F534       171       mov bcd+4, A
+00A8 E533       172       mov A, bcd+3
+00AA 13         172       rrc A
+00AB F533       172       mov bcd+3, A
+00AD E532       173       mov A, bcd+2
+00AF 13         173       rrc A
+00B0 F532       173       mov bcd+2, A
+00B2 E531       174       mov A, bcd+1
+00B4 13         174       rrc A
+00B5 F531       174       mov bcd+1, A
+00B7 E530       175       mov A, bcd+0
+00B9 13         175       rrc A
+00BA F530       175       mov bcd+0, A
+00BC D8E4       176       djnz R0, Shift_Digits_Right_L0
+00BE 22         177       ret
+00BF            178   
+00BF            179   
+00BF            180   ;--------------------------------------------------
+00BF            181   ; 25 ms delay (software debounce)
+00BF            182   ;--------------------------------------------------
+00BF            183   
+00BF            184   Wait25ms:
+00BF 780F       185       mov R0, #15
+00C1 794A       186   L3: mov R1, #74
+00C3 7AFA       187   L2: mov R2, #250
+00C5 DAFE       188   L1: djnz R2, L1
+00C7 D9FA       189       djnz R1, L2
+00C9 D8F6       190       djnz R0, L3
+00CB 22         191       ret
+00CC            192   
+00CC            193   
+00CC            194   ;--------------------------------------------------
+00CC            195   ; Helper routines for parameter storage
+00CC            196   ; Each parameter value lives in bcd+0..bcd+1
+00CC            197   ; active_param: 0=A, 1=B, 2=C, 3=D
+00CC            198   ;--------------------------------------------------
+00CC            199   
+00CC            200   ; Save current BCD (bcd+0..bcd+1) into active parameter
+00CC            201   Save_Current_BCD_Into_Param:
+00CC E53D       202       mov A, active_param
+00CE B40007     203       cjne A, #0, Save_NotA
+00D1            204       ; A: soak_temp
+00D1 853035     205       mov soak_temp,   bcd+0
+00D4 853136     206       mov soak_temp+1, bcd+1
+00D7 22         207       ret
+00D8            208   Save_NotA:
+00D8 B40107     209       cjne A, #1, Save_NotB
+00DB            210       ; B: soak_time
+00DB 853037     211       mov soak_time,   bcd+0
+00DE 853138     212       mov soak_time+1, bcd+1
+00E1 22         213       ret
+00E2            214   Save_NotB:
+00E2 B40207     215       cjne A, #2, Save_NotC
+00E5            216       ; C: reflow_temp
+00E5 853039     217       mov reflow_temp,   bcd+0
+00E8 85313A     218       mov reflow_temp+1, bcd+1
+00EB 22         219       ret
+00EC            220   Save_NotC:
+00EC            221       ; D: reflow_time (default case)
+00EC 85303B     222       mov reflow_time,   bcd+0
+00EF 85313C     223       mov reflow_time+1, bcd+1
+00F2 22         224       ret
+00F3            225   
+00F3            226   
+00F3            227   ; Load active parameter into BCD (bcd+0..bcd+1)
+00F3            228   ; Clear the higher digits.
+00F3            229   Load_Param_Into_BCD:
+00F3 753200     230       mov bcd+2, #00h
+00F6 753300     231       mov bcd+3, #00h
+00F9 753400     232       mov bcd+4, #00h
+00FC            233   
+00FC E53D       234       mov A, active_param
+00FE B40007     235       cjne A, #0, Load_NotA
+0101            236       ; A: soak_temp
+0101 853530     237       mov bcd+0, soak_temp
+0104 853631     238       mov bcd+1, soak_temp+1
+0107 22         239       ret
+0108            240   Load_NotA:
+0108 B40107     241       cjne A, #1, Load_NotB
+010B            242       ; B: soak_time
+010B 853730     243       mov bcd+0, soak_time
+010E 853831     244       mov bcd+1, soak_time+1
+0111 22         245       ret
+0112            246   Load_NotB:
+0112 B40207     247       cjne A, #2, Load_NotC
+0115            248       ; C: reflow_temp
+0115 853930     249       mov bcd+0, reflow_temp
+0118 853A31     250       mov bcd+1, reflow_temp+1
+011B 22         251       ret
+011C            252   Load_NotC:
+011C            253       ; D: reflow_time (default)
+011C 853B30     254       mov bcd+0, reflow_time
+011F 853C31     255       mov bcd+1, reflow_time+1
+0122 22         256       ret
+0123            257   
+0123            258   
+0123            259   ;--------------------------------------------------
+0123            260   ; Macro: Check one keypad column
+0123            261   ; If pressed -> R7 = key value, C=1, jump to Key_Found
+0123            262   ; %0 = column bit, %1 = key code (immediate)
+0123            263   ;--------------------------------------------------
+0123            264   
+                265   CHECK_COLUMN MAC
+                266       jb  %0, CHECK_COL_%M     ; if column=1 -> no key here -> skip
+                267       mov R7, %1               ; store key code
+                268       jnb %0, $                ; wait until key is released
+                269       setb C                   ; mark "key found"
+                270       ljmp Key_Found           ; use long jump instead of short
+                271   CHECK_COL_%M:
+                272   ENDMAC
 0123            273   
-0123            274   ; -------------------------------------------------
-0123            275   ; Configure GPIO directions for keypad
-0123            276   ; -------------------------------------------------
-0123            277   
-0123            278   Configure_Keypad_Pins:
-0123 439B54     279       orl P1MOD, #0b_01010100  ; Rows as output
-0126 439C01     280       orl P2MOD, #0b_00000001
-0129 539CAB     281       anl P2MOD, #0b_10101011  ; Columns as input
-012C 539DFE     282       anl P3MOD, #0b_11111110
-012F 22         283       ret
-0130            284   
-0130            285   ; Pin definitions for keypad
-0130            286   ROW1 EQU P1.2
-0130            287   ROW2 EQU P1.4
-0130            288   ROW3 EQU P1.6
-0130            289   ROW4 EQU P2.0
-0130            290   
-0130            291   COL1 EQU P2.2
-0130            292   COL2 EQU P2.4
-0130            293   COL3 EQU P2.6
-0130            294   COL4 EQU P3.0
-0130            295   
-0130            296   ; -------------------------------------------------
-0130            297   ; Keypad scanning routine
-0130            298   ; Output:
-0130            299   ;   C = 1 ? numeric key pressed, code in R7 (0–9, maybe E/F)
-0130            300   ;   C = 0 ? no digit (no key, mode key, or backspace)
-0130            301   ; -------------------------------------------------
-0130            302   
-0130            303   Keypad:
-0130            304   
-0130            305       ; KEY1 acts as BACKSPACE / ERASE
-0130            306       
-0130 20F90E     307       jb KEY.1, keypad_L0      ; if KEY1=1 (not pressed) ? skip
-0133 1200BF     308       lcall Wait25ms
-0136 20F908     309       jb KEY.1, keypad_L0      ; still high? ? bounce, skip
-0139 30F9FD     310       jnb KEY.1, $             ; wait for release (KEY1 low while pressed)
-013C 1200A0     311       lcall Shift_Digits_Right ; delete LSD for active parameter
-013F C3         312       clr c                    ; no digit returned
-0140 22         313       ret
-0141            314   
-0141            315   keypad_L0:
-0141            316       
-0141            317       ; Drive all rows LOW ? check if any column LOW
-0141            318       
-0141 C292       319       clr ROW1
-0143 C294       320       clr ROW2
-0145 C296       321       clr ROW3
-0147 C2A0       322       clr ROW4
-0149            323   
-0149 A2A2       324       mov c, COL1
-014B 82A4       325       anl c, COL2
-014D 82A6       326       anl c, COL3
-014F 82B0       327       anl c, COL4
-0151 5002       328       jnc Keypad_Debounce      ; if any column low ? possible key
-0153 C3         329       clr c
-0154 22         330       ret
-0155            331   
-0155            332   Keypad_Debounce:
-0155            333       ; Wait and check again to avoid bouncing
-0155 1200BF     334       lcall Wait25ms
-0158            335   
-0158 A2A2       336       mov c, COL1
-015A 82A4       337       anl c, COL2
-015C 82A6       338       anl c, COL3
-015E 82B0       339       anl c, COL4
-0160 5002       340       jnc Keypad_Key_Code
-0162 C3         341       clr c
-0163 22         342       ret
-0164            343   
-0164            344   Keypad_Key_Code:
-0164            345       ; Prepare to scan each row individually
-0164 D292       346       setb ROW1
-0166 D294       347       setb ROW2
-0168 D296       348       setb ROW3
-016A D2A0       349       setb ROW4
-016C            350   
-016C            351       ; SW0 selects layout orientation
-016C 30E803     352       jnb SWA.0, keypad_default
-016F 020244     353       ljmp keypad_90deg
-0172            354   
+0123            274   
+0123            275   ;--------------------------------------------------
+0123            276   ; Configure GPIO directions for keypad
+0123            277   ;--------------------------------------------------
+0123            278   
+0123            279   Configure_Keypad_Pins:
+0123 439B54     280       orl P1MOD, #01010100b    ; Rows as output on P1
+0126 439C01     281       orl P2MOD, #00000001b
+0129 539CAB     282       anl P2MOD, #10101011b    ; Columns as input on P2
+012C 539DFE     283       anl P3MOD, #11111110b    ; Column on P3.0 input
+012F 22         284       ret
+0130            285   
+0130            286   ; Pin definitions for keypad
+0130            287   ROW1 EQU P1.2
+0130            288   ROW2 EQU P1.4
+0130            289   ROW3 EQU P1.6
+0130            290   ROW4 EQU P2.0
+0130            291   
+0130            292   COL1 EQU P2.2
+0130            293   COL2 EQU P2.4
+0130            294   COL3 EQU P2.6
+0130            295   COL4 EQU P3.0
+0130            296   
+0130            297   ;--------------------------------------------------
+0130            298   ; Keypad scanning routine
+0130            299   ; Output:
+0130            300   ;   C = 1 -> numeric key pressed, code in R7 (0-9, maybe E/F)
+0130            301   ;   C = 0 -> no digit (no key, mode key, or backspace)
+0130            302   ;--------------------------------------------------
+0130            303   
+0130            304   Keypad:
+0130            305   
+0130            306       ; KEY1 acts as BACKSPACE / ERASE
+0130            307   
+0130 20F90E     308       jb  KEY.1, keypad_L0     ; if KEY1=1 (not pressed) -> skip
+0133 1200BF     309       lcall Wait25ms
+0136 20F908     310       jb  KEY.1, keypad_L0     ; if bounced back high, skip
+0139 30F9FD     311       jnb KEY.1, $             ; wait for release (KEY1 low while pressed)
+013C 1200A0     312       lcall Shift_Digits_Right ; delete LSD for active parameter
+013F C3         313       clr C                    ; no digit returned
+0140 22         314       ret
+0141            315   
+0141            316   keypad_L0:
+0141            317   
+0141            318       ; Drive all rows LOW - check if any column LOW
+0141            319   
+0141 C292       320       clr ROW1
+0143 C294       321       clr ROW2
+0145 C296       322       clr ROW3
+0147 C2A0       323       clr ROW4
+0149            324   
+0149 A2A2       325       mov C, COL1
+014B 82A4       326       anl C, COL2
+014D 82A6       327       anl C, COL3
+014F 82B0       328       anl C, COL4
+0151 5002       329       jnc Keypad_Debounce      ; if any column low -> possible key
+0153 C3         330       clr C
+0154 22         331       ret
+0155            332   
+0155            333   Keypad_Debounce:
+0155            334       ; Wait and check again to avoid bouncing
+0155 1200BF     335       lcall Wait25ms
+0158            336   
+0158 A2A2       337       mov C, COL1
+015A 82A4       338       anl C, COL2
+015C 82A6       339       anl C, COL3
+015E 82B0       340       anl C, COL4
+0160 5002       341       jnc Keypad_Key_Code
+0162 C3         342       clr C
+0163 22         343       ret
+0164            344   
+0164            345   Keypad_Key_Code:
+0164            346       ; Prepare to scan each row individually
+0164 D292       347       setb ROW1
+0166 D294       348       setb ROW2
+0168 D296       349       setb ROW3
+016A D2A0       350       setb ROW4
+016C            351   
+016C            352       ; SW0 selects layout orientation
+016C 30E803     353       jnb SWA.0, keypad_default
+016F 020244     354       ljmp keypad_90deg
 0172            355   
-0172            356   ; -------------------------------------------------
-0172            357   ; Default keypad layout
-0172            358   ; -------------------------------------------------
-0172            359   ; Mapping (default):
-0172            360   ;   Row1: 1  2  3  A(0Ah)
-0172            361   ;   Row2: 4  5  6  B(0Bh)
-0172            362   ;   Row3: 7  8  9  C(0Ch)
-0172            363   ;   Row4: E  0  F  D(0Dh)
-0172            364   ; -------------------------------------------------
-0172            365   
-0172            366   keypad_default:
-0172            367   
-0172 C292       368       clr ROW1
-0174 20A209     369       jb COL1, CHECK_COL_16      ; if column=1 ? no key here ? skip
-0177 7F01       369       mov R7, #01H               ; store key code
-0179 30A2FD     369       jnb COL1, $                ; wait until key is released
-017C D3         369       setb c                   ; mark "key found"
-017D 020316     369       ljmp Key_Found           ; use long jump instead of short
-0180            369   CHECK_COL_16:
-0180 20A409     370       jb COL2, CHECK_COL_17      ; if column=1 ? no key here ? skip
-0183 7F02       370       mov R7, #02H               ; store key code
-0185 30A4FD     370       jnb COL2, $                ; wait until key is released
-0188 D3         370       setb c                   ; mark "key found"
-0189 020316     370       ljmp Key_Found           ; use long jump instead of short
-018C            370   CHECK_COL_17:
-018C 20A609     371       jb COL3, CHECK_COL_18      ; if column=1 ? no key here ? skip
-018F 7F03       371       mov R7, #03H               ; store key code
-0191 30A6FD     371       jnb COL3, $                ; wait until key is released
-0194 D3         371       setb c                   ; mark "key found"
-0195 020316     371       ljmp Key_Found           ; use long jump instead of short
-0198            371   CHECK_COL_18:
-0198 20B009     372       jb COL4, CHECK_COL_19      ; if column=1 ? no key here ? skip
-019B 7F0A       372       mov R7, #0AH               ; store key code
-019D 30B0FD     372       jnb COL4, $                ; wait until key is released
-01A0 D3         372       setb c                   ; mark "key found"
-01A1 020316     372       ljmp Key_Found           ; use long jump instead of short
-01A4            372   CHECK_COL_19:
-01A4 D292       373       setb ROW1
-01A6            374   
-01A6 C294       375       clr ROW2
-01A8 20A209     376       jb COL1, CHECK_COL_20      ; if column=1 ? no key here ? skip
-01AB 7F04       376       mov R7, #04H               ; store key code
-01AD 30A2FD     376       jnb COL1, $                ; wait until key is released
-01B0 D3         376       setb c                   ; mark "key found"
-01B1 020316     376       ljmp Key_Found           ; use long jump instead of short
-01B4            376   CHECK_COL_20:
-01B4 20A409     377       jb COL2, CHECK_COL_21      ; if column=1 ? no key here ? skip
-01B7 7F05       377       mov R7, #05H               ; store key code
-01B9 30A4FD     377       jnb COL2, $                ; wait until key is released
-01BC D3         377       setb c                   ; mark "key found"
-01BD 020316     377       ljmp Key_Found           ; use long jump instead of short
-01C0            377   CHECK_COL_21:
-01C0 20A609     378       jb COL3, CHECK_COL_22      ; if column=1 ? no key here ? skip
-01C3 7F06       378       mov R7, #06H               ; store key code
-01C5 30A6FD     378       jnb COL3, $                ; wait until key is released
-01C8 D3         378       setb c                   ; mark "key found"
-01C9 020316     378       ljmp Key_Found           ; use long jump instead of short
-01CC            378   CHECK_COL_22:
-01CC 20B009     379       jb COL4, CHECK_COL_23      ; if column=1 ? no key here ? skip
-01CF 7F0B       379       mov R7, #0BH               ; store key code
-01D1 30B0FD     379       jnb COL4, $                ; wait until key is released
-01D4 D3         379       setb c                   ; mark "key found"
-01D5 020316     379       ljmp Key_Found           ; use long jump instead of short
-01D8            379   CHECK_COL_23:
-01D8 D294       380       setb ROW2
-01DA            381   
-01DA C296       382       clr ROW3
-01DC 20A209     383       jb COL1, CHECK_COL_24      ; if column=1 ? no key here ? skip
-01DF 7F07       383       mov R7, #07H               ; store key code
-01E1 30A2FD     383       jnb COL1, $                ; wait until key is released
-01E4 D3         383       setb c                   ; mark "key found"
-01E5 020316     383       ljmp Key_Found           ; use long jump instead of short
-01E8            383   CHECK_COL_24:
-01E8 20A409     384       jb COL2, CHECK_COL_25      ; if column=1 ? no key here ? skip
-01EB 7F08       384       mov R7, #08H               ; store key code
-01ED 30A4FD     384       jnb COL2, $                ; wait until key is released
-01F0 D3         384       setb c                   ; mark "key found"
-01F1 020316     384       ljmp Key_Found           ; use long jump instead of short
-01F4            384   CHECK_COL_25:
-01F4 20A609     385       jb COL3, CHECK_COL_26      ; if column=1 ? no key here ? skip
-01F7 7F09       385       mov R7, #09H               ; store key code
-01F9 30A6FD     385       jnb COL3, $                ; wait until key is released
-01FC D3         385       setb c                   ; mark "key found"
-01FD 020316     385       ljmp Key_Found           ; use long jump instead of short
-0200            385   CHECK_COL_26:
-0200 20B009     386       jb COL4, CHECK_COL_27      ; if column=1 ? no key here ? skip
-0203 7F0C       386       mov R7, #0CH               ; store key code
-0205 30B0FD     386       jnb COL4, $                ; wait until key is released
-0208 D3         386       setb c                   ; mark "key found"
-0209 020316     386       ljmp Key_Found           ; use long jump instead of short
-020C            386   CHECK_COL_27:
-020C D296       387       setb ROW3
-020E            388   
-020E C2A0       389       clr ROW4
-0210 20A209     390       jb COL1, CHECK_COL_28      ; if column=1 ? no key here ? skip
-0213 7F0E       390       mov R7, #0EH               ; store key code
-0215 30A2FD     390       jnb COL1, $                ; wait until key is released
-0218 D3         390       setb c                   ; mark "key found"
-0219 020316     390       ljmp Key_Found           ; use long jump instead of short
-021C            390   CHECK_COL_28:
-021C 20A409     391       jb COL2, CHECK_COL_29      ; if column=1 ? no key here ? skip
-021F 7F00       391       mov R7, #00H               ; store key code
-0221 30A4FD     391       jnb COL2, $                ; wait until key is released
-0224 D3         391       setb c                   ; mark "key found"
-0225 020316     391       ljmp Key_Found           ; use long jump instead of short
-0228            391   CHECK_COL_29:
-0228 20A609     392       jb COL3, CHECK_COL_30      ; if column=1 ? no key here ? skip
-022B 7F0F       392       mov R7, #0FH               ; store key code
-022D 30A6FD     392       jnb COL3, $                ; wait until key is released
-0230 D3         392       setb c                   ; mark "key found"
-0231 020316     392       ljmp Key_Found           ; use long jump instead of short
-0234            392   CHECK_COL_30:
-0234 20B009     393       jb COL4, CHECK_COL_31      ; if column=1 ? no key here ? skip
-0237 7F0D       393       mov R7, #0DH               ; store key code
-0239 30B0FD     393       jnb COL4, $                ; wait until key is released
-023C D3         393       setb c                   ; mark "key found"
-023D 020316     393       ljmp Key_Found           ; use long jump instead of short
-0240            393   CHECK_COL_31:
-0240 D2A0       394       setb ROW4
-0242            395   
-0242            396       ; If we reached here, no key found
-0242 C3         397       clr c
-0243 22         398       ret
-0244            399   
+0172            356   
+0172            357   ;--------------------------------------------------
+0172            358   ; Default keypad layout
+0172            359   ;--------------------------------------------------
+0172            360   ; Mapping (default):
+0172            361   ;   Row1: 1  2  3  A (0Ah)
+0172            362   ;   Row2: 4  5  6  B (0Bh)
+0172            363   ;   Row3: 7  8  9  C (0Ch)
+0172            364   ;   Row4: *  0  #  D (0Eh,00h,0Fh,0Dh)
+0172            365   ;--------------------------------------------------
+0172            366   
+0172            367   keypad_default:
+0172            368   
+0172 C292       369       clr ROW1
+0174 20A209     370       jb  COL1, CHECK_COL_16     ; if column=1 -> no key here -> skip
+0177 7F01       370       mov R7, #01h               ; store key code
+0179 30A2FD     370       jnb COL1, $                ; wait until key is released
+017C D3         370       setb C                   ; mark "key found"
+017D 020316     370       ljmp Key_Found           ; use long jump instead of short
+0180            370   CHECK_COL_16:
+0180 20A409     371       jb  COL2, CHECK_COL_17     ; if column=1 -> no key here -> skip
+0183 7F02       371       mov R7, #02h               ; store key code
+0185 30A4FD     371       jnb COL2, $                ; wait until key is released
+0188 D3         371       setb C                   ; mark "key found"
+0189 020316     371       ljmp Key_Found           ; use long jump instead of short
+018C            371   CHECK_COL_17:
+018C 20A609     372       jb  COL3, CHECK_COL_18     ; if column=1 -> no key here -> skip
+018F 7F03       372       mov R7, #03h               ; store key code
+0191 30A6FD     372       jnb COL3, $                ; wait until key is released
+0194 D3         372       setb C                   ; mark "key found"
+0195 020316     372       ljmp Key_Found           ; use long jump instead of short
+0198            372   CHECK_COL_18:
+0198 20B009     373       jb  COL4, CHECK_COL_19     ; if column=1 -> no key here -> skip
+019B 7F0A       373       mov R7, #0Ah               ; store key code
+019D 30B0FD     373       jnb COL4, $                ; wait until key is released
+01A0 D3         373       setb C                   ; mark "key found"
+01A1 020316     373       ljmp Key_Found           ; use long jump instead of short
+01A4            373   CHECK_COL_19:
+01A4 D292       374       setb ROW1
+01A6            375   
+01A6 C294       376       clr ROW2
+01A8 20A209     377       jb  COL1, CHECK_COL_20     ; if column=1 -> no key here -> skip
+01AB 7F04       377       mov R7, #04h               ; store key code
+01AD 30A2FD     377       jnb COL1, $                ; wait until key is released
+01B0 D3         377       setb C                   ; mark "key found"
+01B1 020316     377       ljmp Key_Found           ; use long jump instead of short
+01B4            377   CHECK_COL_20:
+01B4 20A409     378       jb  COL2, CHECK_COL_21     ; if column=1 -> no key here -> skip
+01B7 7F05       378       mov R7, #05h               ; store key code
+01B9 30A4FD     378       jnb COL2, $                ; wait until key is released
+01BC D3         378       setb C                   ; mark "key found"
+01BD 020316     378       ljmp Key_Found           ; use long jump instead of short
+01C0            378   CHECK_COL_21:
+01C0 20A609     379       jb  COL3, CHECK_COL_22     ; if column=1 -> no key here -> skip
+01C3 7F06       379       mov R7, #06h               ; store key code
+01C5 30A6FD     379       jnb COL3, $                ; wait until key is released
+01C8 D3         379       setb C                   ; mark "key found"
+01C9 020316     379       ljmp Key_Found           ; use long jump instead of short
+01CC            379   CHECK_COL_22:
+01CC 20B009     380       jb  COL4, CHECK_COL_23     ; if column=1 -> no key here -> skip
+01CF 7F0B       380       mov R7, #0Bh               ; store key code
+01D1 30B0FD     380       jnb COL4, $                ; wait until key is released
+01D4 D3         380       setb C                   ; mark "key found"
+01D5 020316     380       ljmp Key_Found           ; use long jump instead of short
+01D8            380   CHECK_COL_23:
+01D8 D294       381       setb ROW2
+01DA            382   
+01DA C296       383       clr ROW3
+01DC 20A209     384       jb  COL1, CHECK_COL_24     ; if column=1 -> no key here -> skip
+01DF 7F07       384       mov R7, #07h               ; store key code
+01E1 30A2FD     384       jnb COL1, $                ; wait until key is released
+01E4 D3         384       setb C                   ; mark "key found"
+01E5 020316     384       ljmp Key_Found           ; use long jump instead of short
+01E8            384   CHECK_COL_24:
+01E8 20A409     385       jb  COL2, CHECK_COL_25     ; if column=1 -> no key here -> skip
+01EB 7F08       385       mov R7, #08h               ; store key code
+01ED 30A4FD     385       jnb COL2, $                ; wait until key is released
+01F0 D3         385       setb C                   ; mark "key found"
+01F1 020316     385       ljmp Key_Found           ; use long jump instead of short
+01F4            385   CHECK_COL_25:
+01F4 20A609     386       jb  COL3, CHECK_COL_26     ; if column=1 -> no key here -> skip
+01F7 7F09       386       mov R7, #09h               ; store key code
+01F9 30A6FD     386       jnb COL3, $                ; wait until key is released
+01FC D3         386       setb C                   ; mark "key found"
+01FD 020316     386       ljmp Key_Found           ; use long jump instead of short
+0200            386   CHECK_COL_26:
+0200 20B009     387       jb  COL4, CHECK_COL_27     ; if column=1 -> no key here -> skip
+0203 7F0C       387       mov R7, #0Ch               ; store key code
+0205 30B0FD     387       jnb COL4, $                ; wait until key is released
+0208 D3         387       setb C                   ; mark "key found"
+0209 020316     387       ljmp Key_Found           ; use long jump instead of short
+020C            387   CHECK_COL_27:
+020C D296       388       setb ROW3
+020E            389   
+020E C2A0       390       clr ROW4
+0210 20A209     391       jb  COL1, CHECK_COL_28     ; if column=1 -> no key here -> skip
+0213 7F0E       391       mov R7, #0Eh               ; store key code
+0215 30A2FD     391       jnb COL1, $                ; wait until key is released
+0218 D3         391       setb C                   ; mark "key found"
+0219 020316     391       ljmp Key_Found           ; use long jump instead of short
+021C            391   CHECK_COL_28: ; '*' delete
+021C 20A409     392       jb  COL2, CHECK_COL_29     ; if column=1 -> no key here -> skip
+021F 7F00       392       mov R7, #00h               ; store key code
+0221 30A4FD     392       jnb COL2, $                ; wait until key is released
+0224 D3         392       setb C                   ; mark "key found"
+0225 020316     392       ljmp Key_Found           ; use long jump instead of short
+0228            392   CHECK_COL_29: ; '0'
+0228 20A609     393       jb  COL3, CHECK_COL_30     ; if column=1 -> no key here -> skip
+022B 7F0F       393       mov R7, #0Fh               ; store key code
+022D 30A6FD     393       jnb COL3, $                ; wait until key is released
+0230 D3         393       setb C                   ; mark "key found"
+0231 020316     393       ljmp Key_Found           ; use long jump instead of short
+0234            393   CHECK_COL_30: ; '#' clear
+0234 20B009     394       jb  COL4, CHECK_COL_31     ; if column=1 -> no key here -> skip
+0237 7F0D       394       mov R7, #0Dh               ; store key code
+0239 30B0FD     394       jnb COL4, $                ; wait until key is released
+023C D3         394       setb C                   ; mark "key found"
+023D 020316     394       ljmp Key_Found           ; use long jump instead of short
+0240            394   CHECK_COL_31: ; 'D'
+0240 D2A0       395       setb ROW4
+0242            396   
+0242            397       ; If we reached here, no key found
+0242 C3         398       clr C
+0243 22         399       ret
 0244            400   
-0244            401   ; -------------------------------------------------
-0244            402   ; Rotated keypad layout (90° CCW)
-0244            403   ; -------------------------------------------------
-0244            404   
-0244            405   keypad_90deg:
-0244 C292       406       clr ROW1
-0246 20A209     407       jb COL1, CHECK_COL_32      ; if column=1 ? no key here ? skip
-0249 7F0A       407       mov R7, #0AH               ; store key code
-024B 30A2FD     407       jnb COL1, $                ; wait until key is released
-024E D3         407       setb c                   ; mark "key found"
-024F 020316     407       ljmp Key_Found           ; use long jump instead of short
-0252            407   CHECK_COL_32:
-0252 20A409     408       jb COL2, CHECK_COL_33      ; if column=1 ? no key here ? skip
-0255 7F0B       408       mov R7, #0BH               ; store key code
-0257 30A4FD     408       jnb COL2, $                ; wait until key is released
-025A D3         408       setb c                   ; mark "key found"
-025B 020316     408       ljmp Key_Found           ; use long jump instead of short
-025E            408   CHECK_COL_33:
-025E 20A609     409       jb COL3, CHECK_COL_34      ; if column=1 ? no key here ? skip
-0261 7F0C       409       mov R7, #0CH               ; store key code
-0263 30A6FD     409       jnb COL3, $                ; wait until key is released
-0266 D3         409       setb c                   ; mark "key found"
-0267 020316     409       ljmp Key_Found           ; use long jump instead of short
-026A            409   CHECK_COL_34:
-026A 20B009     410       jb COL4, CHECK_COL_35      ; if column=1 ? no key here ? skip
-026D 7F0D       410       mov R7, #0DH               ; store key code
-026F 30B0FD     410       jnb COL4, $                ; wait until key is released
-0272 D3         410       setb c                   ; mark "key found"
-0273 020316     410       ljmp Key_Found           ; use long jump instead of short
-0276            410   CHECK_COL_35:
-0276 D292       411       setb ROW1
-0278            412   
-0278 C294       413       clr ROW2
-027A 20A209     414       jb COL1, CHECK_COL_36      ; if column=1 ? no key here ? skip
-027D 7F03       414       mov R7, #03H               ; store key code
-027F 30A2FD     414       jnb COL1, $                ; wait until key is released
-0282 D3         414       setb c                   ; mark "key found"
-0283 020316     414       ljmp Key_Found           ; use long jump instead of short
-0286            414   CHECK_COL_36:
-0286 20A409     415       jb COL2, CHECK_COL_37      ; if column=1 ? no key here ? skip
-0289 7F06       415       mov R7, #06H               ; store key code
-028B 30A4FD     415       jnb COL2, $                ; wait until key is released
-028E D3         415       setb c                   ; mark "key found"
-028F 020316     415       ljmp Key_Found           ; use long jump instead of short
-0292            415   CHECK_COL_37:
-0292 20A609     416       jb COL3, CHECK_COL_38      ; if column=1 ? no key here ? skip
-0295 7F09       416       mov R7, #09H               ; store key code
-0297 30A6FD     416       jnb COL3, $                ; wait until key is released
-029A D3         416       setb c                   ; mark "key found"
-029B 020316     416       ljmp Key_Found           ; use long jump instead of short
-029E            416   CHECK_COL_38:
-029E 20B009     417       jb COL4, CHECK_COL_39      ; if column=1 ? no key here ? skip
-02A1 7F0F       417       mov R7, #0FH               ; store key code
-02A3 30B0FD     417       jnb COL4, $                ; wait until key is released
-02A6 D3         417       setb c                   ; mark "key found"
-02A7 020316     417       ljmp Key_Found           ; use long jump instead of short
-02AA            417   CHECK_COL_39:
-02AA D294       418       setb ROW2
-02AC            419   
-02AC C296       420       clr ROW3
-02AE 20A209     421       jb COL1, CHECK_COL_40      ; if column=1 ? no key here ? skip
-02B1 7F02       421       mov R7, #02H               ; store key code
-02B3 30A2FD     421       jnb COL1, $                ; wait until key is released
-02B6 D3         421       setb c                   ; mark "key found"
-02B7 020316     421       ljmp Key_Found           ; use long jump instead of short
-02BA            421   CHECK_COL_40:
-02BA 20A409     422       jb COL2, CHECK_COL_41      ; if column=1 ? no key here ? skip
-02BD 7F05       422       mov R7, #05H               ; store key code
-02BF 30A4FD     422       jnb COL2, $                ; wait until key is released
-02C2 D3         422       setb c                   ; mark "key found"
-02C3 020316     422       ljmp Key_Found           ; use long jump instead of short
-02C6            422   CHECK_COL_41:
-02C6 20A609     423       jb COL3, CHECK_COL_42      ; if column=1 ? no key here ? skip
-02C9 7F08       423       mov R7, #08H               ; store key code
-02CB 30A6FD     423       jnb COL3, $                ; wait until key is released
-02CE D3         423       setb c                   ; mark "key found"
-02CF 020316     423       ljmp Key_Found           ; use long jump instead of short
-02D2            423   CHECK_COL_42:
-02D2 20B009     424       jb COL4, CHECK_COL_43      ; if column=1 ? no key here ? skip
-02D5 7F00       424       mov R7, #00H               ; store key code
-02D7 30B0FD     424       jnb COL4, $                ; wait until key is released
-02DA D3         424       setb c                   ; mark "key found"
-02DB 020316     424       ljmp Key_Found           ; use long jump instead of short
-02DE            424   CHECK_COL_43:
-02DE D296       425       setb ROW3
-02E0            426   
-02E0 C2A0       427       clr ROW4
-02E2 20A209     428       jb COL1, CHECK_COL_44      ; if column=1 ? no key here ? skip
-02E5 7F01       428       mov R7, #01H               ; store key code
-02E7 30A2FD     428       jnb COL1, $                ; wait until key is released
-02EA D3         428       setb c                   ; mark "key found"
-02EB 020316     428       ljmp Key_Found           ; use long jump instead of short
-02EE            428   CHECK_COL_44:
-02EE 20A409     429       jb COL2, CHECK_COL_45      ; if column=1 ? no key here ? skip
-02F1 7F04       429       mov R7, #04H               ; store key code
-02F3 30A4FD     429       jnb COL2, $                ; wait until key is released
-02F6 D3         429       setb c                   ; mark "key found"
-02F7 020316     429       ljmp Key_Found           ; use long jump instead of short
-02FA            429   CHECK_COL_45:
-02FA 20A609     430       jb COL3, CHECK_COL_46      ; if column=1 ? no key here ? skip
-02FD 7F07       430       mov R7, #07H               ; store key code
-02FF 30A6FD     430       jnb COL3, $                ; wait until key is released
-0302 D3         430       setb c                   ; mark "key found"
-0303 020316     430       ljmp Key_Found           ; use long jump instead of short
-0306            430   CHECK_COL_46:
-0306 20B009     431       jb COL4, CHECK_COL_47      ; if column=1 ? no key here ? skip
-0309 7F0E       431       mov R7, #0EH               ; store key code
-030B 30B0FD     431       jnb COL4, $                ; wait until key is released
-030E D3         431       setb c                   ; mark "key found"
-030F 020316     431       ljmp Key_Found           ; use long jump instead of short
-0312            431   CHECK_COL_47:
-0312 D2A0       432       setb ROW4
-0314            433   
-0314            434       ; If we reached here, no key found
-0314 C3         435       clr c
-0315 22         436       ret
-0316            437   
+0244            401   
+0244            402   ;--------------------------------------------------
+0244            403   ; Rotated keypad layout (90 degrees CCW)
+0244            404   ;--------------------------------------------------
+0244            405   
+0244            406   keypad_90deg:
+0244 C292       407       clr ROW1
+0246 20A209     408       jb  COL1, CHECK_COL_32     ; if column=1 -> no key here -> skip
+0249 7F0A       408       mov R7, #0Ah               ; store key code
+024B 30A2FD     408       jnb COL1, $                ; wait until key is released
+024E D3         408       setb C                   ; mark "key found"
+024F 020316     408       ljmp Key_Found           ; use long jump instead of short
+0252            408   CHECK_COL_32:
+0252 20A409     409       jb  COL2, CHECK_COL_33     ; if column=1 -> no key here -> skip
+0255 7F0B       409       mov R7, #0Bh               ; store key code
+0257 30A4FD     409       jnb COL2, $                ; wait until key is released
+025A D3         409       setb C                   ; mark "key found"
+025B 020316     409       ljmp Key_Found           ; use long jump instead of short
+025E            409   CHECK_COL_33:
+025E 20A609     410       jb  COL3, CHECK_COL_34     ; if column=1 -> no key here -> skip
+0261 7F0C       410       mov R7, #0Ch               ; store key code
+0263 30A6FD     410       jnb COL3, $                ; wait until key is released
+0266 D3         410       setb C                   ; mark "key found"
+0267 020316     410       ljmp Key_Found           ; use long jump instead of short
+026A            410   CHECK_COL_34:
+026A 20B009     411       jb  COL4, CHECK_COL_35     ; if column=1 -> no key here -> skip
+026D 7F0D       411       mov R7, #0Dh               ; store key code
+026F 30B0FD     411       jnb COL4, $                ; wait until key is released
+0272 D3         411       setb C                   ; mark "key found"
+0273 020316     411       ljmp Key_Found           ; use long jump instead of short
+0276            411   CHECK_COL_35:
+0276 D292       412       setb ROW1
+0278            413   
+0278 C294       414       clr ROW2
+027A 20A209     415       jb  COL1, CHECK_COL_36     ; if column=1 -> no key here -> skip
+027D 7F03       415       mov R7, #03h               ; store key code
+027F 30A2FD     415       jnb COL1, $                ; wait until key is released
+0282 D3         415       setb C                   ; mark "key found"
+0283 020316     415       ljmp Key_Found           ; use long jump instead of short
+0286            415   CHECK_COL_36:
+0286 20A409     416       jb  COL2, CHECK_COL_37     ; if column=1 -> no key here -> skip
+0289 7F06       416       mov R7, #06h               ; store key code
+028B 30A4FD     416       jnb COL2, $                ; wait until key is released
+028E D3         416       setb C                   ; mark "key found"
+028F 020316     416       ljmp Key_Found           ; use long jump instead of short
+0292            416   CHECK_COL_37:
+0292 20A609     417       jb  COL3, CHECK_COL_38     ; if column=1 -> no key here -> skip
+0295 7F09       417       mov R7, #09h               ; store key code
+0297 30A6FD     417       jnb COL3, $                ; wait until key is released
+029A D3         417       setb C                   ; mark "key found"
+029B 020316     417       ljmp Key_Found           ; use long jump instead of short
+029E            417   CHECK_COL_38:
+029E 20B009     418       jb  COL4, CHECK_COL_39     ; if column=1 -> no key here -> skip
+02A1 7F0F       418       mov R7, #0Fh               ; store key code
+02A3 30B0FD     418       jnb COL4, $                ; wait until key is released
+02A6 D3         418       setb C                   ; mark "key found"
+02A7 020316     418       ljmp Key_Found           ; use long jump instead of short
+02AA            418   CHECK_COL_39:
+02AA D294       419       setb ROW2
+02AC            420   
+02AC C296       421       clr ROW3
+02AE 20A209     422       jb  COL1, CHECK_COL_40     ; if column=1 -> no key here -> skip
+02B1 7F02       422       mov R7, #02h               ; store key code
+02B3 30A2FD     422       jnb COL1, $                ; wait until key is released
+02B6 D3         422       setb C                   ; mark "key found"
+02B7 020316     422       ljmp Key_Found           ; use long jump instead of short
+02BA            422   CHECK_COL_40:
+02BA 20A409     423       jb  COL2, CHECK_COL_41     ; if column=1 -> no key here -> skip
+02BD 7F05       423       mov R7, #05h               ; store key code
+02BF 30A4FD     423       jnb COL2, $                ; wait until key is released
+02C2 D3         423       setb C                   ; mark "key found"
+02C3 020316     423       ljmp Key_Found           ; use long jump instead of short
+02C6            423   CHECK_COL_41:
+02C6 20A609     424       jb  COL3, CHECK_COL_42     ; if column=1 -> no key here -> skip
+02C9 7F08       424       mov R7, #08h               ; store key code
+02CB 30A6FD     424       jnb COL3, $                ; wait until key is released
+02CE D3         424       setb C                   ; mark "key found"
+02CF 020316     424       ljmp Key_Found           ; use long jump instead of short
+02D2            424   CHECK_COL_42:
+02D2 20B009     425       jb  COL4, CHECK_COL_43     ; if column=1 -> no key here -> skip
+02D5 7F00       425       mov R7, #00h               ; store key code
+02D7 30B0FD     425       jnb COL4, $                ; wait until key is released
+02DA D3         425       setb C                   ; mark "key found"
+02DB 020316     425       ljmp Key_Found           ; use long jump instead of short
+02DE            425   CHECK_COL_43:
+02DE D296       426       setb ROW3
+02E0            427   
+02E0 C2A0       428       clr ROW4
+02E2 20A209     429       jb  COL1, CHECK_COL_44     ; if column=1 -> no key here -> skip
+02E5 7F01       429       mov R7, #01h               ; store key code
+02E7 30A2FD     429       jnb COL1, $                ; wait until key is released
+02EA D3         429       setb C                   ; mark "key found"
+02EB 020316     429       ljmp Key_Found           ; use long jump instead of short
+02EE            429   CHECK_COL_44:
+02EE 20A409     430       jb  COL2, CHECK_COL_45     ; if column=1 -> no key here -> skip
+02F1 7F04       430       mov R7, #04h               ; store key code
+02F3 30A4FD     430       jnb COL2, $                ; wait until key is released
+02F6 D3         430       setb C                   ; mark "key found"
+02F7 020316     430       ljmp Key_Found           ; use long jump instead of short
+02FA            430   CHECK_COL_45:
+02FA 20A609     431       jb  COL3, CHECK_COL_46     ; if column=1 -> no key here -> skip
+02FD 7F07       431       mov R7, #07h               ; store key code
+02FF 30A6FD     431       jnb COL3, $                ; wait until key is released
+0302 D3         431       setb C                   ; mark "key found"
+0303 020316     431       ljmp Key_Found           ; use long jump instead of short
+0306            431   CHECK_COL_46:
+0306 20B009     432       jb  COL4, CHECK_COL_47     ; if column=1 -> no key here -> skip
+0309 7F0E       432       mov R7, #0Eh               ; store key code
+030B 30B0FD     432       jnb COL4, $                ; wait until key is released
+030E D3         432       setb C                   ; mark "key found"
+030F 020316     432       ljmp Key_Found           ; use long jump instead of short
+0312            432   CHECK_COL_47:
+0312 D2A0       433       setb ROW4
+0314            434   
+0314            435       ; If we reached here, no key found
+0314 C3         436       clr C
+0315 22         437       ret
 0316            438   
-0316            439   ; -------------------------------------------------
-0316            440   ; Key_Found:
-0316            441   ;   R7 = key code (0–F), C = 1 when we get here.
-0316            442   ;   A/B/C/D (0Ah–0Dh) ? mode select, no digit
-0316            443   ;   Others ? numeric digit, C stays 1
-0316            444   ; -------------------------------------------------
-0316            445   
-0316            446   Key_Found:
-0316 EF         447       mov a, R7
-0317            448   
-0317            449       ; --- Mode A (soak temperature) ---
-0317 B40A0B     450       cjne a, #0AH, Check_Mode_B
-031A 1200CC     451       lcall Save_Current_BCD_Into_Param
-031D 753D00     452       mov active_param, #0       ; A: soak_temp
-0320 1200F3     453       lcall Load_Param_Into_BCD
-0323            454       ; Optional: indicate mode with LEDs (e.g., LEDRB = active_param)
-0323            455       ; mov a, active_param
-0323            456       ; mov LEDRB, a
-0323 C3         457       clr c                      ; not a digit
+0316            439   
+0316            440   ;--------------------------------------------------
+0316            441   ; Key_Found:
+0316            442   ;   R7 = key code (0-F), C = 1 when we get here.
+0316            443   ;   A/B/C/D (0Ah-0Dh) -> mode select
+0316            444   ;   * (0Eh)           -> delete / backspace one digit
+0316            445   ;   # (0Fh)           -> clear all digits
+0316            446   ;   others (0-9, maybe E/F) -> digit
+0316            447   ;--------------------------------------------------
+0316            448   
+0316            449   Key_Found:
+0316 EF         450       mov A, R7
+0317            451   
+0317            452       ; --- Mode A (soak temperature) ---
+0317 B40A0B     453       cjne A, #0Ah, KF_CheckB
+031A 1200CC     454       lcall Save_Current_BCD_Into_Param
+031D 753D00     455       mov   active_param, #0       ; A: soak_temp
+0320 1200F3     456       lcall Load_Param_Into_BCD
+0323 C3         457       clr C                        ; do not treat as digit
 0324 22         458       ret
 0325            459   
-0325            460   Check_Mode_B:
-0325 B40B0B     461       cjne a, #0BH, Check_Mode_C
-0328 1200CC     462       lcall Save_Current_BCD_Into_Param
-032B 753D01     463       mov active_param, #1       ; B: soak_time
-032E 1200F3     464       lcall Load_Param_Into_BCD
-0331            465       ; mov a, active_param
-0331            466       ; mov LEDRB, a
-0331 C3         467       clr c
-0332 22         468       ret
-0333            469   
-0333            470   Check_Mode_C:
-0333 B40C0B     471       cjne a, #0CH, Check_Mode_D
+0325            460   KF_CheckB:
+0325            461       ; --- Mode B (soak time) ---
+0325 B40B0B     462       cjne A, #0Bh, KF_CheckC
+0328 1200CC     463       lcall Save_Current_BCD_Into_Param
+032B 753D01     464       mov   active_param, #1       ; B: soak_time
+032E 1200F3     465       lcall Load_Param_Into_BCD
+0331 C3         466       clr C
+0332 22         467       ret
+0333            468   
+0333            469   KF_CheckC:
+0333            470       ; --- Mode C (reflow temperature) ---
+0333 B40C0B     471       cjne A, #0Ch, KF_CheckD
 0336 1200CC     472       lcall Save_Current_BCD_Into_Param
-0339 753D02     473       mov active_param, #2       ; C: reflow_temp
+0339 753D02     473       mov   active_param, #2       ; C: reflow_temp
 033C 1200F3     474       lcall Load_Param_Into_BCD
-033F            475       ; mov a, active_param
-033F            476       ; mov LEDRB, a
-033F C3         477       clr c
-0340 22         478       ret
-0341            479   
-0341            480   Check_Mode_D:
-0341 B40D0B     481       cjne a, #0DH, Not_Mode_Key
-0344 1200CC     482       lcall Save_Current_BCD_Into_Param
-0347 753D03     483       mov active_param, #3       ; D: reflow_time
-034A 1200F3     484       lcall Load_Param_Into_BCD
-034D            485       ; mov a, active_param
-034D            486       ; mov LEDRB, a
-034D C3         487       clr c
-034E 22         488       ret
-034F            489   
-034F            490   Not_Mode_Key:
-034F            491       ; Not A/B/C/D ? treat as numeric digit key
-034F            492       ; R7 contains the digit code; C remains 1
-034F 22         493       ret
-0350            494   
-0350            495   
-0350            496   ; -------------------------------------------------
-0350            497   ; MAIN PROGRAM
-0350            498   ; -------------------------------------------------
-0350            499   
-0350            500   main_code:
-0350 75817F     501       mov SP, #7FH       ; Initialize stack pointer
-0353            502   
-0353 E4         503       clr a
-0354 F5E8       504       mov LEDRA, a       ; Clear LEDs
-0356 F595       505       mov LEDRB, a
-0358            506   
-0358            507       ; Clear all BCD digits
-0358 F530       508       mov bcd+0, a
-035A F531       509       mov bcd+1, a
-035C F532       510       mov bcd+2, a
-035E F533       511       mov bcd+3, a
-0360 F534       512       mov bcd+4, a
-0362            513   
-0362            514       ; Clear parameter storage
-0362 F535       515       mov soak_temp,   a
-0364 F536       516       mov soak_temp+1, a
-0366 F537       517       mov soak_time,   a
-0368 F538       518       mov soak_time+1, a
-036A F539       519       mov reflow_temp,   a
-036C F53A       520       mov reflow_temp+1, a
-036E F53B       521       mov reflow_time,   a
-0370 F53C       522       mov reflow_time+1, a
-0372            523   
-0372            524       ; Start in mode A: soak temperature
-0372 753D00     525       mov active_param, #0
-0375 1200F3     526       lcall Load_Param_Into_BCD
-0378            527   
-0378 120123     528       lcall Configure_Keypad_Pins
-037B            529   
-037B            530   
-037B            531   ; -------------------------------------------------
-037B            532   ; Main loop
-037B            533   ; -------------------------------------------------
-037B            534   
-037B            535   forever:
-037B 120130     536       lcall Keypad       ; Scan keypad
-037E 120013     537       lcall Display      ; Update HEX displays (or later, LCD)
-0381 50F8       538       jnc forever        ; If C=0 ? no digit to insert (mode/backspace/none)
-0383            539   
-0383 120079     540       lcall Shift_Digits_Left  ; If C=1 ? numeric key; insert new digit from R7
-0386 02037B     541       ljmp forever
-0389            542   
-0389            543   end
+033F C3         475       clr C
+0340 22         476       ret
+0341            477   
+0341            478   KF_CheckD:
+0341            479       ; --- Mode D (reflow time) ---
+0341 B40D0B     480       cjne A, #0Dh, KF_CheckStar
+0344 1200CC     481       lcall Save_Current_BCD_Into_Param
+0347 753D03     482       mov   active_param, #3       ; D: reflow_time
+034A 1200F3     483       lcall Load_Param_Into_BCD
+034D C3         484       clr C
+034E 22         485       ret
+034F            486   
+034F            487   KF_CheckStar:
+034F            488       ; --- '*' key (code 0Eh) -> delete / backspace ---
+034F B40E05     489       cjne A, #0Eh, KF_CheckHash
+0352            490       ; Backspace = shift digits right by 1 digit
+0352 1200A0     491       lcall Shift_Digits_Right
+0355 C3         492       clr C                        ; no new digit for main loop
+0356 22         493       ret
+0357            494   
+0357            495   KF_CheckHash:
+0357            496       ; --- '#' key (code 0Fh) -> clear ---
+0357 B40F0D     497       cjne A, #0Fh, KF_Digit
+035A            498       ; Clear all BCD digits for current parameter
+035A E4         499       clr A
+035B F530       500       mov bcd+0, A
+035D F531       501       mov bcd+1, A
+035F F532       502       mov bcd+2, A
+0361 F533       503       mov bcd+3, A
+0363 F534       504       mov bcd+4, A
+0365 C3         505       clr C                        ; no digit to insert
+0366 22         506       ret
+0367            507   
+0367            508   KF_Digit:
+0367            509       ; Not A/B/C/D/*/# -> treat as numeric digit key
+0367            510       ; R7 holds the digit, Carry = 1 -> main loop will append it
+0367 22         511       ret
+0368            512   
+0368            513   
+0368            514   ;--------------------------------------------------
+0368            515   ; MAIN PROGRAM
+0368            516   ;--------------------------------------------------
+0368            517   
+0368            518   main_code:
+0368 75817F     519       mov SP, #7Fh        ; Initialize stack pointer
+036B            520   
+036B E4         521       clr A
+036C F5E8       522       mov LEDRA, A        ; Clear LEDs
+036E F595       523       mov LEDRB, A
+0370            524   
+0370            525       ; Clear all BCD digits
+0370 F530       526       mov bcd+0, A
+0372 F531       527       mov bcd+1, A
+0374 F532       528       mov bcd+2, A
+0376 F533       529       mov bcd+3, A
+0378 F534       530       mov bcd+4, A
+037A            531   
+037A            532       ; Clear parameter storage
+037A F535       533       mov soak_temp,   A
+037C F536       534       mov soak_temp+1, A
+037E F537       535       mov soak_time,   A
+0380 F538       536       mov soak_time+1, A
+0382 F539       537       mov reflow_temp,   A
+0384 F53A       538       mov reflow_temp+1, A
+0386 F53B       539       mov reflow_time,   A
+0388 F53C       540       mov reflow_time+1, A
+038A            541   
+038A            542       ; Start in mode A: soak temperature
+038A 753D00     543       mov active_param, #0
+038D 1200F3     544       lcall Load_Param_Into_BCD
+0390            545   
+0390 120123     546       lcall Configure_Keypad_Pins
+0393            547   
+0393            548   
+0393            549   ;--------------------------------------------------
+0393            550   ; Main loop
+0393            551   ;--------------------------------------------------
+0393            552   
+0393            553   forever:
+0393 120130     554       lcall Keypad        ; Scan keypad
+0396 120013     555       lcall Display       ; Update HEX displays (or later, LCD)
+0399 50F8       556       jnc  forever        ; If C=0 -> no digit to insert (mode/backspace/clear/none)
+039B            557   
+039B 120079     558       lcall Shift_Digits_Left  ; If C=1 -> numeric key; insert new digit from R7
+039E 020393     559       ljmp forever
+03A1            560   
+03A1            561   end
