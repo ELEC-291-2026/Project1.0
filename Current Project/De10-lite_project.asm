@@ -58,6 +58,7 @@ FSM_timer:  ds 1
 QuarterSecondsCounter: ds 1
 SecondsCounter: ds 1
 SecondsCounterTotal: ds 1
+MinutesCounterTotal: ds 1
 ; Each FSM has its own state counter
 FSM_state:  ds 1
 
@@ -157,12 +158,17 @@ Timer2_ISR:
 	inc SecondsCounter
 	inc SecondsCounterTotal ; USE THIS FOR THE TOTAL TIMER. IT NEVER RESETS SO DONT WORRY
 	
+	mov a, SecondsCounterTotal
+	cjne a, #60, FSM_timer_done
+	inc MinutesCounterTotal
+	mov SecondsCounterTotal, #0x00
+	
 	FSM_timer_done:
 	reti
 
 ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
 T_7seg:
-    DB 40H, 79H, 24H, 30H, 19H, 12H, 02H, 78H, 00H, 10H
+    DB 0C0H, 0F9H, 0A4H, 0B0H, 099H, 092H, 082H, 0F8H, 080H, 090H
 
 ; Displays a BCD number pased in R0 in HEX1-HEX0
 Display_BCD_7_Seg_HEX10:
@@ -351,17 +357,18 @@ Initial_ALL:
 	clr ssr_f
 	setb state_flag ;tells the de10-lite its a new state
 	
+	mov MinutesCounterTotal, #0x00
 	mov SecondsCounterTotal, #0x00
     mov QuarterSecondsCounter, #0x00
     
     
-    mov soak_temp+0, 	#0    ; mode A 150 +-20
+    mov soak_temp+0, 	#150    ; mode A 150 +-20
     mov soak_temp+1, 	#0
-	mov soak_time+0, 	#0     ; mode B 60-120
+	mov soak_time+0, 	#5     ; mode B 60-120
 	mov soak_time+1, 	#0
-	mov reflow_temp+0,  #0		; mode C 230 < 240
+	mov reflow_temp+0,  #130		; mode C 230 < 240
 	mov reflow_temp+1,  #0
-	mov reflow_time+0,  #0 	; mode D  30 < 45
+	mov reflow_time+0,  #5 	; mode D  30 < 45
 	mov reflow_time+1,  #0
 	
 	mov tempFinal+0, #0
@@ -407,25 +414,31 @@ main:
 	
 loop:
 	
-	;clr EA
-	;Load_X_Var8(SecondsCounter)
-	;lcall hex2bcd
-	;mov R0, bcd+0
-	;lcall Display_BCD_7_Seg_HEX10
+	
+	ljmp skip_debug_stuff 
+	
+	clr EA
+	Load_X_Var8(SecondsCounter)
+	lcall hex2bcd
+	mov R0, bcd+0
+	lcall Display_BCD_7_Seg_HEX10
 	
 	
-	;Load_X_Var8(SecondsCounterTotal)
-	;Load_X_Var16(soak_temp)
-	;lcall hex2bcd
-	;mov R0, bcd+0
-	;lcall Display_BCD_7_Seg_HEX32
+	Load_X_Var8(SecondsCounterTotal)
+	lcall hex2bcd
+	mov R0, bcd+0
+	lcall Display_BCD_7_Seg_HEX32
 	
 	;load_x(tempFinal)
-	;lcall hex2bcd
-	;mov R0, bcd+0
-	;lcall Display_BCD_7_Seg_HEX54
 	
-	;setb EA
+	Load_X_Var8(MinutesCounterTotal)
+	lcall hex2bcd
+	mov R0, bcd+0
+	lcall Display_BCD_7_Seg_HEX54
+	
+	setb EA
+	
+	skip_debug_stuff:
 
 	
 	; ALL TEMP MATH -------------------------
