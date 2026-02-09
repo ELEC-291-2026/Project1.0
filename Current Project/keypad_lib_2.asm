@@ -1,24 +1,3 @@
-$NOLIST
-$MODMAX10
-$LIST
-
-;--------------------------------------------------
-; Public routines exported by this library
-;--------------------------------------------------
-PUBLIC Display
-PUBLIC Shift_Digits_Left
-PUBLIC Shift_Digits_Right
-PUBLIC Wait25ms
-PUBLIC Save_Current_BCD_Into_Param
-PUBLIC Load_Param_Into_BCD
-PUBLIC Configure_Keypad_Pins
-PUBLIC Keypad
-
-;--------------------------------------------------
-; External data (defined in main program)
-;--------------------------------------------------
-EXTRN DATA (bcd, soak_temp, soak_time, reflow_temp, reflow_time, active_param)
-
 ;--------------------------------------------------
 ; Code Segment
 ;--------------------------------------------------
