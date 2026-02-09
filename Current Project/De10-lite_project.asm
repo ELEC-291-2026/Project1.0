@@ -58,6 +58,7 @@ FSM_timer:  ds 1
 QuarterSecondsCounter: ds 1
 SecondsCounter: ds 1
 SecondsCounterTotal: ds 1
+MinutesCounterTotal: ds 1
 ; Each FSM has its own state counter
 FSM_state:  ds 1
 
@@ -70,7 +71,7 @@ state_flag	: dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
-$include(keypad_lib.asm)
+$include(keypad_lib_2.asm)
 
 cseg
 ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
@@ -84,9 +85,8 @@ ELCD_D5 equ P0.5
 ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
 SSR_PIN equ P0.0
+START_BUTTON equ P0.2
 SOUND_OUT equ P0.4
-START_BUTTON equ P1.5
-
 
 cseg
 ;---------------------------------;
@@ -158,12 +158,17 @@ Timer2_ISR:
 	inc SecondsCounter
 	inc SecondsCounterTotal ; USE THIS FOR THE TOTAL TIMER. IT NEVER RESETS SO DONT WORRY
 	
+	mov a, SecondsCounterTotal
+	cjne a, #60, FSM_timer_done
+	inc MinutesCounterTotal
+	mov SecondsCounterTotal, #0x00
+	
 	FSM_timer_done:
 	reti
 
 ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
 T_7seg:
-    DB 40H, 79H, 24H, 30H, 19H, 12H, 02H, 78H, 00H, 10H
+    DB 0C0H, 0F9H, 0A4H, 0B0H, 099H, 092H, 082H, 0F8H, 080H, 090H
 
 ; Displays a BCD number pased in R0 in HEX1-HEX0
 Display_BCD_7_Seg_HEX10:
@@ -231,39 +236,6 @@ Hex_to_bcd_8bit:
 	mov R0, a
 	ret
 
-;--------------------------------------------------
-; LCD UI Messages
-;--------------------------------------------------
-
-Show_Heating_Message:
-    lcall ELCD_Clr
-    mov dptr, #msg_heat
-    lcall ELCD_Write_String
-    ret
-
-Show_Soak_Message:
-    lcall ELCD_Clr
-    mov dptr, #msg_soak
-    lcall ELCD_Write_String
-    ret
-
-Show_Reflow_Message:
-    lcall ELCD_Clr
-    mov dptr, #msg_reflow
-    lcall ELCD_Write_String
-    ret
-
-Show_Cooling_Message:
-    lcall ELCD_Clr
-    mov dptr, #msg_cool
-    lcall ELCD_Write_String
-    ret
-
-msg_heat:   DB 'Heating...', 0
-msg_soak:   DB 'Soak Stage', 0
-msg_reflow: DB 'Reflow Stage', 0
-msg_cool:   DB 'Cooling...', 0
-
 
 ;-------MACROS--------------------;
 ;Example macro to help with process %0,1,etc represents the input number, this is all pass by reference(i.e it can actually affect the variable)
@@ -322,7 +294,6 @@ tempConv_cold MAC
 	Load_y(100)
 	lcall mul32
 
-	lcall hex2bcd
 ENDMAC
 
 tempConv_hot MAC
@@ -338,7 +309,6 @@ tempConv_hot MAC
 	Load_y(4096)
 	lcall div32
 
-	lcall hex2bcd
 ENDMAC
 
 powerPercent MAC
@@ -387,18 +357,19 @@ Initial_ALL:
 	clr ssr_f
 	setb state_flag ;tells the de10-lite its a new state
 	
+	mov MinutesCounterTotal, #0x00
 	mov SecondsCounterTotal, #0x00
     mov QuarterSecondsCounter, #0x00
     
     
     mov soak_temp+0, 	#150    ; mode A 150 +-20
     mov soak_temp+1, 	#0
-	mov soak_time+0, 	#60     ; mode B 60-120
+	mov soak_time+0, 	#5     ; mode B 60-120
 	mov soak_time+1, 	#0
-	mov reflow_temp+0,  #230	; mode C 230 < 240
+	mov reflow_temp+0,  #130		; mode C 230 < 240
 	mov reflow_temp+1,  #0
-	mov reflow_time+0,  #30 	; mode D  30 < 45
-	mov reflow_time+1,  #30
+	mov reflow_time+0,  #5 	; mode D  30 < 45
+	mov reflow_time+1,  #0
 	
 	mov tempFinal+0, #0
 	mov tempFinal+1, #0
@@ -414,6 +385,13 @@ Initial_ALL:
 	mov tempHot+1, #0
 	mov tempHot+2, #0
 	mov tempHot+3, #0
+	
+	mov active_param, #0
+		
+	clr EA
+    lcall Load_Param_Into_BCD
+    lcall Configure_Keypad_Pins
+    setb EA
 
 	
 	; Speaker frequency
@@ -432,15 +410,14 @@ Initial_ALL:
 	
 main:
 	mov P0MOD, #0x01 ;configures P0.0
-	; Configure P1.5 as input (0 = input)
-	anl P1MOD, #0DFh   ; 1101 1111 -> clears bit 5, keeps others unchanged
-
 	lcall Initial_ALL
 	
 loop:
 	
+	
+	ljmp skip_debug_stuff 
+	
 	clr EA
-	;ljmp skip_debug_stuff
 	Load_X_Var8(SecondsCounter)
 	lcall hex2bcd
 	mov R0, bcd+0
@@ -448,63 +425,37 @@ loop:
 	
 	
 	Load_X_Var8(SecondsCounterTotal)
-	;Load_X_Var16(soak_temp)
 	lcall hex2bcd
 	mov R0, bcd+0
 	lcall Display_BCD_7_Seg_HEX32
 	
-	load_x(tempFinal)
+	;load_x(tempFinal)
+	
+	Load_X_Var8(MinutesCounterTotal)
 	lcall hex2bcd
 	mov R0, bcd+0
 	lcall Display_BCD_7_Seg_HEX54
 	
 	setb EA
+	
+	skip_debug_stuff:
 
-	;skip_debug_stuff:
-	
-	
-	; skips over test code
-	sjmp ADCcheck
-
-	; Oven Test code START -------------------------------------
-	; ON OFF SWITCH OVEN ON PIN P0.0
-		clr a
-		mov a, SWA
-		
-		anl a, #0x01
-		cjne a, #0x01, done2
-		
-		setb LEDRA.0
-		setb SSR_PIN
-		
-		sjmp done3
-		
-		done2:
-		clr SSR_PIN
-		clr LEDRA.0
-		
-		done3:
-		sjmp loop
-		
-	; Oven Test code END  -------------------------------------
-	ADCcheck:
-	
 	
 	; ALL TEMP MATH -------------------------
 	clr EA
 	mov ADC_C, #LM335_ADC
 	tempConv_cold
-	mov tempCold+0, bcd+0
-	mov tempCold+1, bcd+1
-	mov tempCold+2, bcd+2
-	mov tempCold+3, bcd+3
+	mov tempCold+0, x+0
+	mov tempCold+1, x+1
+	mov tempCold+2, x+2
+	mov tempCold+3, x+3
 	
 	mov ADC_C, #OP07_ADC
 	tempConv_hot
-	mov tempHot+0, bcd+0
-	mov tempHot+1, bcd+1
-	mov tempHot+2, bcd+2
-	mov tempHot+3, bcd+3
+	mov tempHot+0, x+0
+	mov tempHot+1, x+1
+	mov tempHot+2, x+2
+	mov tempHot+3, x+3
 	
 	; Add temperatures
 	mov x+0, tempHot+0
@@ -524,13 +475,8 @@ loop:
 	mov tempFinal+2, x+2
 	mov tempFinal+3, x+3
 	setb EA
-
-	;Keypad Setup -----------------------------------
-	mov active_param, #0
-    lcall Load_Param_Into_BCD
-
-    lcall Configure_Keypad_Pins
     
+<<<<<<< HEAD
 	; ======= KEYPAD + DISPLAY FOREVER LOGIC =======
 
     lcall Keypad          ; scan keypad
@@ -542,6 +488,9 @@ skip_key:
     lcall Display         ; update HEX displays
 	
 	; ==============================================
+=======
+	
+>>>>>>> 7e882ad6f5306c28929cf38ec6346f307cf12384
     
 ;-------------------------------------------------------------------------------
 ;FSM
@@ -562,6 +511,7 @@ skip_key:
 
 
 FSM_state0:
+<<<<<<< HEAD
     cjne a, #0, FSM_state1
     setb LEDRA.0 
     clr SSR_PIN
@@ -580,6 +530,36 @@ start_oven:
     ; Update LCD immediately so the user knows it started
     lcall Show_Heating_Message 
     ljmp FSM_done
+=======
+	;Only moves on to state 1 once start button is pressed
+	cjne a, #0, FSM_state1
+	
+	clr EA
+	lcall Keypad        ; Scan keypad
+    lcall Display       ; Update HEX displays (or later, LCD)
+    jnc  skip_keypad        ; If C=0 -> no digit to insert (mode/backspace/clear/none)
+
+    lcall Shift_Digits_Left  ; If C=1 -> numeric key; insert new digit from R7
+   
+   	skip_keypad:
+	setb EA
+	
+	noChange:
+	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
+	clr SSR_PIN
+
+	jb SWA.0, FSM_done_state_0_skip
+	
+	jb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
+	sjmp FSM_done_state_0_Skip
+	FSM_done_state_0_Continue:
+	ljmp FSM_done
+	FSM_done_state_0_Skip:
+	
+	setb state_flag
+	inc FSM_state
+	ljmp FSM_done
+>>>>>>> 7e882ad6f5306c28929cf38ec6346f307cf12384
 
 FSM_state1:	
 	;Only move to next stat if temp > 150c
