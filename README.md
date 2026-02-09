@@ -4,8 +4,11 @@
 * Microcontroller: DE10-Lite/DE1-SoC
 
 ## Tasks
-- FSM - Two persons
-- Fixing output for the board with timer
-- Display temperature with sevseg (1 person)
+-Display Right Stuff on the right displays
+-Fix temperature callibration and displaying it
+-Extra functionality 
+  -
+  -
+  -
+  -
 - Start/Stop button
-- Communication between Processor and Computer
