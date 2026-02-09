@@ -1,22 +1,21 @@
 $NOLIST
 $LIST
 
-PUBLIC Keypad
-PUBLIC Configure_Keypad_Pins
-PUBLIC Shift_Digits_Left
-PUBLIC Shift_Digits_Right
-PUBLIC Save_Current_BCD_Into_Param
-PUBLIC Load_Param_Into_BCD
+;PUBLIC Keypad
+;PUBLIC Configure_Keypad_Pins
+;PUBLIC Shift_Digits_Left
+;PUBLIC Shift_Digits_Right
+;PUBLIC Save_Current_BCD_Into_Param
+;PUBLIC Load_Param_Into_BCD
 
 CSEG
-
 ; -----------------------------
 ; Lookup table for 7-seg digits
 ; -----------------------------
 myLUT:
-    DB 0xC0, 0xF9, 0xA4, 0xB0, 0x99        ; digits 0–4
-    DB 0x92, 0x82, 0xF8, 0x80, 0x90        ; digits 5–9
-    DB 0x88, 0x83, 0xC6, 0xA1, 0x86, 0x8E  ; A–F
+    DB 0xC0, 0xF9, 0xA4, 0xB0, 0x99        ; digits 0â€“4
+    DB 0x92, 0x82, 0xF8, 0x80, 0x90        ; digits 5â€“9
+    DB 0x88, 0x83, 0xC6, 0xA1, 0x86, 0x8E  ; Aâ€“F
 
 ;---------------------------------------------------------
 ; Macro: showBCD
@@ -39,9 +38,9 @@ ENDMAC
 
 
 ; -------------------------------------------------
-; Display routine – show BCD number on HEX displays
+; Display routine â€“ show BCD number on HEX displays
 ; Uses global: bcd[0..4]
-; KEY3: 0 → show high digits, 1 → show low digits
+; KEY3: 0 â†’ show high digits, 1 â†’ show low digits
 ; LEDRA.7: overflow indicator if bcd+3 or bcd+4 != 0
 ; -------------------------------------------------
 
@@ -58,7 +57,7 @@ Display_L1:
     clr LEDRA.7
 Display_L2:
 
-    ; If KEY3 pressed (active low) → show HIGH digits
+    ; If KEY3 pressed (active low) â†’ show HIGH digits
     jnb key.3, Display_high_digits
 
     ; Show lower 6 digits
@@ -88,7 +87,7 @@ ENDMAC
 
 ; -------------------------------------------------
 ; Shift all BCD digits LEFT by 4 bits
-; → makes room for new digit in LSD (R7)
+; â†’ makes room for new digit in LSD (R7)
 ; Uses global: bcd[0..4]
 ; -------------------------------------------------
 
@@ -107,7 +106,7 @@ Shift_Digits_Left_L0:
     ; Insert new digit from R7 into lowest nibble
     anl  bcd+0, #0F0h   ; clear lower nibble
     mov  a, R7
-    anl  a, #0Fh        ; ensure only 0–F
+    anl  a, #0Fh        ; ensure only 0â€“F
     orl  bcd+0, a
     ret
 
@@ -121,7 +120,7 @@ MYRRC MAC
 ENDMAC
 
 ; -------------------------------------------------
-; Shift digits RIGHT by 4 bits → BACKSPACE
+; Shift digits RIGHT by 4 bits â†’ BACKSPACE
 ; Uses global: bcd[0..4]
 ; -------------------------------------------------
 
@@ -145,11 +144,11 @@ Shift_Digits_Right_L0:
 
 Wait25ms:
     mov R0, #15
-L3: mov R1, #74
-L2: mov R2, #250
-L1: djnz R2, L1
-    djnz R1, L2
-    djnz R0, L3
+L6: mov R1, #74
+L5: mov R2, #250
+L4: djnz R2, L4
+    djnz R1, L5
+    djnz R0, L6
     ret
 
 
@@ -217,7 +216,7 @@ Load_NotC:
 ; Uses: R7, C
 ; -------------------------------------------------
 CHECK_COLUMN MAC
-    jb %0, CHECK_COL_%M      ; column=1 → no key
+    jb %0, CHECK_COL_%M      ; column=1 â†’ no key
     mov R7, %1               ; store key code
     jnb %0, $                ; wait for release
     setb c                   ; mark "key found"
@@ -253,8 +252,8 @@ COL4 EQU P3.0
 ; -------------------------------------------------
 ; Keypad scanning routine
 ; Output:
-;   C = 1 → numeric key pressed, digit code in R7
-;   C = 0 → no digit (no key, mode key, or backspace)
+;   C = 1 â†’ numeric key pressed, digit code in R7
+;   C = 0 â†’ no digit (no key, mode key, or backspace)
 ; Side effects:
 ;   Can call Shift_Digits_Right for KEY1
 ;   Uses bcd/soak_*/active_param via Key_Found
@@ -263,9 +262,9 @@ COL4 EQU P3.0
 Keypad:
 
     ; KEY1 = backspace
-    jb KEY.1, keypad_L0      ; if KEY1=1 (not pressed) → skip
+    jb KEY.1, keypad_L0      ; if KEY1=1 (not pressed) â†’ skip
     lcall Wait25ms
-    jb KEY.1, keypad_L0      ; if released, bounce → skip
+    jb KEY.1, keypad_L0      ; if released, bounce â†’ skip
     jnb KEY.1, $             ; wait until released
     lcall Shift_Digits_Right
     clr c
@@ -349,7 +348,7 @@ keypad_default:
     ret
 
 
-; ---------------- Rotated keypad layout (90° CCW) ------
+; ---------------- Rotated keypad layout (90Â° CCW) ------
 
 keypad_90deg:
     clr ROW1
@@ -386,9 +385,9 @@ keypad_90deg:
 
 ; -------------------------------------------------
 ; Key_Found:
-;   R7 = key code (0–F), C = 1 when we get here.
-;   A/B/C/D → mode select (no digit to caller)
-;   Others → numeric digit, C stays 1
+;   R7 = key code (0â€“F), C = 1 when we get here.
+;   A/B/C/D â†’ mode select (no digit to caller)
+;   Others â†’ numeric digit, C stays 1
 ; -------------------------------------------------
 
 Key_Found:
