@@ -515,7 +515,7 @@ FSM_state0:
 
 	jb SWA.0, FSM_done_state_0_skip
 	
-	jb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
+	jnb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
 	sjmp FSM_done_state_0_Skip
 	FSM_done_state_0_Continue:
 	ljmp FSM_done
