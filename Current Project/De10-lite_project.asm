@@ -515,7 +515,7 @@ FSM_state0:
 
 	jb SWA.0, FSM_done_state_0_skip
 	
-	jnb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
+	jb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
 	sjmp FSM_done_state_0_Skip
 	FSM_done_state_0_Continue:
 	ljmp FSM_done
@@ -534,7 +534,6 @@ FSM_state1:
 
 	clr EA
 	;If it didint reach 50 degrees in 60 seconds
-	clear EA
 	;If time > 60 check
 	load_x(60)
 	Load_Y_Var8(SecondsCounter)
