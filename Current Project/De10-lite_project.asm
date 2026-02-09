@@ -253,46 +253,32 @@ ADD_16 MAC
 ENDMAC
 
 Load_X_Var16 MAC
-    
-mov x+0, %0+0  ; Move low byte of variable to x low byte
-    
-mov x+1, %0+1  ; Move high byte of variable to x+1
-    
-mov x+2, #0    ; Clear upper bytes
-    
+mov x+0, %0+0
+mov x+1, %0+1
+mov x+2, #0
 mov x+3, #0
 ENDMAC
 
 Load_Y_Var16 MAC
-    
-mov y+0, %0+0  ; Move low byte of variable to x low byte
-    
-mov y+1, %0+1  ; Move high byte of variable to x+1
-    
-mov y+2, #0    ; Clear upper bytes
-    
+mov y+0, %0+0
+mov y+1, %0+1
+mov y+2, #0
 mov y+3, #0
 ENDMAC
 
 Load_X_Var8 MAC
     
-mov x+0, %0+0  ; Move low byte of variable to x low byte
-    
-mov x+1, #0  ; Move high byte of variable to x+1
-    
-mov x+2, #0    ; Clear upper bytes
-    
+mov x+0, %0+0
+mov x+1, #0
+mov x+2, #0
 mov x+3, #0
 ENDMAC
 
 Load_Y_Var8 MAC
     
-mov y+0, %0+0  ; Move low byte of variable to x low byte
-    
-mov y+1, #0  ; Move high byte of variable to x+1
-    
-mov y+2, #0    ; Clear upper bytes
-    
+mov y+0, %0+0
+mov y+1, #0
+mov y+2, #0
 mov y+3, #0
 ENDMAC
 
@@ -697,6 +683,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
