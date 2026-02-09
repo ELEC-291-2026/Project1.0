@@ -2,29 +2,16 @@ $NOLIST
 $MODMAX10          
 $LIST
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-; Reset vector – when MCU starts it jumps to main_code
-=======
-; Reset vector
->>>>>>> 47188b9fe93e3d0180f99344ef9fe1d382147c34
-=======
-PUBLIC Keypad
-PUBLIC Configure_Keypad_Pins
-PUBLIC Shift_Digits_Left
-PUBLIC Shift_Digits_Right
-
-; Reset vector – when MCU starts it jumps to main_code
->>>>>>> 56299b960b390564764b307c06afc9a9ed78b953
+; Reset vector � when MCU starts it jumps to main_code
 CSEG at 0
     ljmp main_code        ; Jump to main program
 
 ; -------------------------------------------------
-; Data Segment – reserve RAM for BCD digits & params
+; Data Segment � reserve RAM for BCD digits & params
 ; -------------------------------------------------
 
 DSEG at 30H
-bcd:            ds 5      ; Reserve 5 bytes → stores 10 BCD digits (2 per byte)
+bcd:            ds 5      ; Reserve 5 bytes ? stores 10 BCD digits (2 per byte)
 
 ; Reflow parameters, each stored as 4 BCD digits (2 bytes)
 ; A: Soak temperature
@@ -46,12 +33,12 @@ active_param:   ds 1      ; 0 = A, 1 = B, 2 = C, 3 = D
 CSEG
 
 ; Lookup table for 7-segment display patterns (common anode)
-; Index 0–F → segment pattern
+; Index 0�F ? segment pattern
 
 myLUT:
-    DB 0xC0, 0xF9, 0xA4, 0xB0, 0x99        ; digits 0–4
-    DB 0x92, 0x82, 0xF8, 0x80, 0x90        ; digits 5–9
-    DB 0x88, 0x83, 0xC6, 0xA1, 0x86, 0x8E  ; A–F
+    DB 0xC0, 0xF9, 0xA4, 0xB0, 0x99        ; digits 0�4
+    DB 0x92, 0x82, 0xF8, 0x80, 0x90        ; digits 5�9
+    DB 0x88, 0x83, 0xC6, 0xA1, 0x86, 0x8E  ; A�F
 
 ;---------------------------------------------------------
 ; Macro: showBCD
@@ -79,16 +66,16 @@ ENDMAC
 
 
 ; -------------------------------------------------
-; Display routine – show BCD number on HEX displays
-; KEY3: 0 → show high digits, 1 → show low digits
+; Display routine � show BCD number on HEX displays
+; KEY3: 0 ? show high digits, 1 ? show low digits
 ; LEDRA.7: overflow indicator if bcd+3 or bcd+4 != 0
 ; -------------------------------------------------
 
 Display:
     mov dptr, #myLUT   ; Point to lookup table
 
-    ; If digits 10–7 (bcd+3 and bcd+4) are NOT zero
-    ; → turn ON LEDR7 as overflow indicator
+    ; If digits 10�7 (bcd+3 and bcd+4) are NOT zero
+    ; ? turn ON LEDR7 as overflow indicator
 
     mov a, bcd+3
     orl a, bcd+4
@@ -99,7 +86,7 @@ Display_L1:
     clr LEDRA.7        ; Alert LED off
 Display_L2:
 
-    ; If KEY3 pressed (assuming active low) → show HIGH digits
+    ; If KEY3 pressed (assuming active low) ? show HIGH digits
     ; Otherwise show LOW digits
 
     jnb key.3, Display_high_digits
@@ -134,7 +121,7 @@ ENDMAC
 
 ; -------------------------------------------------
 ; Shift all BCD digits LEFT by 4 bits
-; → makes room for new digit in LSD (R7)
+; ? makes room for new digit in LSD (R7)
 ; -------------------------------------------------
 
 Shift_Digits_Left:
@@ -153,7 +140,7 @@ Shift_Digits_Left_L0:
     ; Keep upper nibble of bcd+0 unchanged
     anl bcd+0, #0F0h   ; clear lower nibble
     mov a, R7
-    anl a, #0Fh        ; ensure only 0–F
+    anl a, #0Fh        ; ensure only 0�F
     orl bcd+0, a
     ret
 
@@ -169,7 +156,7 @@ ENDMAC
 
 ; -------------------------------------------------
 ; Shift digits RIGHT by 4 bits
-; → used for BACKSPACE (delete last digit)
+; ? used for BACKSPACE (delete last digit)
 ; -------------------------------------------------
 
 Shift_Digits_Right:
@@ -267,12 +254,12 @@ Load_NotC:
 
 ; -------------------------------------------------
 ; Macro: Check one keypad column
-; If pressed → R7 = key value, C=1, jump to Key_Found
+; If pressed ? R7 = key value, C=1, jump to Key_Found
 ; %0 = column bit, %1 = key code (immediate)
 ; -------------------------------------------------
 
 CHECK_COLUMN MAC
-    jb %0, CHECK_COL_%M      ; if column=1 → no key here → skip
+    jb %0, CHECK_COL_%M      ; if column=1 ? no key here ? skip
     mov R7, %1               ; store key code
     jnb %0, $                ; wait until key is released
     setb c                   ; mark "key found"
@@ -307,17 +294,17 @@ COL4 EQU P3.0
 ; -------------------------------------------------
 ; Keypad scanning routine
 ; Output:
-;   C = 1 → numeric key pressed, code in R7 (0–9, maybe E/F)
-;   C = 0 → no digit (no key, mode key, or backspace)
+;   C = 1 ? numeric key pressed, code in R7 (0�9, maybe E/F)
+;   C = 0 ? no digit (no key, mode key, or backspace)
 ; -------------------------------------------------
 
 Keypad:
 
     ; KEY1 acts as BACKSPACE / ERASE
     
-    jb KEY.1, keypad_L0      ; if KEY1=1 (not pressed) → skip
+    jb KEY.1, keypad_L0      ; if KEY1=1 (not pressed) ? skip
     lcall Wait25ms
-    jb KEY.1, keypad_L0      ; still high? → bounce, skip
+    jb KEY.1, keypad_L0      ; still high? ? bounce, skip
     jnb KEY.1, $             ; wait for release (KEY1 low while pressed)
     lcall Shift_Digits_Right ; delete LSD for active parameter
     clr c                    ; no digit returned
@@ -325,7 +312,7 @@ Keypad:
 
 keypad_L0:
     
-    ; Drive all rows LOW → check if any column LOW
+    ; Drive all rows LOW ? check if any column LOW
     
     clr ROW1
     clr ROW2
@@ -336,7 +323,7 @@ keypad_L0:
     anl c, COL2
     anl c, COL3
     anl c, COL4
-    jnc Keypad_Debounce      ; if any column low → possible key
+    jnc Keypad_Debounce      ; if any column low ? possible key
     clr c
     ret
 
@@ -410,7 +397,7 @@ keypad_default:
 
 
 ; -------------------------------------------------
-; Rotated keypad layout (90° CCW)
+; Rotated keypad layout (90� CCW)
 ; -------------------------------------------------
 
 keypad_90deg:
@@ -449,9 +436,9 @@ keypad_90deg:
 
 ; -------------------------------------------------
 ; Key_Found:
-;   R7 = key code (0–F), C = 1 when we get here.
-;   A/B/C/D (0Ah–0Dh) → mode select, no digit
-;   Others → numeric digit, C stays 1
+;   R7 = key code (0�F), C = 1 when we get here.
+;   A/B/C/D (0Ah�0Dh) ? mode select, no digit
+;   Others ? numeric digit, C stays 1
 ; -------------------------------------------------
 
 Key_Found:
@@ -499,7 +486,7 @@ Check_Mode_D:
     ret
 
 Not_Mode_Key:
-    ; Not A/B/C/D → treat as numeric digit key
+    ; Not A/B/C/D ? treat as numeric digit key
     ; R7 contains the digit code; C remains 1
     ret
 
@@ -546,9 +533,9 @@ main_code:
 forever:
     lcall Keypad       ; Scan keypad
     lcall Display      ; Update HEX displays (or later, LCD)
-    jnc forever        ; If C=0 → no digit to insert (mode/backspace/none)
+    jnc forever        ; If C=0 ? no digit to insert (mode/backspace/none)
 
-    lcall Shift_Digits_Left  ; If C=1 → numeric key; insert new digit from R7
+    lcall Shift_Digits_Left  ; If C=1 ? numeric key; insert new digit from R7
     ljmp forever
 
 end
