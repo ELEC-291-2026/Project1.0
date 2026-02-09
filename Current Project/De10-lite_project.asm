@@ -84,8 +84,9 @@ ELCD_D5 equ P0.5
 ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
 SSR_PIN equ P0.0
-START_BUTTON equ P0.2
 SOUND_OUT equ P0.4
+START_BUTTON equ P1.5
+
 
 cseg
 ;---------------------------------;
@@ -229,6 +230,39 @@ Hex_to_bcd_8bit:
 	orl a, b
 	mov R0, a
 	ret
+
+;--------------------------------------------------
+; LCD UI Messages
+;--------------------------------------------------
+
+Show_Heating_Message:
+    lcall ELCD_Clr
+    mov dptr, #msg_heat
+    lcall ELCD_Write_String
+    ret
+
+Show_Soak_Message:
+    lcall ELCD_Clr
+    mov dptr, #msg_soak
+    lcall ELCD_Write_String
+    ret
+
+Show_Reflow_Message:
+    lcall ELCD_Clr
+    mov dptr, #msg_reflow
+    lcall ELCD_Write_String
+    ret
+
+Show_Cooling_Message:
+    lcall ELCD_Clr
+    mov dptr, #msg_cool
+    lcall ELCD_Write_String
+    ret
+
+msg_heat:   DB 'Heating...', 0
+msg_soak:   DB 'Soak Stage', 0
+msg_reflow: DB 'Reflow Stage', 0
+msg_cool:   DB 'Cooling...', 0
 
 
 ;-------MACROS--------------------;
@@ -398,6 +432,9 @@ Initial_ALL:
 	
 main:
 	mov P0MOD, #0x01 ;configures P0.0
+	; Configure P1.5 as input (0 = input)
+	anl P1MOD, #0DFh   ; 1101 1111 -> clears bit 5, keeps others unchanged
+
 	lcall Initial_ALL
 	
 loop:
@@ -526,17 +563,22 @@ FSM_state0:
 	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
 	clr SSR_PIN
 
-	jb SWA.0, FSM_done_state_0_skip
-	
-	jb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
-	sjmp FSM_done_state_0_Skip
-	FSM_done_state_0_Continue:
-	ljmp FSM_done
-	FSM_done_state_0_Skip:
-	
-	setb state_flag
-	inc FSM_state
-	ljmp FSM_done
+	jb SWA.0, FSM_done   ; manual override
+
+	jnb START_BUTTON, start_pressed   ; active LOW button
+
+	sjmp FSM_done        ; not pressed → stay here
+
+start_pressed:
+
+    
+    clr EA
+    lcall Show_Heating_Message
+    setb EA
+
+    setb state_flag
+    inc FSM_state
+    ljmp FSM_done
 
 FSM_state1:	
 	;Only move to next stat if temp > 150c
@@ -561,8 +603,12 @@ FSM_state1:
 	sjmp FSM_done_state_1_Skip
 	FSM_done_state_1_Continue:
 	ljmp FSM_done
-	FSM_done_state_1_Skip:
 	
+	FSM_done_state_1_Skip:
+
+    clr EA
+    lcall Show_Soak_Message
+    setb EA
 	setb state_flag
 	inc FSM_state
 	ljmp FSM_done
@@ -638,7 +684,10 @@ FSM_state3:
 	FSM_done_state_3_Continue:
 	ljmp FSM_done
 	FSM_done_state_3_Skip:
-	
+
+    clr EA
+    lcall Show_Reflow_Message
+    setb EA
 	setb state_flag
 	inc FSM_state
 	ljmp FSM_done
@@ -684,7 +733,11 @@ FSM_state4:
 	jb mf, FSM_done
 	
 	FSM_done_state_4_Skip:
-	
+    
+	clr EA
+    lcall Show_Cooling_Message
+    setb EA
+
 	setb state_flag
 	inc FSM_state
 	ljmp FSM_done
