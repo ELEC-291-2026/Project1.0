@@ -11,20 +11,27 @@ $MODMAX10
 $LIST
 
 
+;-----------------------------------;	
+	; for KEYPAD Don't delete this !!!!	;
+	;EXTRN CODE (Keypad)				;
+	;EXTRN CODE (Configure_Keypad_Pins)	;
+	;EXTRN CODE (Shift_Digits_Left)		;
+	;EXTRN CODE (Shift_Digits_Right)    ;
+;-----------------------------------;	
+
+
 
 CLK           	EQU 33333333 ; Microcontroller system crystal frequency in Hz
 TIMER2_RATE   	EQU 1000     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD 	EQU ((65536-(CLK/(12*TIMER2_RATE))))
-TIMER0_RATE     EQU 1024    ; 2048Hz squarewave (peak amplitude of CEM-1203 speaker)
-TIMER0_RELOAD   EQU ((65536-(CLK/TIMER0_RATE)))
 FREQ   			EQU 33333333
 BAUD   			EQU 115200
 T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
 
 ;PIN Assignemet
 ;Need to figure out wich ADC pins the LM335 and OP07 are on 
-LM335_ADC equ 0
-OP07_ADC equ 1
+LM335_ADC 		equ 0
+OP07_ADC 		equ 1
 
 
 
@@ -36,10 +43,6 @@ org 0x0000
 org 0x002B
 	ljmp Timer2_ISR
 
-; Timer/Counter 0 overflow interrupt vector
-org 0x000B
-	ljmp Timer0_ISR
-
 dseg at 0x30
 ; For math 
 x:			ds 4
@@ -48,12 +51,7 @@ bcd:		ds 5
 tempHot:	ds 5
 tempCold:	ds 5
 tempFinal:  ds 5
-timeOn:     ds 2
-;Variables from keypad
-;soak_temp:      ds 2      ; mode A 150 +-20
-;soak_time:      ds 2      ; mode B 60-120
-;reflow_temp:    ds 2      ; mode C 230 < 240
-;reflow_time:    ds 2      ; mode D  30 < 45
+
 
 ; Each FSM has its own timer
 FSM_timer:  ds 1
@@ -78,47 +76,19 @@ cseg
 ; Started Guide" for the details.
 ELCD_RS equ P1.7
 ; ELCD_RW equ Px.x ; Not used.  Connected to ground 
-ELCD_E  equ P1.1
-ELCD_D4 equ P0.7
-ELCD_D5 equ P0.5
-ELCD_D6 equ P0.3
-ELCD_D7 equ P0.1
-SSR_PIN equ P0.0
-START_BUTTON equ P0.2
-SOUND_OUT equ P0.4
+ELCD_E		equ P1.1
+ELCD_D4		equ P0.7
+ELCD_D5 	equ P0.5
+ELCD_D6 	equ P0.3
+ELCD_D7 	equ P0.1
+SSR_PIN 	equ P0.0 ;Place holder
+START_BTN   equ P1.5    ; Active-low push button
+
+HeatingMsg:
+    DB 'H','e','a','t','i','n','g','.','.','.',0
+
 
 cseg
-;---------------------------------;
-; Routine to initialize the ISR   ;
-; for timer 0                     ;
-;---------------------------------;
-Timer0_Init:
-	orl CKCON, #0b00001000 ; Input for timer 0 is sysclk/1
-	mov a, TMOD
-	anl a, #0xf0 ; 11110000 Clear the bits for timer 0
-	orl a, #0x01 ; 00000001 Configure timer 0 as 16-timer
-	mov TMOD, a
-	mov TH0, Timer0Reload+1
-	mov TL0, Timer0Reload+0
-	; Enable the timer and interrupts
-    setb ET0  ; Enable timer 0 interrupt
-    setb TR0  ; Start timer 0
-	ret
-
-;---------------------------------;
-; ISR for timer 0.  Set to execute;
-; every 1/4096Hz to generate a    ;
-; 2048 Hz wave at pin SOUND_OUT   ;
-;---------------------------------;
-
-Timer0_ISR:
-	clr TR0
-	mov TH0, Timer0Reload+1
-	mov TL0, Timer0Reload+0
-	setb TR0
-	cpl SOUND_OUT ; Connect speaker the pin assigned to 'SOUND_OUT'!
-	reti
-
 ;---------------------------------;
 ; Routine to initialize the ISR   ;
 ; for timer 2                     ;
@@ -302,17 +272,6 @@ tempConv_hot MAC
 	lcall hex2bcd
 ENDMAC
 
-powerPercent MAC
-	;Convert percentage of time into a time it needs to be on %0 is percentage(i.e 20 is 20%) on, %1 is total time, %2 is the time on
-	load_x(%0)
-	load_y(100)
-	lcall div32
-	;converts x to a percentage through fractions
-	load_y(%1)
-	lcall mul32
-	load %2, x
-ENDMAC
-
 ;---------------------------------;
 ; Main program. Includes hardware ;
 ; initialization and 'forever'    ;
@@ -320,15 +279,8 @@ ENDMAC
 ;---------------------------------;
 
 main:
+	clr P1.5    ; ensure input mode
 	mov P0MOD, #0x01 ;configures P0.0
-
-	; Stops interupts for speaker
-	clr TR0
-    clr ET0
-
-	; Speaker frequency
-	mov Timer0Reload+1, #high(TIMER0_RELOAD)
-	mov Timer0Reload+0, #low(TIMER0_RELOAD)
 	
 	mov SP, #7FH ; Set the beginning of the stack (more on this later)
 	mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
@@ -345,9 +297,10 @@ main:
     
     ; Initialize variables
     mov FSM_state, #0
-	clr SSR_PIN
-	clr mf
-	;May have to reset the other vars idk to tbh
+
+	;;Testing;;
+    ADD_16(#1, #2) ; This "expands" into the 5 lines above
+	; After initialization the program stays in this 'forever' loop	
 	
 loop:
 
@@ -422,150 +375,92 @@ FSMcheck:
 	mov LEDRA, #0
 
 FSM_state0:
-	;Only moves on to state 1 once start button is pressed
-	cjne a, #0, FSM_state1
+    cjne a, #0, FSM_state1 ; skip if not state 0
+    setb LEDRA.0            ; debug LED for state 0
 
-	lcall Keypad       ; Scan keypad
-    lcall Display      ; Update HEX displays (or later, LCD)
-    jnc noChange
+    jnb START_BTN, FSM_done ; button not pressed? skip
+    ; button pressed, start oven
+    sjmp StartHeating
 
-    lcall Shift_Digits_Left 
 
-	noChange:
-	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
-	mov a, FSM_timer
-	clr SSR_PIN
+StartHeating:
+    setb SSR_PIN
+    setb LEDRA.0
+    lcall LCD_CLR
+    mov dptr, #HeatingMsg
+    lcall LCD_PUTS
 
-	
-	jnb START_BUTTON, FSM_done; only moves on when button is high
-	inc FSM_state
-	ljmp FSM_done
+    ; Reset timer and advance FSM
+    mov FSM_timer, #0
+    inc FSM_state          ; go to state 1
+
+WaitRelease:
+    JB START_BTN, FSM_done ; released? exit
+    SJMP WaitRelease       ; still pressed? wait
 
 FSM_state1:	
-	;Only move to next stat if temp > 150c
-	cjne a, #1, FSM_state
+	cjne a, #1, FSM_state2
 	setb LEDRA.1
-
-	setb SSR_PIN
-
-	;if temp > 150
-	load_x(temp_final)
-	load_y(soak_temp)
-	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
-	jnb mf, FSM_done 
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
 	inc FSM_state
-	ljmp FSM_done
+	sjmp FSM_done
 
 FSM_state2:	
-	;state management
 	cjne a, #2, FSM_state3
 	setb LEDRA.2
-
-	powerPercent(20, soak_time, time_on)
-	;While time is < timeOn ssr remains on, otherwise off
-	load_x(FSM_timer)
-	load_y(time_on)
-	jnb mf, ssr_off
-	setb SSR_PIN
-	sjmp ssr_on
-
-	ssr_off:
-		clr SSR_PIN
-
-	ssr_on:
-
-	;If time in this state > soak time then we move on
-	load_x(FSM_timer)
-	load_y(soak_time)
-	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
-	jnb mf, FSM_done
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
 	inc FSM_state
-	ljmp FSM_done
+	sjmp FSM_done
 
 FSM_state3:	
-	;Only moves on when the temp is > 220c
 	cjne a, #3, FSM_done
 	setb LEDRA.3
-
-	setb SSR_PIN
-
-	;if temp > 150
-	load_x(temp_final)
-	load_y(reflow_temp)
-	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
-	jnb mf, FSM_done 
-	inc FSM_state
-	ljmp FSM_done
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
+	mov FSM_state, #0
+	mov a, Count3
+	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
+	mov Count3, #0
+	sjmp DisplayCount3
 
 FSM_state4:	
-	;only moves on after 45s
 	cjne a, #3, FSM_done
 	setb LEDRA.3
-
-	powerPercent(20, reflow_time, time_on)
-	;While time is < timeOn ssr remains on, otherwise off
-	load_x(FSM_timer)
-	load_y(time_on)
-	jnb mf, ssr_off1
-	setb SSR_PIN
-	sjmp ssr_on1
-
-	ssr_off1:
-		clr SSR_PIN
-
-	ssr_on1:
-
-	;If time in this state > soak time then we move on
-	load_x(FSM_timer)
-	load_y(reflow_time)
-	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
-	jnb mf, FSM_done
-	inc FSM_state
-	ljmp FSM_done
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
+	mov FSM_state, #0
+	mov a, Count3
+	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
+	mov Count3, #0
+	sjmp DisplayCount3
 
 FSM_state5:	
-	;only resets when temp is < 60c
 	cjne a, #3, FSM_done
 	setb LEDRA.3
+	mov a, FSM_timer
+	cjne a, #250, FSM_done ; 250 ms passed?
+	mov FSM_timer, #0
+	mov FSM_state, #0
+	mov a, Count3
+	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
+	mov Count3, #0
+	sjmp DisplayCount3
 
-	clr SSR_PIN
-
-	load_x(temp_final)
-	load_y(60)
-	lcall x_lt_y ;returns a mf of 1 when (x < y)
-	jnb mf, FSM_done
-	move FSM_state, #0x00
-
+IncCount3:
+	inc Count3
+DisplayCount3:
+    mov a, Count3
+    lcall Hex_to_bcd_8bit
+	lcall Display_BCD_7_Seg_HEX54
+	mov FSM_state, #0
 FSM_done:
 
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
