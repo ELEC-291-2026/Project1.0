@@ -76,16 +76,13 @@ cseg
 ; Started Guide" for the details.
 ELCD_RS equ P1.7
 ; ELCD_RW equ Px.x ; Not used.  Connected to ground 
-ELCD_E		equ P1.1
-ELCD_D4		equ P0.7
-ELCD_D5 	equ P0.5
-ELCD_D6 	equ P0.3
-ELCD_D7 	equ P0.1
-SSR_PIN 	equ P0.0 ;Place holder
-START_BTN   equ P1.5    ; Active-low push button
+ELCD_E  equ P1.1
+ELCD_D4 equ P0.7
+ELCD_D5 equ P0.5
+ELCD_D6 equ P0.3
+ELCD_D7 equ P0.1
+SSR_PIN equ P0.0 ;Place holder
 
-HeatingMsg:
-    DB 'H','e','a','t','i','n','g','.','.','.',0
 
 
 cseg
@@ -279,7 +276,6 @@ ENDMAC
 ;---------------------------------;
 
 main:
-	clr P1.5    ; ensure input mode
 	mov P0MOD, #0x01 ;configures P0.0
 	
 	mov SP, #7FH ; Set the beginning of the stack (more on this later)
@@ -375,28 +371,23 @@ FSMcheck:
 	mov LEDRA, #0
 
 FSM_state0:
-    cjne a, #0, FSM_state1 ; skip if not state 0
-    setb LEDRA.0            ; debug LED for state 0
+	;Only moves on to state 1 once start button is pressed
+	cjne a, #0, FSM_state1
 
-    jnb START_BTN, FSM_done ; button not pressed? skip
-    ; button pressed, start oven
-    sjmp StartHeating
+	lcall Keypad       ; Scan keypad
+    lcall Display      ; Update HEX displays (or later, LCD)
+    jnc noChange
 
+    lcall Shift_Digits_Left 
 
-StartHeating:
-    setb SSR_PIN
-    setb LEDRA.0
-    lcall LCD_CLR
-    mov dptr, #HeatingMsg
-    lcall LCD_PUTS
+	noChange:
+	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
+	mov a, FSM_timer
 
-    ; Reset timer and advance FSM
-    mov FSM_timer, #0
-    inc FSM_state          ; go to state 1
-
-WaitRelease:
-    JB START_BTN, FSM_done ; released? exit
-    SJMP WaitRelease       ; still pressed? wait
+	
+	jnb button, FSM_done; only moves on when button is high
+	inc FSM_state
+	sjmp FSM_done
 
 FSM_state1:	
 	cjne a, #1, FSM_state2
