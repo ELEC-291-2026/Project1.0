@@ -65,15 +65,15 @@ Display_L2:
     jnb KEY.3, Display_high_digits
 
     ; Show lower 6 digits
-    showBCD bcd+0, HEX0, HEX1
-    showBCD bcd+1, HEX2, HEX3
-    showBCD bcd+2, HEX4, HEX5
+    showBCD(bcd+0, HEX0, HEX1)
+    showBCD(bcd+1, HEX2, HEX3)
+    showBCD(bcd+2, HEX4, HEX5)
     sjmp Display_end
 
 Display_high_digits:
     ; Show upper 4 digits
-    showBCD bcd+3, HEX0, HEX1
-    showBCD bcd+4, HEX2, HEX3
+    showBCD(bcd+3, HEX0, HEX1)
+    showBCD(bcd+4, HEX2, HEX3)
 
     ; Blank remaining displays
     mov HEX4, #0FFh
@@ -102,11 +102,11 @@ Shift_Digits_Left:
 
 Shift_Digits_Left_L0:
     clr C                ; Clear carry before shift
-    MYRLC bcd+0
-    MYRLC bcd+1
-    MYRLC bcd+2
-    MYRLC bcd+3
-    MYRLC bcd+4
+    MYRLC(bcd+0)
+    MYRLC(bcd+1)
+    MYRLC(bcd+2)
+    MYRLC(bcd+3)
+    MYRLC(bcd+4)
     djnz R0, Shift_Digits_Left_L0
 
     ; Insert new digit from R7 into lowest nibble safely
@@ -137,11 +137,11 @@ Shift_Digits_Right:
 
 Shift_Digits_Right_L0:
     clr C
-    MYRRC bcd+4
-    MYRRC bcd+3
-    MYRRC bcd+2
-    MYRRC bcd+1
-    MYRRC bcd+0
+    MYRRC(bcd+4)
+    MYRRC(bcd+3)
+    MYRRC(bcd+2)
+    MYRRC(bcd+1)
+    MYRRC(bcd+0)
     djnz R0, Shift_Digits_Right_L0
     ret
 
@@ -152,11 +152,11 @@ Shift_Digits_Right_L0:
 
 Wait25ms:
     mov R0, #15
-L3: mov R1, #74
-L2: mov R2, #250
-L1: djnz R2, L1
-    djnz R1, L2
-    djnz R0, L3
+L6: mov R1, #74
+L5: mov R2, #250
+L4: djnz R2, L4
+    djnz R1, L5
+    djnz R0, L6
     ret
 
 
@@ -336,31 +336,31 @@ Keypad_Key_Code:
 keypad_default:
 
     clr ROW1
-    CHECK_COLUMN COL1, #01h
-    CHECK_COLUMN COL2, #02h
-    CHECK_COLUMN COL3, #03h
-    CHECK_COLUMN COL4, #0Ah
+    CHECK_COLUMN(COL1, #01h)
+    CHECK_COLUMN(COL2, #02h)
+    CHECK_COLUMN(COL3, #03h)
+    CHECK_COLUMN(COL4, #0Ah)
     setb ROW1
 
     clr ROW2
-    CHECK_COLUMN COL1, #04h
-    CHECK_COLUMN COL2, #05h
-    CHECK_COLUMN COL3, #06h
-    CHECK_COLUMN COL4, #0Bh
+    CHECK_COLUMN(COL1, #04h)
+    CHECK_COLUMN(COL2, #05h)
+    CHECK_COLUMN(COL3, #06h)
+    CHECK_COLUMN(COL4, #0Bh)
     setb ROW2
 
     clr ROW3
-    CHECK_COLUMN COL1, #07h
-    CHECK_COLUMN COL2, #08h
-    CHECK_COLUMN COL3, #09h
-    CHECK_COLUMN COL4, #0Ch
+    CHECK_COLUMN(COL1, #07h)
+    CHECK_COLUMN(COL2, #08h)
+    CHECK_COLUMN(COL3, #09h)
+    CHECK_COLUMN(COL4, #0Ch)
     setb ROW3
 
     clr ROW4
-    CHECK_COLUMN COL1, #0Eh   ; '*' delete
-    CHECK_COLUMN COL2, #00h   ; '0'
-    CHECK_COLUMN COL3, #0Fh   ; '#' clear
-    CHECK_COLUMN COL4, #0Dh   ; 'D'
+    CHECK_COLUMN(COL1, #0Eh)   ; '*' delete
+    CHECK_COLUMN(COL2, #00h)   ; '0'
+    CHECK_COLUMN(COL3, #0Fh)   ; '#' clear
+    CHECK_COLUMN(COL4, #0Dh)   ; 'D'
     setb ROW4
 
     ; If we reached here, no key found
@@ -374,31 +374,31 @@ keypad_default:
 
 keypad_90deg:
     clr ROW1
-    CHECK_COLUMN COL1, #0Ah
-    CHECK_COLUMN COL2, #0Bh
-    CHECK_COLUMN COL3, #0Ch
-    CHECK_COLUMN COL4, #0Dh
+    CHECK_COLUMN(COL1, #0Ah)
+    CHECK_COLUMN(COL2, #0Bh)
+    CHECK_COLUMN(COL3, #0Ch)
+    CHECK_COLUMN(COL4, #0Dh)
     setb ROW1
 
     clr ROW2
-    CHECK_COLUMN COL1, #03h
-    CHECK_COLUMN COL2, #06h
-    CHECK_COLUMN COL3, #09h
-    CHECK_COLUMN COL4, #0Fh
+    CHECK_COLUMN(COL1, #03h)
+    CHECK_COLUMN(COL2, #06h)
+    CHECK_COLUMN(COL3, #09h)
+    CHECK_COLUMN(COL4, #0Fh)
     setb ROW2
 
     clr ROW3
-    CHECK_COLUMN COL1, #02h
-    CHECK_COLUMN COL2, #05h
-    CHECK_COLUMN COL3, #08h
-    CHECK_COLUMN COL4, #00h
+    CHECK_COLUMN(COL1, #02h)
+    CHECK_COLUMN(COL2, #05h)
+    CHECK_COLUMN(COL3, #08h)
+    CHECK_COLUMN(COL4, #00h)
     setb ROW3
 
     clr ROW4
-    CHECK_COLUMN COL1, #01h
-    CHECK_COLUMN COL2, #04h
-    CHECK_COLUMN COL3, #07h
-    CHECK_COLUMN COL4, #0Eh
+    CHECK_COLUMN(COL1, #01h)
+    CHECK_COLUMN(COL2, #04h)
+    CHECK_COLUMN(COL3, #07h)
+    CHECK_COLUMN(COL4, #0Eh)
     setb ROW4
 
     ; If we reached here, no key found
