@@ -1,19 +1,19 @@
-$NOLIST
-$MODMAX10
-$LIST
+;$NOLIST
+;$MODMAX10
+;$LIST
 
 ;--------------------------------------------------
 ; Reset vector - when MCU starts it jumps to main_code
 ;--------------------------------------------------
-CSEG at 0
-    ljmp main_code        ; Jump to main program
+;CSEG at 0
+    ;ljmp main_code        ; Jump to main program
 
 ;--------------------------------------------------
 ; Data Segment - reserve RAM for BCD digits & params
 ;--------------------------------------------------
 
 DSEG at 30H
-bcd:            ds 5      ; 5 bytes = 10 BCD digits (2 per byte)
+;bcd:            ds 5      ; 5 bytes = 10 BCD digits (2 per byte)
 
 ; Reflow parameters, each stored as 4 BCD digits (2 bytes)
 ; A: Soak temperature
@@ -21,10 +21,10 @@ bcd:            ds 5      ; 5 bytes = 10 BCD digits (2 per byte)
 ; C: Reflow temperature
 ; D: Reflow time
 
-soak_temp:      ds 2      ; mode A
-soak_time:      ds 2      ; mode B
-reflow_temp:    ds 2      ; mode C
-reflow_time:    ds 2      ; mode D
+;soak_temp:      ds 2      ; mode A
+;soak_time:      ds 2      ; mode B
+;reflow_temp:    ds 2      ; mode C
+;reflow_time:    ds 2      ; mode D
 
 active_param:   ds 1      ; 0 = A, 1 = B, 2 = C, 3 = D
 
@@ -183,11 +183,11 @@ Shift_Digits_Right_L0:
 
 Wait25ms:
     mov R0, #15
-L3: mov R1, #74
-L2: mov R2, #250
-L1: djnz R2, L1
-    djnz R1, L2
-    djnz R0, L3
+L6: mov R1, #74
+L5: mov R2, #250
+L4: djnz R2, L4
+    djnz R1, L5
+    djnz R0, L6
     ret
 
 
