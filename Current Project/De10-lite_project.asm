@@ -11,37 +11,36 @@ $MODMAX10
 $LIST
 
 
-;-----------------------------------;	
-	; for KEYPAD Don't delete this !!!!	;
-	;EXTRN CODE (Keypad)				;
-	;EXTRN CODE (Configure_Keypad_Pins)	;
-	;EXTRN CODE (Shift_Digits_Left)		;
-	;EXTRN CODE (Shift_Digits_Right)    ;
-;-----------------------------------;	
-
-
 
 CLK           	EQU 33333333 ; Microcontroller system crystal frequency in Hz
 TIMER2_RATE   	EQU 1000     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD 	EQU ((65536-(CLK/(12*TIMER2_RATE))))
+TIMER0_RATE     EQU 1024    ; 2048Hz squarewave (peak amplitude of CEM-1203 speaker)
+TIMER0_RELOAD   EQU ((65536-(CLK/TIMER0_RATE)))
 FREQ   			EQU 33333333
 BAUD   			EQU 115200
 T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
 
 ;PIN Assignemet
 ;Need to figure out wich ADC pins the LM335 and OP07 are on 
-LM335_ADC 		equ 0
-OP07_ADC 		equ 1
+LM335_ADC equ 0
+OP07_ADC equ 1
 
 
 
 ; Reset vector
 org 0x0000
     ljmp main
+    
+    
+; Timer/Counter 0 overflow interrupt vector
+org 0x000B
+	ljmp Timer0_ISR
 
 ; Timer/Counter 2 overflow interrupt vector
 org 0x002B
 	ljmp Timer2_ISR
+
 
 dseg at 0x30
 ; For math 
@@ -51,10 +50,17 @@ bcd:		ds 5
 tempHot:	ds 5
 tempCold:	ds 5
 tempFinal:  ds 5
-
+timeOn:     ds 2
+;Variables from keypad
+soak_temp:      ds 2      ; mode A 150 +-20
+soak_time:      ds 2      ; mode B 60-120
+reflow_temp:    ds 2      ; mode C 230 < 240
+reflow_time:    ds 2      ; mode D  30 < 45
+Timer0Reload:   ds 2
 
 ; Each FSM has its own timer
-FSM_timer:  ds 1
+FSM_timer:  ds 2
+QuarterSecondsTimeCounter: ds 1
 ; Each FSM has its own state counter
 FSM_state:  ds 1
 ; Three counters to display.
@@ -81,11 +87,43 @@ ELCD_D4 equ P0.7
 ELCD_D5 equ P0.5
 ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
-SSR_PIN equ P0.0 ;Place holder
-
-
+SSR_PIN equ P0.0
+START_BUTTON equ P0.2
+SOUND_OUT equ P0.4
 
 cseg
+;---------------------------------;
+; Routine to initialize the ISR   ;
+; for timer 0                     ;
+;---------------------------------;
+Timer0_Init:
+	mov a, TMOD
+	anl a, #0xf0 ; 11110000 Clear the bits for timer 0
+	orl a, #0x01 ; 00000001 Configure timer 0 as 16-timer
+	mov TMOD, a
+	
+	mov TH0, Timer0Reload+1
+	mov TL0, Timer0Reload+0
+	
+	; Enable the timer and interrupts
+    setb ET0  ; Enable timer 0 interrupt
+    setb TR0  ; Start timer 0
+	ret
+
+;---------------------------------;
+; ISR for timer 0.  Set to execute;
+; every 1/4096Hz to generate a    ;
+; 2048 Hz wave at pin SOUND_OUT   ;
+;---------------------------------;
+
+Timer0_ISR:
+	clr TR0
+	mov TH0, Timer0Reload+1
+	mov TL0, Timer0Reload+0
+	setb TR0
+	cpl SOUND_OUT ; Connect speaker the pin assigned to 'SOUND_OUT'!
+	reti
+
 ;---------------------------------;
 ; Routine to initialize the ISR   ;
 ; for timer 2                     ;
@@ -109,6 +147,14 @@ Timer2_ISR:
 	clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in ISR
 	; Increment the timers for each FSM. That is all we do here!
 	inc FSM_timer 
+	
+	mov a, FSM_timer
+	
+	cjne a, #250, FSM_timer_done
+	inc QuarterSecondsTimeCounter
+	mov FSM_timer, #0x00
+	
+	FSM_timer_done:
 	reti
 
 ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
@@ -269,6 +315,19 @@ tempConv_hot MAC
 	lcall hex2bcd
 ENDMAC
 
+powerPercent MAC
+	;Convert percentage of time into a time it needs to be on %0 is percentage(i.e 20 is 20%) on, %1 is total time, %2 is the time on
+	load_x(%0)
+	;converts x to a percentage through fractions
+	load_y(%1)
+	lcall mul32
+	
+	load_y(100)
+	lcall div32
+	
+	mov %2, x
+ENDMAC
+
 ;---------------------------------;
 ; Main program. Includes hardware ;
 ; initialization and 'forever'    ;
@@ -277,6 +336,16 @@ ENDMAC
 
 main:
 	mov P0MOD, #0x01 ;configures P0.0
+
+	; Stops interupts for speaker
+	clr TR0
+    clr ET0
+    
+    mov QuarterSecondsTimeCounter, #0x00
+
+	; Speaker frequency
+	mov Timer0Reload+1, #high(TIMER0_RELOAD)
+	mov Timer0Reload+0, #low(TIMER0_RELOAD)
 	
 	mov SP, #7FH ; Set the beginning of the stack (more on this later)
 	mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
@@ -293,10 +362,9 @@ main:
     
     ; Initialize variables
     mov FSM_state, #0
-
-	;;Testing;;
-    ADD_16(#1, #2) ; This "expands" into the 5 lines above
-	; After initialization the program stays in this 'forever' loop	
+	clr SSR_PIN
+	clr mf
+	;May have to reset the other vars idk to tbh
 	
 loop:
 
@@ -305,24 +373,24 @@ loop:
 
 	; Oven Test code START -------------------------------------
 	; ON OFF SWITCH OVEN ON PIN P0.0
-	clr a
-	mov a, SWA
-	
-	anl a, #0x01
-	cjne a, #0x01, done2
-	
-	setb LEDRA.0
-	setb SSR_PIN
-	
-	sjmp done3
-	
-	done2:
-	clr SSR_PIN
-	clr LEDRA.0
-	
-	done3:
-	sjmp loop
-	
+		clr a
+		mov a, SWA
+		
+		anl a, #0x01
+		cjne a, #0x01, done2
+		
+		setb LEDRA.0
+		setb SSR_PIN
+		
+		sjmp done3
+		
+		done2:
+		clr SSR_PIN
+		clr LEDRA.0
+		
+		done3:
+		sjmp loop
+		
 	; Oven Test code END  -------------------------------------
 	ADCcheck:
 	
@@ -333,7 +401,7 @@ loop:
 
 	mov ADC_C, #OP07_ADC
 	tempConv_hot ; Macro call
-	mov tempHOT, bcd
+	mov tempHot, bcd
 
 	mov x, tempHot
 	mov y, tempCold
@@ -348,18 +416,18 @@ loop:
 
 
 
-ljmp FSMcheck ; Skips putty straight into FSM for now
+	ljmp FSMcheck ; Skips putty straight into FSM for now
 
 ; sends to putty
-    mov a, bcd+2
-    lcall Send2DigitBCD
-    mov a, bcd+1
-    lcall Send2DigitBCD
-    mov a, bcd+0
-    lcall Send2DigitBCD
-		
-	mov a, #'\n'
-    lcall putchar
+	    mov a, bcd+2
+	    lcall Send2DigitBCD
+	    mov a, bcd+1
+	    lcall Send2DigitBCD
+	    mov a, bcd+0
+	    lcall Send2DigitBCD
+			
+		mov a, #'\n'
+	    lcall putchar
 
 
 FSMcheck:
@@ -382,76 +450,189 @@ FSM_state0:
 
 	noChange:
 	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
-	mov a, FSM_timer
+	clr SSR_PIN
 
+	jb SWA.0, FSM_done_state_0_skip
 	
-	jnb button, FSM_done; only moves on when button is high
+	jb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
+	sjmp FSM_done_state_0_Skip
+	FSM_done_state_0_Continue:
+	ljmp FSM_done
+	FSM_done_state_0_Skip:
+	
 	inc FSM_state
-	sjmp FSM_done
+	ljmp FSM_done
 
 FSM_state1:	
+	;Only move to next stat if temp > 150c
 	cjne a, #1, FSM_state2
 	setb LEDRA.1
-	mov a, FSM_timer
-	cjne a, #250, FSM_done ; 250 ms passed?
-	mov FSM_timer, #0
+
+	setb SSR_PIN
+
+	;if temp > 150
+	load_x(tempFinal)
+	load_y(soak_temp)
+	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+	
+	jb SWA.1, FSM_done_state_1_skip
+	
+	jnb mf, FSM_done_state_1_Continue 
+	sjmp FSM_done_state_1_Skip
+	FSM_done_state_1_Continue:
+	ljmp FSM_done
+	FSM_done_state_1_Skip:
+	
+	mov QuarterSecondsTimeCounter, #0x00
 	inc FSM_state
-	sjmp FSM_done
+	ljmp FSM_done
 
 FSM_state2:	
-	cjne a, #2, FSM_state3
+	;state management
+	cjne a, #2, FSM_state3_continue_move
+	sjmp FSM_state3_skip_move
+	FSM_state3_continue_move:
+	ljmp FSM_state3
+	FSM_state3_skip_move:
+	
+	
 	setb LEDRA.2
-	mov a, FSM_timer
-	cjne a, #250, FSM_done ; 250 ms passed?
-	mov FSM_timer, #0
+
+	powerPercent(20, soak_time, timeOn)
+	;While time is < timeOn ssr remains on, otherwise off
+	load_x(QuarterSecondsTimeCounter)
+	load_y(4)
+	lcall mul32 
+	load_y(timeOn)
+	jnb mf, ssr_off
+	setb SSR_PIN
+	sjmp ssr_on
+
+	ssr_off:
+		clr SSR_PIN
+
+	ssr_on:
+
+	;If time in this state > soak time then we move on
+	load_x(QuarterSecondsTimeCounter)
+	load_y(4)
+	lcall mul32 
+	load_y(soak_time)
+	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+	
+	jb SWA.2, FSM_done_state_2_skip
+	
+	jb mf, FSM_done_state_2_Continue
+	sjmp FSM_done_state_2_Skip
+	FSM_done_state_2_Continue:
+	ljmp FSM_done
+	FSM_done_state_2_Skip:
+	
 	inc FSM_state
-	sjmp FSM_done
+	ljmp FSM_done
 
 FSM_state3:	
-	cjne a, #3, FSM_done
+	;Only moves on when the temp is > 220c
+	cjne a, #3, FSM_state4
 	setb LEDRA.3
-	mov a, FSM_timer
-	cjne a, #250, FSM_done ; 250 ms passed?
-	mov FSM_timer, #0
-	mov FSM_state, #0
-	mov a, Count3
-	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
-	mov Count3, #0
-	sjmp DisplayCount3
+
+	setb SSR_PIN
+
+	;if temp > 150
+	load_x(reflow_temp)
+	load_y(tempFinal)
+	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+	
+	jb SWA.3, FSM_done_state_3_skip
+	
+	jb mf, FSM_done_state_3_Continue 
+	sjmp FSM_done_state_3_Skip
+	FSM_done_state_3_Continue:
+	ljmp FSM_done
+	FSM_done_state_3_Skip:
+	
+	inc FSM_state
+	ljmp FSM_done
 
 FSM_state4:	
-	cjne a, #3, FSM_done
-	setb LEDRA.3
-	mov a, FSM_timer
-	cjne a, #250, FSM_done ; 250 ms passed?
-	mov FSM_timer, #0
-	mov FSM_state, #0
-	mov a, Count3
-	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
-	mov Count3, #0
-	sjmp DisplayCount3
+	;only moves on after 45s
+	cjne a, #4, FSM_state5_continue_move
+	sjmp FSM_state5_skip_move
+	FSM_state5_continue_move:
+	ljmp FSM_state5
+	FSM_state5_skip_move:
+	
+	
+	setb LEDRA.4
+
+	powerPercent(20, reflow_time, timeOn)
+	;While time is < timeOn ssr remains on, otherwise off
+	load_x(QuarterSecondsTimeCounter)
+	load_y(4)
+	lcall mul32 
+	load_y(timeOn)
+	jnb mf, ssr_off1
+	setb SSR_PIN
+	sjmp ssr_on1
+
+	ssr_off1:
+		clr SSR_PIN
+
+	ssr_on1:
+
+	;If time in this state > soak time then we move on
+	load_x(QuarterSecondsTimeCounter)
+	load_y(4)
+	lcall mul32 
+	load_y(reflow_time)
+	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+	jnb mf, FSM_done
+	inc FSM_state
+	ljmp FSM_done
 
 FSM_state5:	
-	cjne a, #3, FSM_done
-	setb LEDRA.3
-	mov a, FSM_timer
-	cjne a, #250, FSM_done ; 250 ms passed?
-	mov FSM_timer, #0
-	mov FSM_state, #0
-	mov a, Count3
-	cjne a, #59, IncCount3 ; Don't let the seconds counter pass 59
-	mov Count3, #0
-	sjmp DisplayCount3
+	;only resets when temp is < 60c
+	cjne a, #5, FSM_done
+	setb LEDRA.5
 
-IncCount3:
-	inc Count3
-DisplayCount3:
-    mov a, Count3
-    lcall Hex_to_bcd_8bit
-	lcall Display_BCD_7_Seg_HEX54
-	mov FSM_state, #0
+	clr SSR_PIN
+
+	load_x(tempFinal)
+	load_y(60)
+	lcall x_lt_y ;returns a mf of 1 when (x < y)
+	jnb mf, FSM_done
+	mov FSM_state, #0x00
+
 FSM_done:
 
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
