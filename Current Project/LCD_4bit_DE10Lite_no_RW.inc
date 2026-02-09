@@ -192,6 +192,15 @@ endmac
 	pop acc
 	ret
 
+ELCD_Clr:
+    WriteCommand(#0x01)
+    Wait_Milli_Seconds(#2)
+    ret
+
+ELCD_Write_String:
+    lcall ?Send_Constant_String
+    ret
+
 ;------------------------------------;
 ; Display a char in the LCD          ;
 ;------------------------------------;
@@ -202,4 +211,3 @@ Display_char mac
 	pop acc
 endmac
 
-	

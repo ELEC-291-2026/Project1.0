@@ -531,6 +531,17 @@ loop:
 
     lcall Configure_Keypad_Pins
     
+	; ======= KEYPAD + DISPLAY FOREVER LOGIC =======
+
+    lcall Keypad          ; scan keypad
+    jnc skip_key          ; if no numeric key ? skip shift
+
+    lcall Shift_Digits_Left
+
+skip_key:
+    lcall Display         ; update HEX displays
+	
+	; ==============================================
     
 ;-------------------------------------------------------------------------------
 ;FSM
@@ -549,35 +560,25 @@ loop:
 	mov a, FSM_state
 	mov LEDRA, #0
 
+
 FSM_state0:
-	;Only moves on to state 1 once start button is pressed
-	cjne a, #0, FSM_state1
+    cjne a, #0, FSM_state1
+    setb LEDRA.0 
+    clr SSR_PIN
 
-	lcall Keypad       ; Scan keypad
-    ;lcall Display      ; Update HEX displays (or later, LCD) ; ADD THIS BACK ONCE YOU ARE DONE WITH THE TIMER THIS IS VERY IMPORTANT FOR KEYBOARD--------------------------------------------
-    jnc noChange
-
-    lcall Shift_Digits_Left 
-
-	noChange:
-	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
-	clr SSR_PIN
-
-	jb SWA.0, FSM_done   ; manual override
-
-	jnb START_BUTTON, start_pressed   ; active LOW button
-
-	sjmp FSM_done        ; not pressed → stay here
-
-start_pressed:
-
+    ; --- Improved Start Logic ---
+    jb SWA.0, start_oven           ; Manual override via Switch 0
+    jnb START_BUTTON, start_oven   ; If button is pressed (logic 0), start!
     
-    clr EA
-    lcall Show_Heating_Message
-    setb EA
+    sjmp FSM_done                  ; Otherwise, stay in State 0
 
+start_oven:
+    ; Optional: Add a small delay here to debounce the button
     setb state_flag
     inc FSM_state
+    
+    ; Update LCD immediately so the user knows it started
+    lcall Show_Heating_Message 
     ljmp FSM_done
 
 FSM_state1:	
@@ -603,12 +604,8 @@ FSM_state1:
 	sjmp FSM_done_state_1_Skip
 	FSM_done_state_1_Continue:
 	ljmp FSM_done
-	
 	FSM_done_state_1_Skip:
-
-    clr EA
-    lcall Show_Soak_Message
-    setb EA
+	
 	setb state_flag
 	inc FSM_state
 	ljmp FSM_done
@@ -684,10 +681,7 @@ FSM_state3:
 	FSM_done_state_3_Continue:
 	ljmp FSM_done
 	FSM_done_state_3_Skip:
-
-    clr EA
-    lcall Show_Reflow_Message
-    setb EA
+	
 	setb state_flag
 	inc FSM_state
 	ljmp FSM_done
@@ -733,11 +727,7 @@ FSM_state4:
 	jb mf, FSM_done
 	
 	FSM_done_state_4_Skip:
-    
-	clr EA
-    lcall Show_Cooling_Message
-    setb EA
-
+	
 	setb state_flag
 	inc FSM_state
 	ljmp FSM_done
@@ -769,4 +759,3 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
-

@@ -1,13 +1,9 @@
+
 $NOLIST
 $LIST
 
-;PUBLIC Keypad
-;PUBLIC Configure_Keypad_Pins
-;PUBLIC Shift_Digits_Left
-;PUBLIC Shift_Digits_Right
-;PUBLIC Save_Current_BCD_Into_Param
-;PUBLIC Load_Param_Into_BCD
-
+IFNDEF _KEYPAD_LIB_
+_KEYPAD_LIB_ EQU 1
 CSEG
 ; -----------------------------
 ; Lookup table for 7-seg digits
@@ -428,3 +424,6 @@ Check_Mode_D:
 Not_Mode_Key:
     ; numeric digit, C stays 1
     ret
+
+
+ENDIF
