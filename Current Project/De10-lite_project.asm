@@ -1,15 +1,7 @@
-; Non_Blocking_FSM_example.asm:  Four FSMs are run in the forever loop.
-; Three FSMs are used to detect (with debounce) when either KEY1, KEY2, or
-; KEY3 are pressed.  The fourth FSM keeps a counter (Count3) that is incremented
-; every second.  When KEY1 is detected the program increments/decrements Count1,
-; depending on the position of SW0. When KEY2 is detected the program
-; increments/decrements Count2, also base on the position of SW0.  When KEY3
-; is detected, the program resets Count3 to zero.  
-;
+; main project file
 $NOLIST
 $MODMAX10
 $LIST
-
 
 
 CLK           	EQU 33333333 ; Microcontroller system crystal frequency in Hz
@@ -27,11 +19,9 @@ LM335_ADC equ 0
 OP07_ADC equ 1
 
 
-
 ; Reset vector
 org 0x0000
     ljmp main
-    
     
 ; Timer/Counter 0 overflow interrupt vector
 org 0x000B
@@ -59,6 +49,8 @@ soak_temp:      ds 2      ; mode A 150 +-20
 soak_time:      ds 2      ; mode B 60-120
 reflow_temp:    ds 2      ; mode C 230 < 240
 reflow_time:    ds 2      ; mode D  30 < 45
+active_param:   ds 1
+
 Timer0Reload:   ds 2
 
 ; Each FSM has its own timer
@@ -68,19 +60,17 @@ SecondsCounter: ds 1
 SecondsCounterTotal: ds 1
 ; Each FSM has its own state counter
 FSM_state:  ds 1
-; Three counters to display.
-Count3:     ds 1 ; Incremented every second. Reset to zero when KEY3 is pressed.
 
 bseg
 ; For each pushbutton we have a flag.  The corresponding FSM will set this
 ; flags to one when a valid press of the pushbutton is detected.
-mf       :  dbit 1
-ssr_f    :  dbit 1
-state_flag: dbit 1
+mf       	: dbit 1
+ssr_f    	: dbit 1
+state_flag	: dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
-$include(Read_Keypad.asm)
+$include(keypad_lib.asm)
 
 cseg
 ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
@@ -341,61 +331,99 @@ ENDMAC
 ; loop.                           ;
 ;---------------------------------;
 
-main:
-	mov P0MOD, #0x01 ;configures P0.0
+Initial_ALL:
 
-	; Stops interupts for speaker
-	clr TR0
-    clr ET0
-    
-    ;mov reflow_time, #0x20
+   	clr EA ;disables global interupts
+   	
+   	; Initialization of hardware
+    lcall Timer2_Init
+    lcall ELCD_4BIT ; Configure LCD in four bit mode
+    ; Turn off all the LEDs
+   	
+   	mov SP, #7FH ; Set the beginning of the stack (more on this later)
+	mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
+	mov LEDRB, #0
+	mov SP, #0x7F
+   	
+   	
+   	; Initialize variables
+    mov FSM_state, #0x00
+	clr SSR_PIN
+	clr mf
+	setb state_flag ;tells the de10-lite its a new state
+	
+	mov SecondsCounterTotal, #0x00
     mov QuarterSecondsCounter, #0x00
+    
+    
+    mov soak_temp+0, 	#150    ; mode A 150 +-20
+    mov soak_temp+1, 	#0
+	mov soak_time+0, 	#60     ; mode B 60-120
+	mov soak_time+1, 	#0
+	mov reflow_temp+0,  #230	; mode C 230 < 240
+	mov reflow_temp+1,  #0
+	mov reflow_time+0,  #30 	; mode D  30 < 45
+	mov reflow_time+1,  #30
+	
+	mov tempFinal+0, #0
+	mov tempFinal+1, #0
+	mov tempFinal+2, #0
+	mov tempFinal+3, #0
+	
+	mov tempCold+0, #0
+	mov tempCold+1, #0
+	mov tempCold+2, #0
+	mov tempCold+3, #0
+	
+	mov tempHot+0, #0
+	mov tempHot+1, #0
+	mov tempHot+2, #0
+	mov tempHot+3, #0
 
+	
 	; Speaker frequency
 	mov Timer0Reload+1, #high(TIMER0_RELOAD)
 	mov Timer0Reload+0, #low(TIMER0_RELOAD)
 	
-	mov SP, #7FH ; Set the beginning of the stack (more on this later)
-	mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
-	mov LEDRB, #0
 	
-	; Initialization of hardware
-    mov SP, #0x7F
-    lcall Timer2_Init
-    lcall ELCD_4BIT ; Configure LCD in four bit mode
-    ; Turn off all the LEDs
-    mov LEDRA, #0 ; LEDRA is bit addressable
-    mov LEDRB, #0 ; LEDRB is NOT bit addresable
-    setb EA   ; Enable Global interrupts
-    ;Very important that it does this tiwhwil not sasswowkr withotufjs it
-   	clr EA
-	mov SecondsCounterTotal, #0x00
-	setb EA
-    
-    ; Initialize variables
-    mov FSM_state, #0
-	clr SSR_PIN
-	clr mf
-	;May have to reset the other vars idk to tbh
+	; Stops interupts for speaker
+	clr TR0
+    clr ET0
+
+	setb EA ;enables global interupts
 	
-	setb state_flag ;tells the de10 its a new state
+	ret
+	
+	
+main:
+	mov P0MOD, #0x01 ;configures P0.0
+	lcall Initial_ALL
 	
 loop:
-
-	ljmp skip_debug_stuff
+	
 	clr EA
+	;ljmp skip_debug_stuff
 	Load_X_Var8(SecondsCounter)
 	lcall hex2bcd
 	mov R0, bcd+0
 	lcall Display_BCD_7_Seg_HEX10
 	
+	
 	Load_X_Var8(SecondsCounterTotal)
+	;Load_X_Var16(soak_temp)
 	lcall hex2bcd
 	mov R0, bcd+0
 	lcall Display_BCD_7_Seg_HEX32
+	
+	load_x(tempFinal)
+	lcall hex2bcd
+	mov R0, bcd+0
+	lcall Display_BCD_7_Seg_HEX54
+	
 	setb EA
 
-	skip_debug_stuff:
+	;skip_debug_stuff:
+	
 	
 	; skips over test code
 	sjmp ADCcheck
@@ -422,7 +450,6 @@ loop:
 		
 	; Oven Test code END  -------------------------------------
 	ADCcheck:
-	
 	
 	
 	; ALL TEMP MATH -------------------------
@@ -466,6 +493,7 @@ loop:
 
     lcall Configure_Keypad_Pins
     
+    
 ;-------------------------------------------------------------------------------
 ;FSM
 ;-------------------------------------------------------------------------------
@@ -488,7 +516,7 @@ FSM_state0:
 	cjne a, #0, FSM_state1
 
 	lcall Keypad       ; Scan keypad
-    lcall Display      ; Update HEX displays (or later, LCD) ; ADD THIS BACK ONCE YOU ARE DONE WITH THE TIMER THIS IS VERY IMPORTANT FOR KEYBOARD--------------------------------------------
+    ;lcall Display      ; Update HEX displays (or later, LCD) ; ADD THIS BACK ONCE YOU ARE DONE WITH THE TIMER THIS IS VERY IMPORTANT FOR KEYBOARD--------------------------------------------
     jnc noChange
 
     lcall Shift_Digits_Left 
@@ -517,11 +545,14 @@ FSM_state1:
 	setb SSR_PIN
 
 	;if temp > 150
-	load_x(tempFinal)
 	
+	clr EA
+	load_x(tempFinal)
 	Load_Y_Var16(soak_temp)
 	clr mf
 	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)	
+	
+	setb EA
 	
 	jb SWA.1, FSM_done_state_1_skip
 	
@@ -629,6 +660,7 @@ FSM_state4:
 	clr mf  
 	lcall x_gt_y 
 	
+	setb EA
 	jnb mf, ssr_off1
 	setb SSR_PIN
 	sjmp ssr_on1
@@ -657,7 +689,7 @@ FSM_state4:
 	ljmp FSM_done
 
 FSM_state5:	
-	;only resets when temp is < 60c
+	;only resets when temp is < 60
 	cjne a, #5, FSM_done
 	setb LEDRA.5
 
