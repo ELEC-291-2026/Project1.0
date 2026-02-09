@@ -396,6 +396,7 @@ main:
 	
 loop:
 
+	ljmp skip_debug_stuff
 	clr EA
 	Load_X_Var8(SecondsCounter)
 	lcall hex2bcd
@@ -407,6 +408,8 @@ loop:
 	mov R0, bcd+0
 	lcall Display_BCD_7_Seg_HEX32
 	setb EA
+
+	skip_debug_stuff:
 	
 	; skips over test code
 	sjmp ADCcheck
@@ -499,7 +502,7 @@ FSM_state0:
 	cjne a, #0, FSM_state1
 
 	lcall Keypad       ; Scan keypad
-    ;lcall Display      ; Update HEX displays (or later, LCD) ; ADD THIS BACK ONCE YOU ARE DONE WITH THE TIMER THIS IS VERY IMPORTANT FOR KEYBOARD--------------------------------------------
+    lcall Display      ; Update HEX displays (or later, LCD) ; ADD THIS BACK ONCE YOU ARE DONE WITH THE TIMER THIS IS VERY IMPORTANT FOR KEYBOARD--------------------------------------------
     jnc noChange
 
     lcall Shift_Digits_Left 
@@ -694,6 +697,7 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
 
 
 
