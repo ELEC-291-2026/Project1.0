@@ -350,6 +350,7 @@ Initial_ALL:
     mov FSM_state, #0x00
 	clr SSR_PIN
 	clr mf
+	clr ssr_f
 	setb state_flag ;tells the de10-lite its a new state
 	
 	mov SecondsCounterTotal, #0x00
@@ -715,3 +716,4 @@ FSM_done:
 ;-------------------------------------------------------------------------------
 ljmp loop
 END
+
