@@ -532,9 +532,27 @@ FSM_state1:
 
 	setb SSR_PIN
 
-	;if temp > 150
-	
 	clr EA
+	;If it didint reach 50 degrees in 60 seconds
+	clear EA
+	;If time > 60 check
+	load_x(60)
+	Load_Y_Var8(SecondsCounter)
+	lcall x_gt_y
+	jnb mf, emergency_check
+	clr mf
+	;Only check if time > 60 and if checks if temp is less then 50
+	load_x(tempFinal)
+	load_y(50)
+	lcall x_lt_y
+	jnb mf, emergency_check
+	;If so it failed and we do an emergency abort
+	mov FSM_State, #0x00
+	emergency_check:
+
+	clr mf
+	
+	;if temp > 150
 	load_x(tempFinal)
 	Load_Y_Var16(soak_temp)
 	clr mf
@@ -702,4 +720,5 @@ FSM_done:
 
 ;-------------------------------------------------------------------------------
 ljmp loop
+
 END
