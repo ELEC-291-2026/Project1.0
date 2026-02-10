@@ -326,11 +326,16 @@ tempConv_hot MAC
     mov y+2, x+2
     mov y+3, x+3
 
-    ; Load Cold Junction and scale it by 10 to match units
-    mov x+0, V_cj+0
-    mov x+1, V_cj+1
-    mov x+2, V_cj+2
-    mov x+3, V_cj+3
+    
+
+ENDMAC
+
+tempConv_final MAC
+	; Load Cold Junction and scale it by 10 to match units
+    mov x+0, tempCold+0
+    mov x+1, tempCold+1
+    mov x+2, tempCold+2
+    mov x+3, tempCold+3
     
     push y+0              ; Save our TC result safely
     push y+1
@@ -347,11 +352,13 @@ tempConv_hot MAC
     
     lcall add32           ; Final result: (TC_temp*10) + (CJ_temp*10)
     
-    mov tempHot+0, x+0
-	mov tempHot+1, x+1
-	mov tempHot+2, x+2
-	mov tempHot+3, x+3
+    mov tempFinal+0, x+0
+	mov tempFinal+1, x+1
+	mov tempFinal+2, x+2
+	mov tempFinal+3, x+3
     
+
+
 
 ENDMAC
 
@@ -492,6 +499,8 @@ loop:
 	
 	mov ADC_C, #OP07_ADC
 	tempConv_hot
+	
+	tempConv_final
 	
 	; Add temperatures
 	mov x+0, tempHot+0
