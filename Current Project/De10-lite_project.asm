@@ -42,6 +42,9 @@ math_space: ds 5
 
 tempHot:	ds 4
 tempCold:	ds 4
+
+V_tc: ds 4
+V_cj: ds 4
 tempFinal:  ds 4
 timeOn:     ds 2
 ;Variables from keypad
@@ -68,8 +71,8 @@ bseg
 mf       	: dbit 1
 ssr_f    	: dbit 1
 state_flag	: dbit 1
-emergency_f : dbit 1
-
+QuarterSecondsFlag : dbit 1
+State0Flag : dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
@@ -88,33 +91,17 @@ ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
 SSR_PIN equ P0.0
 START_BUTTON equ P0.2
-STOP_BUTTON equ P1.3
 SOUND_OUT equ P0.4
 
+
+Initial_Message:  db 'Tmperature Test', 0
+
 cseg
+;----------------------FUNCTIONS----------------
 ;---------------------------------;
 ; Routine to initialize the ISR   ;
 ; for timer 0                     ;
 ;---------------------------------;
-;Emergency_Check_Button:
-    ; Assume active-high emergency input.
-    ; If your button is active-low, flip the JB/JNB logic below.
- ;   jb STOP_BUTTON, Emergency_Triggered
- ;   ret
-
-;Emergency_Triggered:
-;    setb emergency_f     ; latch emergency condition
-
-;    clr SSR_PIN          ; heater OFF immediately
-;    mov FSM_state, #0x00 ; go to idle
-;    setb state_flag      ; force "new state" UI update
-
-    ; Optional: stop buzzer if you had one running
-;    clr TR0
-;    clr ET0
-
- ;   ret
-
 Timer0_Init:
 	mov a, TMOD
 	anl a, #0xf0 ; 11110000 Clear the bits for timer 0
@@ -172,6 +159,8 @@ Timer2_ISR:
 	mov a, FSM_timer
 	cjne a, #250, FSM_timer_done
 	
+	setb QuarterSecondsFlag
+	
 	inc QuarterSecondsCounter
 	mov FSM_timer, #0x00
 	
@@ -189,6 +178,79 @@ Timer2_ISR:
 	
 	FSM_timer_done:
 	reti
+	
+	
+	
+	; ALL TEMP STUFF---------------------------------------------------------------------------------------
+
+
+Display_Voltage_7seg:
+    mov dptr, #myLUT
+    
+    ; Display Hundreds digit on HEX3
+    mov a, bcd+1
+    swap a
+    anl a, #0FH
+    movc a, @a+dptr
+    mov HEX3, a
+    
+    ; Display Tens digit on HEX2
+    mov a, bcd+1
+    anl a, #0FH
+    movc a, @a+dptr
+    mov HEX2, a
+
+    ; Display Ones digit on HEX1 and turn on the DOT
+    mov a, bcd+0
+    swap a
+    anl a, #0FH
+    movc a, @a+dptr
+    anl a, #0x7f          ; Clears bit 7 to turn on the decimal point
+    mov HEX1, a
+
+    ; Display Tenths digit on HEX0
+    mov a, bcd+0
+    anl a, #0FH
+    movc a, @a+dptr
+    mov HEX0, a
+    ret
+
+Display_Voltage_LCD:
+    Set_Cursor(2,1)
+    mov a, #'T'
+    lcall ?WriteData
+    mov a, #'='
+    lcall ?WriteData
+
+    ; Hundreds
+    mov a, bcd+1
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall ?WriteData
+
+    ; Tens
+    mov a, bcd+1
+    anl a, #0FH
+    orl a, #'0'
+    lcall ?WriteData
+
+    ; Ones
+    mov a, bcd+0
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall ?WriteData
+
+    mov a, #'.'           ; Insert the dot
+    lcall ?WriteData
+
+    ; Tenths
+    mov a, bcd+0
+    anl a, #0FH
+    orl a, #'0'
+    lcall ?WriteData
+    ret
 
 ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
 T_7seg:
@@ -259,6 +321,8 @@ Hex_to_bcd_8bit:
 	orl a, b
 	mov R0, a
 	ret
+	
+
 
 
 ;-------MACROS--------------------;
@@ -347,6 +411,8 @@ tempConv_hot MAC
     mov y+1, x+1
     mov y+2, x+2
     mov y+3, x+3
+    
+    
 
     
 
@@ -420,7 +486,6 @@ Initial_ALL:
    	mov SP, #7FH ; Set the beginning of the stack (more on this later)
 	mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
 	mov LEDRB, #0
-	mov SP, #0x7F
    	
    	
    	; Initialize variables
@@ -429,6 +494,8 @@ Initial_ALL:
 	clr mf
 	clr ssr_f
 	setb state_flag ;tells the de10-lite its a new state
+	clr QuarterSecondsFlag
+	setb State0Flag
 	
 	mov MinutesCounterTotal, #0x00
 	mov SecondsCounterTotal, #0x00
@@ -439,7 +506,7 @@ Initial_ALL:
     mov soak_temp+1, 	#0
 	mov soak_time+0, 	#5     ; mode B 60-120
 	mov soak_time+1, 	#0
-	mov reflow_temp+0,  #130		; mode C 230 < 240
+	mov reflow_temp+0,  #150		; mode C 230 < 240
 	mov reflow_temp+1,  #0
 	mov reflow_time+0,  #5 	; mode D  30 < 45
 	mov reflow_time+1,  #0
@@ -482,13 +549,25 @@ Initial_ALL:
 	
 	
 main:
-	mov P0MOD, #0x01 ;configures P0.0
+	mov P0MOD, #10101011b ; P0.1, P0.3, P0.5, P0.7 are outputs.  ('1' makes the pin output)
+    mov P1MOD, #10000010b ; P1.7 and P1.1 are outputs
 	lcall Initial_ALL
+	
+	; Configure the pins connected to the LCD as outputs
+	mov P0MOD, #10101010b ; P0.1, P0.3, P0.5, P0.7 are outputs.  ('1' makes the pin output)
+    mov P1MOD, #10000010b ; P1.7 and P1.1 are outputs
+
+    lcall ELCD_4BIT ; Configure LCD in four bit mode
+	
+	Set_Cursor(1, 1)
+    Send_Constant_String(#Initial_Message)
+	
+	mov ADC_C, #0x80 ; Reset ADC
+	lcall Wait25ms
 	
 loop:
 	
-;	lcall Emergency_Check_Button
-;	jb emergency_f, Emergency_Lockout
+	
 	ljmp skip_debug_stuff 
 	
 	clr EA
@@ -503,62 +582,149 @@ loop:
 	mov R0, bcd+0
 	lcall Display_BCD_7_Seg_HEX32
 	
-	;load_x(tempFinal)
-	
 	Load_X_Var8(MinutesCounterTotal)
 	lcall hex2bcd
 	mov R0, bcd+0
 	lcall Display_BCD_7_Seg_HEX54
 	
 	setb EA
-;	ljmp FSM_Start
-;	FSM_Start:
+	
 	skip_debug_stuff:
 
 	
+	
+	jb State0Flag, skiptemptemptemp
+	
+	jnb QuarterSecondsFlag, skiptemptemptemp
+	
+	sjmp skiptemoteteipj
+	
+	skiptemptemptemp:
+	
+	ljmp skiptemptemptemptemp
+	
+	skiptemoteteipj:
+	
+	clr QuarterSecondsFlag
 	; ALL TEMP MATH -------------------------
 	clr EA
-	mov ADC_C, #LM335_ADC
-	tempConv_cold
-	
-	mov ADC_C, #OP07_ADC
-	tempConv_hot
-	
-	tempConv_final
-	
-	; Add temperatures
-	mov x+0, tempHot+0
-	mov x+1, tempHot+1
-	mov x+2, tempHot+2
-	mov x+3, tempHot+3
-	
-	mov y+0, tempCold+0
-	mov y+1, tempCold+1
-	mov y+2, tempCold+2
-	mov y+3, tempCold+3
-	
-	lcall add32
-	
-	mov tempFinal+0, x+0
-	mov tempFinal+1, x+1
-	mov tempFinal+2, x+2
-	mov tempFinal+3, x+3
-	setb EA
+; ---------------------------------------------------------
+    ; 1) Read thermocouple channel and convert to mV
+    ; ---------------------------------------------------------
+    mov ADC_C, #LM335_ADC
 
-;Emergency_Lockout:
-;    clr SSR_PIN        ; always keep heater off
+    mov x+3, #0
+    mov x+2, #0
+    mov x+1, ADC_H
+    mov x+0, ADC_L
 
-    ; Stay here until emergency button is released
-    ; active-high release condition:
-;    jnb STOP_BUTTON, Emergency_Clear
-;    ljmp loop          ; still pressed -> keep looping locked out
-
-;Emergency_Clear:
-;    clr emergency_f
-;    setb state_flag    ; update title (IDLE / SETUP)
-;    ljmp loop
+    Load_y(5000)
+    lcall mul32
+    Load_y(4096)
+    lcall div32           ; x now holds Vtc in mV
     
+    ; Save it
+    mov V_tc+0, x+0
+    mov V_tc+1, x+1
+    mov V_tc+2, x+2
+    mov V_tc+3, x+3
+
+    ; ---------------------------------------------------------
+    ; 2) Read LM335 (next channel) and convert to Celsius
+    ; ---------------------------------------------------------
+    mov ADC_C, #OP07_ADC
+
+    mov x+3, #0
+    mov x+2, #0
+    mov x+1, ADC_H
+    mov x+0, ADC_L
+
+    Load_y(5000)
+    lcall mul32
+    Load_y(4096)
+    lcall div32           ; x = Vlm in mV
+
+    Load_y(10)
+    lcall div32           ; x = Kelvin
+    Load_y(273)
+    lcall sub32           ; x = Celsius
+    
+    ; Save cold junction temp
+    mov V_cj+0, x+0
+    mov V_cj+1, x+1
+    mov V_cj+2, x+2
+    mov V_cj+3, x+3
+
+; ---------------------------------------------------------
+    ; 3) Calculate: Temp_x10 = (V_tc * 10000 / 12300) + (V_cj * 10)
+    ; ---------------------------------------------------------
+    mov x+0, V_tc+0
+    mov x+1, V_tc+1
+    mov x+2, V_tc+2
+    mov x+3, V_tc+3
+
+    Load_y(10000)         ; Was 1000, now 10000 to keep one decimal place
+    lcall mul32
+    Load_y(12300)
+    lcall div32           ; x = scaled TC temperature (e.g., 123 for 12.3C)
+
+    ; Save this intermediate result in y to free up x for CJ scaling
+    mov y+0, x+0
+    mov y+1, x+1
+    mov y+2, x+2
+    mov y+3, x+3
+
+    ; Load Cold Junction and scale it by 10 to match units
+    mov x+0, V_cj+0
+    mov x+1, V_cj+1
+    mov x+2, V_cj+2
+    mov x+3, V_cj+3
+    
+    push y+0              ; Save our TC result safely
+    push y+1
+    push y+2
+    push y+3
+    
+    Load_y(10)
+    lcall mul32           ; x = CJ * 10
+    
+    pop y+3               ; Restore TC result into y
+    pop y+2
+    pop y+1
+    pop y+0
+    
+    mov tempFinal+0, x+0
+    mov tempFinal+1, x+1
+    mov tempFinal+2, x+2
+    mov tempFinal+3, x+3
+    
+    lcall add32           ; Final result: (TC_temp*10) + (CJ_temp*10)
+
+    ; ---------------------------------------------------------
+    ; 4) Display
+    ; ---------------------------------------------------------
+    lcall hex2bcd
+    lcall Display_Voltage_7seg
+    lcall Display_Voltage_LCD
+    
+    
+    
+    mov R7, #20 
+	setb EA
 	
+	skiptemptemptemptemp:
+    
+	restart_button:
+	jb State0Flag, skip_button
+	jb START_BUTTON, skip_button
+	lcall Wait25ms ;Debouncing
+	jb START_BUTTON, skip_button
+	jb START_BUTTON, $
+	
+	mov FSM_State, #0x00
+	setb State0Flag
+	lcall Wait25ms
+	skip_button:
     
 ;-------------------------------------------------------------------------------
 ;FSM
@@ -574,15 +740,16 @@ loop:
 	no_new_state:
 
 ; non-blocking FSM for the one second counter starts here.
-	mov a, FSM_state
 	mov LEDRA, #0
 
 FSM_state0:
 	;Only moves on to state 1 once start button is pressed
+	mov a, FSM_state
 	cjne a, #0, FSM_state1
 	
 	clr EA
 	lcall Keypad        ; Scan keypad
+	
     lcall Display       ; Update HEX displays (or later, LCD)
     jnc  skip_keypad        ; If C=0 -> no digit to insert (mode/backspace/clear/none)
 
@@ -604,11 +771,14 @@ noChange:
 	FSM_done_state_0_Skip:
 	
 	setb state_flag
+	clr State0Flag
 	inc FSM_state
 	ljmp FSM_done
 
+;Restarts if not in state 0 and start button is pressed
 FSM_state1:	
 	;Only move to next stat if temp > 150c
+	mov a, FSM_state
 	cjne a, #1, FSM_state2
 	setb LEDRA.1
 
@@ -655,6 +825,7 @@ FSM_state1:
 
 FSM_state2:	
 	;state management
+	mov a, FSM_state
 	cjne a, #2, FSM_state3_continue_move
 	sjmp FSM_state3_skip_move
 	
@@ -703,6 +874,7 @@ FSM_state2:
 	ljmp FSM_done
 
 FSM_state3:	
+	mov a, FSM_state
 	;Only moves on when the temp is > 220c
 	cjne a, #3, FSM_state4
 	setb LEDRA.3
@@ -730,7 +902,9 @@ FSM_state3:
 	ljmp FSM_done
 
 FSM_state4:	
+
 	;only moves on after 45s
+	mov a, FSM_state
 	cjne a, #4, FSM_state5_continue_move
 	sjmp FSM_state5_skip_move
 	FSM_state5_continue_move:
@@ -778,6 +952,7 @@ FSM_state4:
 
 FSM_state5:	
 	;only resets when temp is < 60
+	mov a, FSM_state
 	cjne a, #5, FSM_done
 	setb LEDRA.5
 
@@ -796,6 +971,7 @@ FSM_state5:
 	FSM_done_state_5_Skip:
 	
 	setb state_flag
+	setb State0Flag
 	mov FSM_state, #0x00
 
 	FSM_done:
