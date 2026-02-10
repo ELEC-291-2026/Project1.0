@@ -528,7 +528,6 @@ main:
 	
 loop:
 	
-	
 	ljmp skip_debug_stuff 
 		
 		clr EA
@@ -553,7 +552,23 @@ loop:
 	skip_debug_stuff:
 
 	
-	
+	underflow_soaktemp:
+	;Min temp check for 
+	cjne FSM_State, 0, underflow_soaktemp_check
+	mov bcd+0, soak_temp+0
+	mov bcd+1, soak_temp+1
+	mov bcd+2, soak_temp+2
+	mov bcd+3, soak_temp+3
+	lcall bcd2hex
+	load_y(130)
+	x_lt_y ;mf 1 if true
+	jnb mf, underflow_soaktemp_check
+	mov soak_temp+0, 130
+	mov soak_temp+1, 0
+	mov soak_temp+2, 0
+	mov soak_temp+3, 0
+	underflow_soaktemp_check:
+
 	jb State0Flag, skiptemptemptemp
 	jnb QuarterSecondsFlag, skiptemptemptemp
 	sjmp skiptemoteteipj
