@@ -6,7 +6,6 @@
 ## Tasks
 - Start/Stop button
 - Display Right Stuff on the right displays
-- Fix temperature callibration and displaying it
 - Speaker with 1 beep when in new state and 5 beeps when done
 
 ## Extra functionality 
