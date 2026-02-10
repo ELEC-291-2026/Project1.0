@@ -259,15 +259,6 @@ Hex_to_bcd_8bit:
 
 ;-------MACROS--------------------;
 ;Example macro to help with process %0,1,etc represents the input number, this is all pass by reference(i.e it can actually affect the variable)
-
-ADD_16 MAC
-    ADD A, %0     ; Add low byte
-    MOV R2, A       ; Store result back in low var
-    MOV A, R1       ; Move existing high byte to A
-    ADDC A, %1     ; Add high byte with carry
-    MOV R1, A       ; Store back in R1
-ENDMAC
-
 Load_X_Var32 MAC
 mov x+0, %0+0
 mov x+1, %0+1
@@ -509,9 +500,37 @@ loop:
 		setb EA
 	overflow_soaktemp_check:
 
-	
+	underflow_soaktime:
+		;Max temp check for 
+		clr EA
+		cjne FSM_State, 0, underflow_soaktime_check
+		Mov_A_to_B(soak_temp,bcd)
+		lcall bcd2hex
+		load_y(60) ; Our max temp
+		x_gt_y ;mf 1 if true
+		jnb mf, underflow_soaktemp_check
+		mov soak_temp+0, 60
+		mov soak_temp+1, 0
+		mov soak_temp+2, 0
+		mov soak_temp+3, 0
+		setb EA
+	underflow_soaktime_check:
 
-
+	overflow_soaktime:
+		;Max temp check for 
+		clr EA
+		cjne FSM_State, 0, underflow_soaktemp_check
+		Mov_A_to_B(soak_temp,bcd)
+		lcall bcd2hex
+		load_y(120) ; Our max temp
+		x_gt_y ;mf 1 if true
+		jnb mf, overflow_soaktime_check
+		mov soak_temp+0, 120
+		mov soak_temp+1, 0
+		mov soak_temp+2, 0
+		mov soak_temp+3, 0
+		setb EA
+	underflow_soaktime_check:
 
 
 	jb State0Flag, skiptemptemptemp
