@@ -313,7 +313,7 @@ mov y+3, #0
 ENDMAC
 
 ;We should probably start using this from now on oh well live laugh love
-Load_A_from_B MAC
+Mov_A_to_B MAC
 ;%0 is A, %1 is B
 	mov %1+0, %0+0
 	mov %1+1, %0+1
@@ -478,21 +478,41 @@ loop:
 
 	
 	underflow_soaktemp:
-	;Min temp check for 
-	cjne FSM_State, 0, underflow_soaktemp_check
-	mov bcd+0, soak_temp+0
-	mov bcd+1, soak_temp+1
-	mov bcd+2, soak_temp+2
-	mov bcd+3, soak_temp+3
-	lcall bcd2hex
-	load_y(130)
-	x_lt_y ;mf 1 if true
-	jnb mf, underflow_soaktemp_check
-	mov soak_temp+0, 130
-	mov soak_temp+1, 0
-	mov soak_temp+2, 0
-	mov soak_temp+3, 0
+		;Min temp check for 
+		clr EA
+		cjne FSM_State, 0, underflow_soaktemp_check
+		Mov_A_to_B(soak_temp,bcd)
+		lcall bcd2hex
+		load_y(130) ; Our min temp
+		x_lt_y ;mf 1 if true
+		jnb mf, underflow_soaktemp_check
+		mov soak_temp+0, 130
+		mov soak_temp+1, 0
+		mov soak_temp+2, 0
+		mov soak_temp+3, 0
+		setb EA
 	underflow_soaktemp_check:
+
+	overflow_soaktemp:
+		;Max temp check for 
+		clr EA
+		cjne FSM_State, 0, underflow_soaktemp_check
+		Mov_A_to_B(soak_temp,bcd)
+		lcall bcd2hex
+		load_y(170) ; Our max temp
+		x_gt_y ;mf 1 if true
+		jnb mf, underflow_soaktemp_check
+		mov soak_temp+0, 170
+		mov soak_temp+1, 0
+		mov soak_temp+2, 0
+		mov soak_temp+3, 0
+		setb EA
+	overflow_soaktemp_check:
+
+	
+
+
+
 
 	jb State0Flag, skiptemptemptemp
 	jnb QuarterSecondsFlag, skiptemptemptemp
