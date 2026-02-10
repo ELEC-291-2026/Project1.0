@@ -5,7 +5,7 @@
 
 ## Tasks
 - Start/Stop button
-- Display Right Stuff on the right displays
+- Display Room temp and Oven temp on De-10 LCD, and display time and current state on lcd
 - Speaker with 1 beep when in new state and 5 beeps when done
 
 ## Extra functionality 
