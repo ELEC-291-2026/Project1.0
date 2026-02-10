@@ -140,7 +140,9 @@ Timer2_Init:
 ;---------------------------------;
 ; ISR for timer 2.  Runs every ms ;
 ;---------------------------------;
+
 Timer2_ISR:
+
 	clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in ISR
 	; Increment the timers for each FSM. That is all we do here!
 	inc FSM_timer 
@@ -506,16 +508,16 @@ FSM_state0:
 
     lcall Shift_Digits_Left  ; If C=1 -> numeric key; insert new digit from R7
    
-   	skip_keypad:
+skip_keypad:
 	setb EA
 	
-	noChange:
+noChange:
 	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
 	clr SSR_PIN
 
 	jb SWA.0, FSM_done_state_0_skip
 	
-	jnb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
+	jb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
 	sjmp FSM_done_state_0_Skip
 	FSM_done_state_0_Continue:
 	ljmp FSM_done
@@ -575,15 +577,16 @@ FSM_state2:
 	;state management
 	cjne a, #2, FSM_state3_continue_move
 	sjmp FSM_state3_skip_move
+	
 	FSM_state3_continue_move:
 	ljmp FSM_state3
+	
 	FSM_state3_skip_move:
-	
-	
 	setb LEDRA.2
 	
 	clr EA
 	powerPercent(#20, soak_time, timeOn)
+	
 	;While time is < timeOn ssr remains on, otherwise off
 	Load_X_Var8(SecondsCounter)	
 	Load_Y_Var16(timeOn)
@@ -598,7 +601,6 @@ FSM_state2:
 		clr SSR_PIN
 	ssr_on:
 	
-
 	;If time in this state > soak time then we move on
 	clr EA
 	Load_X_Var8(SecondsCounter) 
@@ -661,7 +663,7 @@ FSM_state4:
 	powerPercent(#20, reflow_time, timeOn)
 	;While time is < timeOn ssr remains on, otherwise off
 	Load_X_Var8(SecondsCounter)
-	Load_Y_Var16(timeOn)
+	Load_Y_Var16(timeOn) 
 	clr mf  
 	lcall x_gt_y 
 	
@@ -676,6 +678,7 @@ FSM_state4:
 
 	;If time in this state > soak time then we move on
 	clr EA
+
 	;load_x(10)
 	Load_X_Var16(reflow_time)
 	Load_Y_Var8(SecondsCounter)
@@ -715,9 +718,9 @@ FSM_state5:
 	setb state_flag
 	mov FSM_state, #0x00
 
-FSM_done:
+	FSM_done:
 
-;-------------------------------------------------------------------------------
-ljmp loop
+	;-------------------------------------------------------------------------------
+	ljmp loop
 
 END
