@@ -530,7 +530,7 @@ loop:
 		mov soak_temp+2, 0
 		mov soak_temp+3, 0
 		setb EA
-	underflow_soaktime_check:
+	overflow_soaktime_check:
 
 
 	jb State0Flag, skiptemptemptemp
