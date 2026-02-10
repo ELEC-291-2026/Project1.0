@@ -1,0 +1,75 @@
+;in cseg
+
+Display_FSM_Progress:
+    ; ---- compute bars_on = min(FSM_state, 5) ----
+    mov  A, FSM_state
+    cjne A, #5, DFSM_Not5
+    sjmp DFSM_Value_OK
+DFSM_Not5:
+    jc   DFSM_Below5
+    mov  A, #5
+DFSM_Below5:
+DFSM_Value_OK:
+    mov  R0, A              ; R0 = bars_on (1..5)
+
+    ; ---- cursor: line 2, column 1 (adjust if needed) ----
+    Set_Cursor(2, 1)
+
+    ; ---- print "progress> " ----
+    mov  DPTR, #Progress_Text
+DFSM_PrintText:
+    clr  A
+    movc A, @A+DPTR
+    jz   DFSM_TextDone
+    lcall ?WriteData
+    inc  DPTR
+    sjmp DFSM_PrintText
+DFSM_TextDone:
+
+    ; ---- draw 5-bar progress ----
+    mov  R1, #0             ; bar index 0..4
+
+DFSM_BarLoop:
+    mov  A, R1
+    clr  C
+    subb A, R0              ; A = R1 - bars_on
+    jc   DFSM_Filled
+
+    ; empty bar
+    mov  A, #' '
+    sjmp DFSM_WriteBar
+
+DFSM_Filled:
+    mov  A, #0FFh           ; solid block character
+
+DFSM_WriteBar:
+    lcall ?WriteData
+    inc  R1
+    cjne R1, #5, DFSM_BarLoop
+
+    ret
+
+
+/////////text strings:
+
+Progress_Text:
+    db 'progress> ', 0
+
+
+///////new state logic 
+
+; Clears second counter per state
+    jnb state_flag, no_new_state
+	
+    clr state_flag
+    clr EA
+    mov SecondsCounter, #0x00
+    setb EA
+
+    ; --- only show progress bar for states 1..5 ---
+    mov  A, FSM_state
+    jz   no_progress_bar       ; FSM_state == 0 → skip
+    lcall Display_FSM_Progress
+no_progress_bar:
+
+no_new_state:
