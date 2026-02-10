@@ -19,15 +19,15 @@
 0000             21   
 0000             22   ; Reset vector
 0000             23   org 0x0000
-0000 020875      24       ljmp main
+0000 020887      24       ljmp main
 0003             25       
 0003             26   ; Timer/Counter 0 overflow interrupt vector
 000B             27   org 0x000B
-000B 020762      28            ljmp Timer0_ISR
+000B 020774      28            ljmp Timer0_ISR
 000E             29   
 000E             30   ; Timer/Counter 2 overflow interrupt vector
 002B             31   org 0x002B
-002B 020783      32            ljmp Timer2_ISR
+002B 020795      32            ljmp Timer2_ISR
 002E             33   
 002E             34   
 0030             35   dseg at 0x30
@@ -66,7 +66,9 @@
 0000             68   mf               : dbit 1
 0001             69   ssr_f            : dbit 1
 0002             70   state_flag       : dbit 1
-0003             71   
+0003             71   emergency_f : dbit 1
+0004             72   
+0004             73   
                  -1   $include(math32.asm)
                 614   $LIST
                  -1   $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
@@ -1020,778 +1022,939 @@
 074E            478       ; Not A/B/C/D/*/# -> treat as numeric digit key
 074E            479       ; R7 holds the digit, Carry = 1 -> main loop will append it
 074E 22         480       ret
-074F             75   
-074F             76   cseg
-074F             77   ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
-074F             78   ; P0 is in connector JPIO.  Check "CV-8052 Soft Processor in the DE10Lite Board: Getting
-074F             79   ; Started Guide" for the details.
-074F             80   ELCD_RS equ P1.7
-074F             81   ; ELCD_RW equ Px.x ; Not used.  Connected to ground 
-074F             82   ELCD_E  equ P1.1
-074F             83   ELCD_D4 equ P0.7
-074F             84   ELCD_D5 equ P0.5
-074F             85   ELCD_D6 equ P0.3
-074F             86   ELCD_D7 equ P0.1
-074F             87   SSR_PIN equ P0.0
-074F             88   START_BUTTON equ P0.2
-074F             89   SOUND_OUT equ P0.4
-074F             90   
-074F             91   cseg
-074F             92   ;---------------------------------;
-074F             93   ; Routine to initialize the ISR   ;
-074F             94   ; for timer 0                     ;
+074F             77   
+074F             78   cseg
+074F             79   ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
+074F             80   ; P0 is in connector JPIO.  Check "CV-8052 Soft Processor in the DE10Lite Board: Getting
+074F             81   ; Started Guide" for the details.
+074F             82   ELCD_RS equ P1.7
+074F             83   ; ELCD_RW equ Px.x ; Not used.  Connected to ground 
+074F             84   ELCD_E  equ P1.1
+074F             85   ELCD_D4 equ P0.7
+074F             86   ELCD_D5 equ P0.5
+074F             87   ELCD_D6 equ P0.3
+074F             88   ELCD_D7 equ P0.1
+074F             89   SSR_PIN equ P0.0
+074F             90   START_BUTTON equ P0.2
+074F             91   STOP_BUTTON equ P1.3
+074F             92   SOUND_OUT equ P0.4
+074F             93   
+074F             94   cseg
 074F             95   ;---------------------------------;
-074F             96   Timer0_Init:
-074F E589        97            mov a, TMOD
-0751 54F0        98            anl a, #0xf0 ; 11110000 Clear the bits for timer 0
-0753 4401        99            orl a, #0x01 ; 00000001 Configure timer 0 as 16-timer
-0755 F589       100            mov TMOD, a
-0757            101            
-0757 855A8C     102            mov TH0, Timer0Reload+1
-075A 85598A     103            mov TL0, Timer0Reload+0
-075D            104            
-075D            105            ; Enable the timer and interrupts
-075D D2A9       106       setb ET0  ; Enable timer 0 interrupt
-075F D28C       107       setb TR0  ; Start timer 0
-0761 22         108            ret
-0762            109   
-0762            110   ;---------------------------------;
-0762            111   ; ISR for timer 0.  Set to execute;
-0762            112   ; every 1/4096Hz to generate a    ;
-0762            113   ; 2048 Hz wave at pin SOUND_OUT   ;
-0762            114   ;---------------------------------;
-0762            115   
-0762            116   Timer0_ISR:
-0762 C28C       117            clr TR0
-0764 855A8C     118            mov TH0, Timer0Reload+1
-0767 85598A     119            mov TL0, Timer0Reload+0
-076A D28C       120            setb TR0
-076C B284       121            cpl SOUND_OUT ; Connect speaker the pin assigned to 'SOUND_OUT'!
-076E 32         122            reti
-076F            123   
-076F            124   ;---------------------------------;
-076F            125   ; Routine to initialize the ISR   ;
-076F            126   ; for timer 2                     ;
-076F            127   ;---------------------------------;
-076F            128   Timer2_Init:
-076F 75C800     129            mov T2CON, #0 ; Stop timer/counter.  Autoreload mode.
-0772 75CDF5     130            mov TH2, #high(TIMER2_RELOAD)
-0775 75CC27     131            mov TL2, #low(TIMER2_RELOAD)
-0778            132            ; Set the reload value
-0778 75CBF5     133            mov RCAP2H, #high(TIMER2_RELOAD)
-077B 75CA27     134            mov RCAP2L, #low(TIMER2_RELOAD)
-077E            135            ; Enable the timer and interrupts
-077E D2AD       136       setb ET2  ; Enable timer 2 interrupt
-0780 D2CA       137       setb TR2  ; Enable timer 2
-0782 22         138            ret
-0783            139   
-0783            140   ;---------------------------------;
-0783            141   ; ISR for timer 2.  Runs every ms ;
-0783            142   ;---------------------------------;
-0783            143   Timer2_ISR:
-0783 C2CF       144            clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in ISR
-0785            145            ; Increment the timers for each FSM. That is all we do here!
-0785 055B       146            inc FSM_timer 
-0787            147            
-0787 E55B       148            mov a, FSM_timer
-0789 B4FA1B     149            cjne a, #250, FSM_timer_done
-078C            150            
-078C 055C       151            inc QuarterSecondsCounter
-078E 755B00     152            mov FSM_timer, #0x00
-0791            153            
-0791 E55C       154            mov a, QuarterSecondsCounter
-0793 B40411     155            cjne a, #4, FSM_timer_done
-0796            156            
-0796 755C00     157            mov QuarterSecondsCounter, #0x00
-0799 055D       158            inc SecondsCounter
-079B 055E       159            inc SecondsCounterTotal ; USE THIS FOR THE TOTAL TIMER. IT NEVER RESETS SO DONT WORRY
-079D            160            
-079D E55E       161            mov a, SecondsCounterTotal
-079F B43C05     162            cjne a, #60, FSM_timer_done
-07A2 055F       163            inc MinutesCounterTotal
-07A4 755E00     164            mov SecondsCounterTotal, #0x00
-07A7            165            
-07A7            166            FSM_timer_done:
-07A7 32         167            reti
-07A8            168   
-07A8            169   ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
-07A8            170   T_7seg:
-07A8 C0F9A4B0   171       DB 0C0H, 0F9H, 0A4H, 0B0H, 099H, 092H, 082H, 0F8H, 080H, 090H
+074F             96   ; Routine to initialize the ISR   ;
+074F             97   ; for timer 0                     ;
+074F             98   ;---------------------------------;
+074F             99   Emergency_Check_Button:
+074F            100       ; Assume active-high emergency input.
+074F            101       ; If your button is active-low, flip the JB/JNB logic below.
+074F 209301     102       jb STOP_BUTTON, Emergency_Triggered
+0752 22         103       ret
+0753            104   
+0753            105   Emergency_Triggered:
+0753 D203       106       setb emergency_f     ; latch emergency condition
+0755            107   
+0755 C280       108       clr SSR_PIN          ; heater OFF immediately
+0757 756000     109       mov FSM_state, #0x00 ; go to idle
+075A D202       110       setb state_flag      ; force "new state" UI update
+075C            111   
+075C            112       ; Optional: stop buzzer if you had one running
+075C C28C       113       clr TR0
+075E C2A9       114       clr ET0
+0760            115   
+0760 22         116       ret
+0761            117   
+0761            118   Timer0_Init:
+0761 E589       119            mov a, TMOD
+0763 54F0       120            anl a, #0xf0 ; 11110000 Clear the bits for timer 0
+0765 4401       121            orl a, #0x01 ; 00000001 Configure timer 0 as 16-timer
+0767 F589       122            mov TMOD, a
+0769            123            
+0769 855A8C     124            mov TH0, Timer0Reload+1
+076C 85598A     125            mov TL0, Timer0Reload+0
+076F            126            
+076F            127            ; Enable the timer and interrupts
+076F D2A9       128       setb ET0  ; Enable timer 0 interrupt
+0771 D28C       129       setb TR0  ; Start timer 0
+0773 22         130            ret
+0774            131   
+0774            132   ;---------------------------------;
+0774            133   ; ISR for timer 0.  Set to execute;
+0774            134   ; every 1/4096Hz to generate a    ;
+0774            135   ; 2048 Hz wave at pin SOUND_OUT   ;
+0774            136   ;---------------------------------;
+0774            137   
+0774            138   Timer0_ISR:
+0774 C28C       139            clr TR0
+0776 855A8C     140            mov TH0, Timer0Reload+1
+0779 85598A     141            mov TL0, Timer0Reload+0
+077C D28C       142            setb TR0
+077E B284       143            cpl SOUND_OUT ; Connect speaker the pin assigned to 'SOUND_OUT'!
+0780 32         144            reti
+0781            145   
+0781            146   ;---------------------------------;
+0781            147   ; Routine to initialize the ISR   ;
+0781            148   ; for timer 2                     ;
+0781            149   ;---------------------------------;
+0781            150   Timer2_Init:
+0781 75C800     151            mov T2CON, #0 ; Stop timer/counter.  Autoreload mode.
+0784 75CDF5     152            mov TH2, #high(TIMER2_RELOAD)
+0787 75CC27     153            mov TL2, #low(TIMER2_RELOAD)
+078A            154            ; Set the reload value
+078A 75CBF5     155            mov RCAP2H, #high(TIMER2_RELOAD)
+078D 75CA27     156            mov RCAP2L, #low(TIMER2_RELOAD)
+0790            157            ; Enable the timer and interrupts
+0790 D2AD       158       setb ET2  ; Enable timer 2 interrupt
+0792 D2CA       159       setb TR2  ; Enable timer 2
+0794 22         160            ret
+0795            161   
+0795            162   ;---------------------------------;
+0795            163   ; ISR for timer 2.  Runs every ms ;
+0795            164   ;---------------------------------;
+0795            165   
+0795            166   Timer2_ISR:
+0795            167   
+0795 C2CF       168            clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in ISR
+0797            169            ; Increment the timers for each FSM. That is all we do here!
+0797 055B       170            inc FSM_timer 
+0799            171            
+0799 E55B       172            mov a, FSM_timer
+079B B4FA1B     173            cjne a, #250, FSM_timer_done
+079E            174            
+079E 055C       175            inc QuarterSecondsCounter
+07A0 755B00     176            mov FSM_timer, #0x00
+07A3            177            
+07A3 E55C       178            mov a, QuarterSecondsCounter
+07A5 B40411     179            cjne a, #4, FSM_timer_done
+07A8            180            
+07A8 755C00     181            mov QuarterSecondsCounter, #0x00
+07AB 055D       182            inc SecondsCounter
+07AD 055E       183            inc SecondsCounterTotal ; USE THIS FOR THE TOTAL TIMER. IT NEVER RESETS SO DONT WORRY
+07AF            184            
+07AF E55E       185            mov a, SecondsCounterTotal
+07B1 B43C05     186            cjne a, #60, FSM_timer_done
+07B4 055F       187            inc MinutesCounterTotal
+07B6 755E00     188            mov SecondsCounterTotal, #0x00
+07B9            189            
+07B9            190            FSM_timer_done:
+07B9 32         191            reti
+07BA            192   
+07BA            193   ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
+07BA            194   T_7seg:
+07BA C0F9A4B0   195       DB 0C0H, 0F9H, 0A4H, 0B0H, 099H, 092H, 082H, 0F8H, 080H, 090H
      999282F8
      8090
-07B2            172   
-07B2            173   ; Displays a BCD number pased in R0 in HEX1-HEX0
-07B2            174   Display_BCD_7_Seg_HEX10:
-07B2 9007A8     175            mov dptr, #T_7seg
-07B5            176   
-07B5 E8         177            mov a, R0
-07B6 C4         178            swap a
-07B7 540F       179            anl a, #0FH
-07B9 93         180            movc a, @a+dptr
-07BA F592       181            mov HEX1, a
-07BC            182            
-07BC E8         183            mov a, R0
-07BD 540F       184            anl a, #0FH
-07BF 93         185            movc a, @a+dptr
-07C0 F591       186            mov HEX0, a
-07C2            187            
-07C2 22         188            ret
-07C3            189   
-07C3            190   ; Displays a BCD number pased in R0 in HEX3-HEX2
-07C3            191   Display_BCD_7_Seg_HEX32:
-07C3 9007A8     192            mov dptr, #T_7seg
-07C6            193   
-07C6 E8         194            mov a, R0
-07C7 C4         195            swap a
-07C8 540F       196            anl a, #0FH
-07CA 93         197            movc a, @a+dptr
-07CB F594       198            mov HEX3, a
-07CD            199            
-07CD E8         200            mov a, R0
-07CE 540F       201            anl a, #0FH
-07D0 93         202            movc a, @a+dptr
-07D1 F593       203            mov HEX2, a
-07D3            204            
-07D3 22         205            ret
-07D4            206   
-07D4            207   ; Displays a BCD number pased in R0 in HEX5-HEX4
-07D4            208   Display_BCD_7_Seg_HEX54:
-07D4 9007A8     209            mov dptr, #T_7seg
-07D7            210   
-07D7 E8         211            mov a, R0
-07D8 C4         212            swap a
-07D9 540F       213            anl a, #0FH
-07DB 93         214            movc a, @a+dptr
-07DC F58F       215            mov HEX5, a
-07DE            216            
-07DE E8         217            mov a, R0
-07DF 540F       218            anl a, #0FH
-07E1 93         219            movc a, @a+dptr
-07E2 F58E       220            mov HEX4, a
-07E4            221            
-07E4 22         222            ret
-07E5            223   
-07E5            224   ; The 8-bit hex number passed in the accumulator is converted to
-07E5            225   ; BCD and stored in [R1, R0]
-07E5            226   Hex_to_bcd_8bit:
-07E5 75F064     227            mov b, #100
-07E8 84         228            div ab
-07E9 F9         229            mov R1, a   ; After dividing, a has the 100s
-07EA E5F0       230            mov a, b    ; Remainder is in register b
-07EC 75F00A     231            mov b, #10
-07EF 84         232            div ab ; The tens are stored in a, the units are stored in b 
-07F0 C4         233            swap a
-07F1 54F0       234            anl a, #0xf0
-07F3 45F0       235            orl a, b
-07F5 F8         236            mov R0, a
-07F6 22         237            ret
-07F7            238   
-07F7            239   
-07F7            240   ;-------MACROS--------------------;
-07F7            241   ;Example macro to help with process %0,1,etc represents the input number, this is all pass by reference(i.e it can actually affect the variable)
-07F7            242   
-                243   ADD_16 MAC
-                244       ADD A, %0     ; Add low byte
-                245       MOV R2, A       ; Store result back in low var
-                246       MOV A, R1       ; Move existing high byte to A
-                247       ADDC A, %1     ; Add high byte with carry
-                248       MOV R1, A       ; Store back in R1
-                249   ENDMAC
-07F7            250   
-                251   Load_X_Var16 MAC
-                252   mov x+0, %0+0
-                253   mov x+1, %0+1
-                254   mov x+2, #0
-                255   mov x+3, #0
-                256   ENDMAC
-07F7            257   
-                258   Load_Y_Var16 MAC
-                259   mov y+0, %0+0
-                260   mov y+1, %0+1
-                261   mov y+2, #0
-                262   mov y+3, #0
-                263   ENDMAC
-07F7            264   
-                265   Load_X_Var8 MAC
-                266       
-                267   mov x+0, %0+0
-                268   mov x+1, #0
-                269   mov x+2, #0
-                270   mov x+3, #0
-                271   ENDMAC
-07F7            272   
-                273   Load_Y_Var8 MAC
-                274       
-                275   mov y+0, %0+0
-                276   mov y+1, #0
-                277   mov y+2, #0
-                278   mov y+3, #0
-                279   ENDMAC
-07F7            280   
-                281   tempConv_cold MAC
-                282   	; Load 32-bit 'x' with 12-bit adc result
-                283   	mov x+3, #0
-                284   	mov x+2, #0
-                285   	mov x+1, ADC_H
-                286   	mov x+0, ADC_L
-                287   
-                288   	Load_y(50300) ; VCC voltage measured
-                289   	lcall mul32
-                290   	Load_y(4096)
-                291   	lcall div32
-                292   	Load_y(27300)
-                293   	lcall sub32
-                294   	Load_y(100)
-                295   	lcall mul32
-                296   
-                297   ENDMAC
-07F7            298   
-                299   tempConv_hot MAC
-                300   	; Load 32-bit 'x' with 12-bit adc result
-                301   	mov x+3, #0
-                302   	mov x+2, #0
-                303   	mov x+1, ADC_H
-                304   	mov x+0, ADC_L
-                305   
-                306   	Load_y(12288)   ; gain constant
-                307   	lcall mul32
-                308   	
-                309   	Load_y(4096)
-                310   	lcall div32
-                311   
-                312   ENDMAC
-07F7            313   
-                314   powerPercent MAC
-                315   	;Convert percentage of time into a time it needs to be on %0 is percentage(i.e 20 is 20%) on, %1 is total time, %2 is the time on
-                316   	;load_x(%0)
-                317   	mov x+0, %0
-                318   	mov x+1, #0
-                319   	mov x+2, #0
-                320   	mov x+3, #0
-                321   	;converts x to a percentage through fractions
-                322   	Load_Y_Var16(%1)
-                323   	lcall mul32
-                324   	
-                325   	load_y(100)
-                326   	lcall div32
-                327   	
-                328   	mov %2+0, x+0
-                329   	mov %2+1, x+1
+07C4            196   
+07C4            197   ; Displays a BCD number pased in R0 in HEX1-HEX0
+07C4            198   Display_BCD_7_Seg_HEX10:
+07C4 9007BA     199            mov dptr, #T_7seg
+07C7            200   
+07C7 E8         201            mov a, R0
+07C8 C4         202            swap a
+07C9 540F       203            anl a, #0FH
+07CB 93         204            movc a, @a+dptr
+07CC F592       205            mov HEX1, a
+07CE            206            
+07CE E8         207            mov a, R0
+07CF 540F       208            anl a, #0FH
+07D1 93         209            movc a, @a+dptr
+07D2 F591       210            mov HEX0, a
+07D4            211            
+07D4 22         212            ret
+07D5            213   
+07D5            214   ; Displays a BCD number pased in R0 in HEX3-HEX2
+07D5            215   Display_BCD_7_Seg_HEX32:
+07D5 9007BA     216            mov dptr, #T_7seg
+07D8            217   
+07D8 E8         218            mov a, R0
+07D9 C4         219            swap a
+07DA 540F       220            anl a, #0FH
+07DC 93         221            movc a, @a+dptr
+07DD F594       222            mov HEX3, a
+07DF            223            
+07DF E8         224            mov a, R0
+07E0 540F       225            anl a, #0FH
+07E2 93         226            movc a, @a+dptr
+07E3 F593       227            mov HEX2, a
+07E5            228            
+07E5 22         229            ret
+07E6            230   
+07E6            231   ; Displays a BCD number pased in R0 in HEX5-HEX4
+07E6            232   Display_BCD_7_Seg_HEX54:
+07E6 9007BA     233            mov dptr, #T_7seg
+07E9            234   
+07E9 E8         235            mov a, R0
+07EA C4         236            swap a
+07EB 540F       237            anl a, #0FH
+07ED 93         238            movc a, @a+dptr
+07EE F58F       239            mov HEX5, a
+07F0            240            
+07F0 E8         241            mov a, R0
+07F1 540F       242            anl a, #0FH
+07F3 93         243            movc a, @a+dptr
+07F4 F58E       244            mov HEX4, a
+07F6            245            
+07F6 22         246            ret
+07F7            247   
+07F7            248   ; The 8-bit hex number passed in the accumulator is converted to
+07F7            249   ; BCD and stored in [R1, R0]
+07F7            250   Hex_to_bcd_8bit:
+07F7 75F064     251            mov b, #100
+07FA 84         252            div ab
+07FB F9         253            mov R1, a   ; After dividing, a has the 100s
+07FC E5F0       254            mov a, b    ; Remainder is in register b
+07FE 75F00A     255            mov b, #10
+0801 84         256            div ab ; The tens are stored in a, the units are stored in b 
+0802 C4         257            swap a
+0803 54F0       258            anl a, #0xf0
+0805 45F0       259            orl a, b
+0807 F8         260            mov R0, a
+0808 22         261            ret
+0809            262   
+0809            263   
+0809            264   ;-------MACROS--------------------;
+0809            265   ;Example macro to help with process %0,1,etc represents the input number, this is all pass by reference(i.e it can actually affect the variable)
+0809            266   
+                267   ADD_16 MAC
+                268       ADD A, %0     ; Add low byte
+                269       MOV R2, A       ; Store result back in low var
+                270       MOV A, R1       ; Move existing high byte to A
+                271       ADDC A, %1     ; Add high byte with carry
+                272       MOV R1, A       ; Store back in R1
+                273   ENDMAC
+0809            274   
+                275   Load_X_Var16 MAC
+                276   mov x+0, %0+0
+                277   mov x+1, %0+1
+                278   mov x+2, #0
+                279   mov x+3, #0
+                280   ENDMAC
+0809            281   
+                282   Load_Y_Var16 MAC
+                283   mov y+0, %0+0
+                284   mov y+1, %0+1
+                285   mov y+2, #0
+                286   mov y+3, #0
+                287   ENDMAC
+0809            288   
+                289   Load_X_Var8 MAC
+                290       
+                291   mov x+0, %0+0
+                292   mov x+1, #0
+                293   mov x+2, #0
+                294   mov x+3, #0
+                295   ENDMAC
+0809            296   
+                297   Load_Y_Var8 MAC
+                298       
+                299   mov y+0, %0+0
+                300   mov y+1, #0
+                301   mov y+2, #0
+                302   mov y+3, #0
+                303   ENDMAC
+0809            304   
+0809            305   ;Macro for conversion of LM335
+                306   tempConv_cold MAC
+                307   	; Load 32-bit 'x' with 12-bit adc result
+                308   	mov x+3, #0
+                309   	mov x+2, #0
+                310   	mov x+1, ADC_H
+                311   	mov x+0, ADC_L
+                312   
+                313   	Load_y(5000)
+                314       lcall mul32
+                315       Load_y(4096)
+                316       lcall div32           ; x = Vlm in mV
+                317   
+                318       Load_y(10)
+                319       lcall div32           ; x = Kelvin
+                320       Load_y(273)
+                321       lcall sub32           ; x = Celsius
+                322       
+                323       mov tempCold+0, x+0
+                324   	mov tempCold+1, x+1
+                325   	mov tempCold+2, x+2
+                326   	mov tempCold+3, x+3
+                327       
+                328       
+                329   
                 330   ENDMAC
-07F7            331   
-07F7            332   ;---------------------------------;
-07F7            333   ; Main program. Includes hardware ;
-07F7            334   ; initialization and 'forever'    ;
-07F7            335   ; loop.                           ;
-07F7            336   ;---------------------------------;
-07F7            337   
-07F7            338   Initial_ALL:
-07F7            339   
-07F7 C2AF       340            clr EA ;disables global interupts
-07F9            341            
-07F9            342            ; Initialization of hardware
-07F9 12076F     343       lcall Timer2_Init
-07FC 12037C     344       lcall ELCD_4BIT ; Configure LCD in four bit mode
-07FF            345       ; Turn off all the LEDs
-07FF            346            
-07FF 75817F     347            mov SP, #7FH ; Set the beginning of the stack (more on this later)
-0802 75E800     348            mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
-0805 759500     349            mov LEDRB, #0
-0808 75817F     350            mov SP, #0x7F
-080B            351            
-080B            352            
-080B            353            ; Initialize variables
-080B 756000     354       mov FSM_state, #0x00
-080E C280       355            clr SSR_PIN
-0810 C200       356            clr mf
-0812 C201       357            clr ssr_f
-0814 D202       358            setb state_flag ;tells the de10-lite its a new state
-0816            359            
-0816 755F00     360            mov MinutesCounterTotal, #0x00
-0819 755E00     361            mov SecondsCounterTotal, #0x00
-081C 755C00     362       mov QuarterSecondsCounter, #0x00
-081F            363       
-081F            364       
-081F 755096     365       mov soak_temp+0,     #150    ; mode A 150 +-20
-0822 755100     366       mov soak_temp+1,     #0
-0825 755205     367            mov soak_time+0,        #5     ; mode B 60-120
-0828 755300     368            mov soak_time+1,        #0
-082B 755482     369            mov reflow_temp+0,  #130                ; mode C 230 < 240
-082E 755500     370            mov reflow_temp+1,  #0
-0831 755605     371            mov reflow_time+0,  #5          ; mode D  30 < 45
-0834 755700     372            mov reflow_time+1,  #0
-0837            373            
-0837 754A00     374            mov tempFinal+0, #0
-083A 754B00     375            mov tempFinal+1, #0
-083D 754C00     376            mov tempFinal+2, #0
-0840 754D00     377            mov tempFinal+3, #0
-0843            378            
-0843 754600     379            mov tempCold+0, #0
-0846 754700     380            mov tempCold+1, #0
-0849 754800     381            mov tempCold+2, #0
-084C 754900     382            mov tempCold+3, #0
-084F            383            
-084F 754200     384            mov tempHot+0, #0
-0852 754300     385            mov tempHot+1, #0
-0855 754400     386            mov tempHot+2, #0
-0858 754500     387            mov tempHot+3, #0
-085B            388            
-085B 755800     389            mov active_param, #0
-085E            390                    
-085E C2AF       391            clr EA
-0860 1204DA     392       lcall Load_Param_Into_BCD
-0863 12050A     393       lcall Configure_Keypad_Pins
-0866 D2AF       394       setb EA
-0868            395   
-0868            396            
-0868            397            ; Speaker frequency
-0868 755A80     398            mov Timer0Reload+1, #high(TIMER0_RELOAD)
-086B 7559D8     399            mov Timer0Reload+0, #low(TIMER0_RELOAD)
-086E            400            
-086E            401            
-086E            402            ; Stops interupts for speaker
-086E C28C       403            clr TR0
-0870 C2A9       404       clr ET0
-0872            405   
-0872 D2AF       406            setb EA ;enables global interupts
-0874            407            
-0874 22         408            ret
-0875            409            
-0875            410            
-0875            411   main:
-0875 759A01     412            mov P0MOD, #0x01 ;configures P0.0
-0878 1207F7     413            lcall Initial_ALL
-087B            414            
-087B            415   loop:
-087B            416            
-087B            417            
-087B 0208BE     418            ljmp skip_debug_stuff 
-087E            419            
-087E C2AF       420            clr EA
-0880            421       
-0880 855D30     421   mov x+0, SecondsCounter+0
-0883 753100     421   mov x+1, #0
-0886 753200     421   mov x+2, #0
-0889 753300     421   mov x+3, #0
-088C 12002E     422            lcall hex2bcd
-088F A838       423            mov R0, bcd+0
-0891 1207B2     424            lcall Display_BCD_7_Seg_HEX10
-0894            425            
-0894            426            
-0894            427       
-0894 855E30     427   mov x+0, SecondsCounterTotal+0
-0897 753100     427   mov x+1, #0
-089A 753200     427   mov x+2, #0
-089D 753300     427   mov x+3, #0
-08A0 12002E     428            lcall hex2bcd
-08A3 A838       429            mov R0, bcd+0
-08A5 1207C3     430            lcall Display_BCD_7_Seg_HEX32
-08A8            431            
-08A8            432            ;load_x(tempFinal)
-08A8            433            
-08A8            434       
-08A8 855F30     434   mov x+0, MinutesCounterTotal+0
-08AB 753100     434   mov x+1, #0
-08AE 753200     434   mov x+2, #0
-08B1 753300     434   mov x+3, #0
-08B4 12002E     435            lcall hex2bcd
-08B7 A838       436            mov R0, bcd+0
-08B9 1207D4     437            lcall Display_BCD_7_Seg_HEX54
-08BC            438            
-08BC D2AF       439            setb EA
-08BE            440            
-08BE            441            skip_debug_stuff:
-08BE            442   
-08BE            443            
-08BE            444            ; ALL TEMP MATH -------------------------
-08BE C2AF       445            clr EA
-08C0 75A100     446            mov ADC_C, #LM335_ADC
-08C3            447            ; Load 32-bit 'x' with 12-bit adc result
-08C3 753300     447            mov x+3, #0
-08C6 753200     447            mov x+2, #0
-08C9 85A331     447            mov x+1, ADC_H
-08CC 85A230     447            mov x+0, ADC_L
-08CF            447   
-08CF 75347C     447            mov y+0, #low (50300 % 0x10000) 
-08D2 7535C4     447            mov y+1, #high(50300 % 0x10000) 
-08D5 753600     447            mov y+2, #low (50300 / 0x10000) 
-08D8 753700     447            mov y+3, #high(50300 / 0x10000)  ; VCC voltage measured
-08DB 12018C     447            lcall mul32
-08DE 753400     447            mov y+0, #low (4096 % 0x10000) 
-08E1 753510     447            mov y+1, #high(4096 % 0x10000) 
-08E4 753600     447            mov y+2, #low (4096 / 0x10000) 
-08E7 753700     447            mov y+3, #high(4096 / 0x10000) 
-08EA 120280     447            lcall div32
-08ED 7534A4     447            mov y+0, #low (27300 % 0x10000) 
-08F0 75356A     447            mov y+1, #high(27300 % 0x10000) 
-08F3 753600     447            mov y+2, #low (27300 / 0x10000) 
-08F6 753700     447            mov y+3, #high(27300 / 0x10000) 
-08F9 1200F6     447            lcall sub32
-08FC 753464     447            mov y+0, #low (100 % 0x10000) 
-08FF 753500     447            mov y+1, #high(100 % 0x10000) 
-0902 753600     447            mov y+2, #low (100 / 0x10000) 
-0905 753700     447            mov y+3, #high(100 / 0x10000) 
-0908 12018C     447            lcall mul32
-090B            447   
-090B 853046     448            mov tempCold+0, x+0
-090E 853147     449            mov tempCold+1, x+1
-0911 853248     450            mov tempCold+2, x+2
-0914 853349     451            mov tempCold+3, x+3
-0917            452            
-0917 75A101     453            mov ADC_C, #OP07_ADC
-091A            454            ; Load 32-bit 'x' with 12-bit adc result
-091A 753300     454            mov x+3, #0
-091D 753200     454            mov x+2, #0
-0920 85A331     454            mov x+1, ADC_H
-0923 85A230     454            mov x+0, ADC_L
-0926            454   
-0926 753400     454            mov y+0, #low (12288 % 0x10000) 
-0929 753530     454            mov y+1, #high(12288 % 0x10000) 
-092C 753600     454            mov y+2, #low (12288 / 0x10000) 
-092F 753700     454            mov y+3, #high(12288 / 0x10000) 
-0932            454      ; gain constant
-0932 12018C     454            lcall mul32
-0935            454            
-0935 753400     454            mov y+0, #low (4096 % 0x10000) 
-0938 753510     454            mov y+1, #high(4096 % 0x10000) 
-093B 753600     454            mov y+2, #low (4096 / 0x10000) 
-093E 753700     454            mov y+3, #high(4096 / 0x10000) 
-0941 120280     454            lcall div32
-0944            454   
-0944 853042     455            mov tempHot+0, x+0
-0947 853143     456            mov tempHot+1, x+1
-094A 853244     457            mov tempHot+2, x+2
-094D 853345     458            mov tempHot+3, x+3
-0950            459            
-0950            460            ; Add temperatures
-0950 854230     461            mov x+0, tempHot+0
-0953 854331     462            mov x+1, tempHot+1
-0956 854432     463            mov x+2, tempHot+2
-0959 854533     464            mov x+3, tempHot+3
-095C            465            
-095C 854634     466            mov y+0, tempCold+0
-095F 854735     467            mov y+1, tempCold+1
-0962 854836     468            mov y+2, tempCold+2
-0965 854937     469            mov y+3, tempCold+3
-0968            470            
-0968 1200D3     471            lcall add32
-096B            472            
-096B 85304A     473            mov tempFinal+0, x+0
-096E 85314B     474            mov tempFinal+1, x+1
-0971 85324C     475            mov tempFinal+2, x+2
-0974 85334D     476            mov tempFinal+3, x+3
-0977 D2AF       477            setb EA
-0979            478       
-0979            479            
-0979            480       
-0979            481   ;-------------------------------------------------------------------------------
-0979            482   ;FSM
-0979            483   ;-------------------------------------------------------------------------------
-0979            484   
-0979            485   ; Clears second counter per state
-0979 300209     486            jnb state_flag, no_new_state
-097C            487            
-097C C202       488            clr state_flag
-097E C2AF       489            clr EA
-0980 755D00     490            mov SecondsCounter, #0x00
-0983 D2AF       491            setb EA
-0985            492            no_new_state:
-0985            493   
-0985            494   ; non-blocking FSM for the one second counter starts here.
-0985 E560       495            mov a, FSM_state
-0987 75E800     496            mov LEDRA, #0
-098A            497   
-098A            498   FSM_state0:
-098A            499            ;Only moves on to state 1 once start button is pressed
-098A B40025     500            cjne a, #0, FSM_state1
-098D            501            
-098D C2AF       502            clr EA
-098F 120517     503            lcall Keypad        ; Scan keypad
-0992 1203FA     504       lcall Display       ; Update HEX displays (or later, LCD)
-0995 5003       505       jnc  skip_keypad        ; If C=0 -> no digit to insert (mode/backspace/clear/none)
-0997            506   
-0997 120460     507       lcall Shift_Digits_Left  ; If C=1 -> numeric key; insert new digit from R7
-099A            508      
-099A            509            skip_keypad:
-099A D2AF       510            setb EA
-099C            511            
-099C            512            noChange:
-099C D2E8       513            setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
-099E C280       514            clr SSR_PIN
-09A0            515   
-09A0 20E808     516            jb SWA.0, FSM_done_state_0_skip
-09A3            517            
-09A3 208202     518            jb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
-09A6 8003       519            sjmp FSM_done_state_0_Skip
-09A8            520            FSM_done_state_0_Continue:
-09A8 020B82     521            ljmp FSM_done
-09AB            522            FSM_done_state_0_Skip:
-09AB            523            
-09AB D202       524            setb state_flag
-09AD 0560       525            inc FSM_state
-09AF 020B82     526            ljmp FSM_done
-09B2            527   
-09B2            528   FSM_state1:      
-09B2            529            ;Only move to next stat if temp > 150c
-09B2 B40137     530            cjne a, #1, FSM_state2
-09B5 D2E9       531            setb LEDRA.1
-09B7            532   
-09B7 D280       533            setb SSR_PIN
-09B9            534   
-09B9            535            ;if temp > 150
-09B9            536            
-09B9 C2AF       537            clr EA
-09BB 75304A     538            mov x+0, #low (tempFinal % 0x10000) 
-09BE 753100     538            mov x+1, #high(tempFinal % 0x10000) 
-09C1 753200     538            mov x+2, #low (tempFinal / 0x10000) 
-09C4 753300     538            mov x+3, #high(tempFinal / 0x10000) 
-09C7 855034     539   mov y+0, soak_temp+0
-09CA 855135     539   mov y+1, soak_temp+1
-09CD 753600     539   mov y+2, #0
-09D0 753700     539   mov y+3, #0
-09D3 C200       540            clr mf
-09D5 120136     541            lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)     
-09D8            542            
-09D8 D2AF       543            setb EA
-09DA            544            
-09DA 20E908     545            jb SWA.1, FSM_done_state_1_skip
-09DD            546            
-09DD 300002     547            jnb mf, FSM_done_state_1_Continue 
-09E0 8003       548            sjmp FSM_done_state_1_Skip
-09E2            549            FSM_done_state_1_Continue:
-09E2 020B82     550            ljmp FSM_done
-09E5            551            FSM_done_state_1_Skip:
-09E5            552            
-09E5 D202       553            setb state_flag
-09E7 0560       554            inc FSM_state
-09E9 020B82     555            ljmp FSM_done
-09EC            556   
-09EC            557   FSM_state2:      
-09EC            558            ;state management
-09EC B40202     559            cjne a, #2, FSM_state3_continue_move
-09EF 8003       560            sjmp FSM_state3_skip_move
-09F1            561            FSM_state3_continue_move:
-09F1 020A83     562            ljmp FSM_state3
-09F4            563            FSM_state3_skip_move:
-09F4            564            
-09F4            565            
-09F4 D2EA       566            setb LEDRA.2
-09F6            567            
-09F6 C2AF       568            clr EA
-09F8            569            ;Convert percentage of time into a time it needs to be on #20 is percentage(i.e 20 is 20%) on, soak_time is total time, timeOn is the time on
-09F8            569            ;load_x(#20)
-09F8 753014     569            mov x+0, #20
-09FB 753100     569            mov x+1, #0
-09FE 753200     569            mov x+2, #0
-0A01 753300     569            mov x+3, #0
-0A04            569            ;converts x to a percentage through fractions
-0A04 855234     569   mov y+0, soak_time+0
-0A07 855335     569   mov y+1, soak_time+1
-0A0A 753600     569   mov y+2, #0
-0A0D 753700     569   mov y+3, #0
-0A10 12018C     569            lcall mul32
-0A13            569            
-0A13 753464     569            mov y+0, #low (100 % 0x10000) 
-0A16 753500     569            mov y+1, #high(100 % 0x10000) 
-0A19 753600     569            mov y+2, #low (100 / 0x10000) 
-0A1C 753700     569            mov y+3, #high(100 / 0x10000) 
-0A1F 120280     569            lcall div32
-0A22            569            
-0A22 85304E     569            mov timeOn+0, x+0
-0A25 85314F     569            mov timeOn+1, x+1
-0A28            570            ;While time is < timeOn ssr remains on, otherwise off
-0A28            571       
-0A28 855D30     571   mov x+0, SecondsCounter+0
-0A2B 753100     571   mov x+1, #0
-0A2E 753200     571   mov x+2, #0
-0A31 753300     571   mov x+3, #0      
-0A34 854E34     572   mov y+0, timeOn+0
-0A37 854F35     572   mov y+1, timeOn+1
-0A3A 753600     572   mov y+2, #0
-0A3D 753700     572   mov y+3, #0
-0A40 C200       573            clr mf
-0A42 120136     574            lcall x_gt_y
-0A45 D2AF       575            setb EA
-0A47 300004     576            jnb mf, ssr_off
-0A4A D280       577            setb SSR_PIN
-0A4C 8002       578            sjmp ssr_on
-0A4E            579   
-0A4E            580            ssr_off:
-0A4E C280       581                    clr SSR_PIN
-0A50            582            ssr_on:
-0A50            583            
-0A50            584   
-0A50            585            ;If time in this state > soak time then we move on
-0A50 C2AF       586            clr EA
-0A52            587       
-0A52 855D30     587   mov x+0, SecondsCounter+0
-0A55 753100     587   mov x+1, #0
-0A58 753200     587   mov x+2, #0
-0A5B 753300     587   mov x+3, #0 
-0A5E 855234     588   mov y+0, soak_time+0
-0A61 855335     588   mov y+1, soak_time+1
-0A64 753600     588   mov y+2, #0
-0A67 753700     588   mov y+3, #0
-0A6A            589            ;load_y(10)
-0A6A C200       590            clr mf  
-0A6C 120136     591            lcall x_gt_y     ; Use GE (Greater than or equal) for stability
-0A6F D2AF       592            setb EA
-0A71            593            
-0A71 20EA08     594            jb SWA.2, FSM_done_state_2_skip
-0A74            595            
-0A74 300002     596            jnb mf, FSM_done_state_2_Continue
-0A77 8003       597            sjmp FSM_done_state_2_Skip
-0A79            598            FSM_done_state_2_Continue:
-0A79 020B82     599            ljmp FSM_done
-0A7C            600            FSM_done_state_2_Skip:
-0A7C            601            
-0A7C D202       602            setb state_flag
-0A7E 0560       603            inc FSM_state
-0A80 020B82     604            ljmp FSM_done
-0A83            605   
-0A83            606   FSM_state3:      
-0A83            607            ;Only moves on when the temp is > 220c
-0A83 B40337     608            cjne a, #3, FSM_state4
-0A86 D2EB       609            setb LEDRA.3
-0A88            610   
-0A88 D280       611            setb SSR_PIN
-0A8A            612   
-0A8A            613            ;if temp > 150
-0A8A C2AF       614            clr EA
-0A8C 855430     615   mov x+0, reflow_temp+0
-0A8F 855531     615   mov x+1, reflow_temp+1
-0A92 753200     615   mov x+2, #0
-0A95 753300     615   mov x+3, #0
-0A98 75344A     616            mov y+0, #low (tempFinal % 0x10000) 
-0A9B 753500     616            mov y+1, #high(tempFinal % 0x10000) 
-0A9E 753600     616            mov y+2, #low (tempFinal / 0x10000) 
-0AA1 753700     616            mov y+3, #high(tempFinal / 0x10000) 
-0AA4 C200       617            clr mf
-0AA6 120136     618            lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
-0AA9 D2AF       619            setb EA
-0AAB            620            
-0AAB 20EB08     621            jb SWA.3, FSM_done_state_3_skip
-0AAE            622            
-0AAE 200002     623            jb mf, FSM_done_state_3_Continue 
-0AB1 8003       624            sjmp FSM_done_state_3_Skip
-0AB3            625            FSM_done_state_3_Continue:
-0AB3 020B82     626            ljmp FSM_done
-0AB6            627            FSM_done_state_3_Skip:
-0AB6            628            
-0AB6 D202       629            setb state_flag
-0AB8 0560       630            inc FSM_state
-0ABA 020B82     631            ljmp FSM_done
-0ABD            632   
-0ABD            633   FSM_state4:      
-0ABD            634            ;only moves on after 45s
-0ABD B40402     635            cjne a, #4, FSM_state5_continue_move
-0AC0 8003       636            sjmp FSM_state5_skip_move
-0AC2            637            FSM_state5_continue_move:
-0AC2 020B4F     638            ljmp FSM_state5
-0AC5            639            FSM_state5_skip_move:
-0AC5            640            
-0AC5 D2EC       641            setb LEDRA.4
-0AC7            642            
-0AC7 C2AF       643            clr EA
-0AC9            644            ;Convert percentage of time into a time it needs to be on #20 is percentage(i.e 20 is 20%) on, reflow_time is total time, timeOn is the time on
-0AC9            644            ;load_x(#20)
-0AC9 753014     644            mov x+0, #20
-0ACC 753100     644            mov x+1, #0
-0ACF 753200     644            mov x+2, #0
-0AD2 753300     644            mov x+3, #0
-0AD5            644            ;converts x to a percentage through fractions
-0AD5 855634     644   mov y+0, reflow_time+0
-0AD8 855735     644   mov y+1, reflow_time+1
-0ADB 753600     644   mov y+2, #0
-0ADE 753700     644   mov y+3, #0
-0AE1 12018C     644            lcall mul32
-0AE4            644            
-0AE4 753464     644            mov y+0, #low (100 % 0x10000) 
-0AE7 753500     644            mov y+1, #high(100 % 0x10000) 
-0AEA 753600     644            mov y+2, #low (100 / 0x10000) 
-0AED 753700     644            mov y+3, #high(100 / 0x10000) 
-0AF0 120280     644            lcall div32
-0AF3            644            
-0AF3 85304E     644            mov timeOn+0, x+0
-0AF6 85314F     644            mov timeOn+1, x+1
-0AF9            645            ;While time is < timeOn ssr remains on, otherwise off
-0AF9            646       
-0AF9 855D30     646   mov x+0, SecondsCounter+0
-0AFC 753100     646   mov x+1, #0
-0AFF 753200     646   mov x+2, #0
-0B02 753300     646   mov x+3, #0
-0B05 854E34     647   mov y+0, timeOn+0
-0B08 854F35     647   mov y+1, timeOn+1
-0B0B 753600     647   mov y+2, #0
-0B0E 753700     647   mov y+3, #0
-0B11 C200       648            clr mf  
-0B13 120136     649            lcall x_gt_y 
-0B16            650            
-0B16 D2AF       651            setb EA
-0B18 300004     652            jnb mf, ssr_off1
-0B1B D280       653            setb SSR_PIN
-0B1D 8002       654            sjmp ssr_on1
-0B1F            655   
-0B1F            656            ssr_off1:
-0B1F C280       657                    clr SSR_PIN
-0B21            658            ssr_on1:
-0B21            659   
-0B21            660            ;If time in this state > soak time then we move on
-0B21 C2AF       661            clr EA
-0B23            662            ;load_x(10)
-0B23 855630     663   mov x+0, reflow_time+0
-0B26 855731     663   mov x+1, reflow_time+1
-0B29 753200     663   mov x+2, #0
-0B2C 753300     663   mov x+3, #0
-0B2F            664       
-0B2F 855D34     664   mov y+0, SecondsCounter+0
-0B32 753500     664   mov y+1, #0
-0B35 753600     664   mov y+2, #0
-0B38 753700     664   mov y+3, #0
-0B3B C200       665            clr mf
-0B3D 120136     666            lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
-0B40 D2AF       667            setb EA
-0B42            668            
-0B42            669            
-0B42 20EC03     670            jb SWA.4, FSM_done_state_4_Skip
-0B45 20003A     671            jb mf, FSM_done
-0B48            672            
-0B48            673            FSM_done_state_4_Skip:
-0B48            674            
-0B48 D202       675            setb state_flag
-0B4A 0560       676            inc FSM_state
-0B4C 020B82     677            ljmp FSM_done
-0B4F            678   
-0B4F            679   FSM_state5:      
-0B4F            680            ;only resets when temp is < 60
-0B4F B40530     681            cjne a, #5, FSM_done
-0B52 D2ED       682            setb LEDRA.5
-0B54            683   
-0B54 C280       684            clr SSR_PIN
-0B56            685            
-0B56 C2AF       686            clr EA
-0B58 75304A     687            mov x+0, #low (tempFinal % 0x10000) 
-0B5B 753100     687            mov x+1, #high(tempFinal % 0x10000) 
-0B5E 753200     687            mov x+2, #low (tempFinal / 0x10000) 
-0B61 753300     687            mov x+3, #high(tempFinal / 0x10000) 
-0B64 75343C     688            mov y+0, #low (60 % 0x10000) 
-0B67 753500     688            mov y+1, #high(60 % 0x10000) 
-0B6A 753600     688            mov y+2, #low (60 / 0x10000) 
-0B6D 753700     688            mov y+3, #high(60 / 0x10000) 
-0B70 C200       689            clr mf
-0B72 12011A     690            lcall x_lt_y ;returns a mf of 1 when (x < y)
-0B75 D2AF       691            setb EA
-0B77            692            
-0B77 20ED03     693            jb SWA.5, FSM_done_state_5_Skip
-0B7A 300005     694            jnb mf, FSM_done
-0B7D            695            
-0B7D            696            FSM_done_state_5_Skip:
-0B7D            697            
-0B7D D202       698            setb state_flag
-0B7F 756000     699            mov FSM_state, #0x00
-0B82            700   
-0B82            701   FSM_done:
-0B82            702   
-0B82            703   ;-------------------------------------------------------------------------------
-0B82 02087B     704   ljmp loop
-0B85            705   EN
+0809            331   
+0809            332   ;For the coupling wire
+                333   tempConv_hot MAC
+                334   	; Load 32-bit 'x' with 12-bit adc result
+                335   	mov x+3, #0
+                336   	mov x+2, #0
+                337   	mov x+1, ADC_H
+                338   	mov x+0, ADC_L
+                339   
+                340   	Load_y(10000)         ; Was 1000, now 10000 to keep one decimal place
+                341       lcall mul32
+                342       Load_y(12300)
+                343       lcall div32           ; x = scaled TC temperature (e.g., 123 for 12.3C)
+                344   
+                345       ; Save this intermediate result in y to free up x for CJ scaling
+                346       mov y+0, x+0
+                347       mov y+1, x+1
+                348       mov y+2, x+2
+                349       mov y+3, x+3
+                350   
+                351       
+                352   
+                353   ENDMAC
+0809            354   
+                355   tempConv_final MAC
+                356   	; Load Cold Junction and scale it by 10 to match units
+                357       mov x+0, tempCold+0
+                358       mov x+1, tempCold+1
+                359       mov x+2, tempCold+2
+                360       mov x+3, tempCold+3
+                361       
+                362       push y+0              ; Save our TC result safely
+                363       push y+1
+                364       push y+2
+                365       push y+3
+                366       
+                367       Load_y(10)
+                368       lcall mul32           ; x = CJ * 10
+                369       
+                370       pop y+3               ; Restore TC result into y
+                371       pop y+2
+                372       pop y+1
+                373       pop y+0
+                374       
+                375       lcall add32           ; Final result: (TC_temp*10) + (CJ_temp*10)
+                376       
+                377       mov tempFinal+0, x+0
+                378   	mov tempFinal+1, x+1
+                379   	mov tempFinal+2, x+2
+                380   	mov tempFinal+3, x+3
+                381       
+                382   
+                383   
+                384   
+                385   ENDMAC
+0809            386   
+                387   powerPercent MAC
+                388   	;Convert percentage of time into a time it needs to be on %0 is percentage(i.e 20 is 20%) on, %1 is total time, %2 is the time on
+                389   	;load_x(%0)
+                390   	mov x+0, %0
+                391   	mov x+1, #0
+                392   	mov x+2, #0
+                393   	mov x+3, #0
+                394   	;converts x to a percentage through fractions
+                395   	Load_Y_Var16(%1)
+                396   	lcall mul32
+                397   	
+                398   	load_y(100)
+                399   	lcall div32
+                400   	
+                401   	mov %2+0, x+0
+                402   	mov %2+1, x+1
+                403   ENDMAC
+0809            404   
+0809            405   ;---------------------------------;
+0809            406   ; Main program. Includes hardware ;
+0809            407   ; initialization and 'forever'    ;
+0809            408   ; loop.                           ;
+0809            409   ;---------------------------------;
+0809            410   
+0809            411   Initial_ALL:
+0809            412   
+0809 C2AF       413            clr EA ;disables global interupts
+080B            414            
+080B            415            ; Initialization of hardware
+080B 120781     416       lcall Timer2_Init
+080E 12037C     417       lcall ELCD_4BIT ; Configure LCD in four bit mode
+0811            418       ; Turn off all the LEDs
+0811            419            
+0811 75817F     420            mov SP, #7FH ; Set the beginning of the stack (more on this later)
+0814 75E800     421            mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
+0817 759500     422            mov LEDRB, #0
+081A 75817F     423            mov SP, #0x7F
+081D            424            
+081D            425            
+081D            426            ; Initialize variables
+081D 756000     427       mov FSM_state, #0x00
+0820 C280       428            clr SSR_PIN
+0822 C200       429            clr mf
+0824 C201       430            clr ssr_f
+0826 D202       431            setb state_flag ;tells the de10-lite its a new state
+0828            432            
+0828 755F00     433            mov MinutesCounterTotal, #0x00
+082B 755E00     434            mov SecondsCounterTotal, #0x00
+082E 755C00     435       mov QuarterSecondsCounter, #0x00
+0831            436       
+0831            437       
+0831 755096     438       mov soak_temp+0,     #150    ; mode A 150 +-20
+0834 755100     439       mov soak_temp+1,     #0
+0837 755205     440            mov soak_time+0,        #5     ; mode B 60-120
+083A 755300     441            mov soak_time+1,        #0
+083D 755482     442            mov reflow_temp+0,  #130                ; mode C 230 < 240
+0840 755500     443            mov reflow_temp+1,  #0
+0843 755605     444            mov reflow_time+0,  #5          ; mode D  30 < 45
+0846 755700     445            mov reflow_time+1,  #0
+0849            446            
+0849 754A00     447            mov tempFinal+0, #0
+084C 754B00     448            mov tempFinal+1, #0
+084F 754C00     449            mov tempFinal+2, #0
+0852 754D00     450            mov tempFinal+3, #0
+0855            451            
+0855 754600     452            mov tempCold+0, #0
+0858 754700     453            mov tempCold+1, #0
+085B 754800     454            mov tempCold+2, #0
+085E 754900     455            mov tempCold+3, #0
+0861            456            
+0861 754200     457            mov tempHot+0, #0
+0864 754300     458            mov tempHot+1, #0
+0867 754400     459            mov tempHot+2, #0
+086A 754500     460            mov tempHot+3, #0
+086D            461            
+086D 755800     462            mov active_param, #0
+0870            463                    
+0870 C2AF       464            clr EA
+0872 1204DA     465       lcall Load_Param_Into_BCD
+0875 12050A     466       lcall Configure_Keypad_Pins
+0878 D2AF       467       setb EA
+087A            468   
+087A            469            
+087A            470            ; Speaker frequency
+087A 755A80     471            mov Timer0Reload+1, #high(TIMER0_RELOAD)
+087D 7559D8     472            mov Timer0Reload+0, #low(TIMER0_RELOAD)
+0880            473            
+0880            474            
+0880            475            ; Stops interupts for speaker
+0880 C28C       476            clr TR0
+0882 C2A9       477       clr ET0
+0884            478   
+0884 D2AF       479            setb EA ;enables global interupts
+0886            480            
+0886 22         481            ret
+0887            482            
+0887            483            
+0887            484   main:
+0887 759A01     485            mov P0MOD, #0x01 ;configures P0.0
+088A 120809     486            lcall Initial_ALL
+088D            487            
+088D            488   loop:
+088D            489            
+088D 12074F     490            lcall Emergency_Check_Button
+0890 300303     491            jnb emergency_f, No_Emergency
+0893 0209D1     492            ljmp Emergency_Lockout
+0896            493            No_Emergency:
+0896 0208DC     494            ljmp skip_debug_stuff 
+0899            495            
+0899 C2AF       496            clr EA
+089B            497       
+089B 855D30     497   mov x+0, SecondsCounter+0
+089E 753100     497   mov x+1, #0
+08A1 753200     497   mov x+2, #0
+08A4 753300     497   mov x+3, #0
+08A7 12002E     498            lcall hex2bcd
+08AA A838       499            mov R0, bcd+0
+08AC 1207C4     500            lcall Display_BCD_7_Seg_HEX10
+08AF            501            
+08AF            502            
+08AF            503       
+08AF 855E30     503   mov x+0, SecondsCounterTotal+0
+08B2 753100     503   mov x+1, #0
+08B5 753200     503   mov x+2, #0
+08B8 753300     503   mov x+3, #0
+08BB 12002E     504            lcall hex2bcd
+08BE A838       505            mov R0, bcd+0
+08C0 1207D5     506            lcall Display_BCD_7_Seg_HEX32
+08C3            507            
+08C3            508            ;load_x(tempFinal)
+08C3            509            
+08C3            510       
+08C3 855F30     510   mov x+0, MinutesCounterTotal+0
+08C6 753100     510   mov x+1, #0
+08C9 753200     510   mov x+2, #0
+08CC 753300     510   mov x+3, #0
+08CF 12002E     511            lcall hex2bcd
+08D2 A838       512            mov R0, bcd+0
+08D4 1207E6     513            lcall Display_BCD_7_Seg_HEX54
+08D7            514            
+08D7 D2AF       515            setb EA
+08D9 0208DC     516            ljmp FSM_Start
+08DC            517            FSM_Start:
+08DC            518            skip_debug_stuff:
+08DC            519   
+08DC            520            
+08DC            521            ; ALL TEMP MATH -------------------------
+08DC C2AF       522            clr EA
+08DE 75A100     523            mov ADC_C, #LM335_ADC
+08E1            524            ; Load 32-bit 'x' with 12-bit adc result
+08E1 753300     524            mov x+3, #0
+08E4 753200     524            mov x+2, #0
+08E7 85A331     524            mov x+1, ADC_H
+08EA 85A230     524            mov x+0, ADC_L
+08ED            524   
+08ED 753488     524            mov y+0, #low (5000 % 0x10000) 
+08F0 753513     524            mov y+1, #high(5000 % 0x10000) 
+08F3 753600     524            mov y+2, #low (5000 / 0x10000) 
+08F6 753700     524            mov y+3, #high(5000 / 0x10000) 
+08F9 12018C     524       lcall mul32
+08FC 753400     524            mov y+0, #low (4096 % 0x10000) 
+08FF 753510     524            mov y+1, #high(4096 % 0x10000) 
+0902 753600     524            mov y+2, #low (4096 / 0x10000) 
+0905 753700     524            mov y+3, #high(4096 / 0x10000) 
+0908 120280     524       lcall div32           ; x = Vlm in mV
+090B            524   
+090B 75340A     524            mov y+0, #low (10 % 0x10000) 
+090E 753500     524            mov y+1, #high(10 % 0x10000) 
+0911 753600     524            mov y+2, #low (10 / 0x10000) 
+0914 753700     524            mov y+3, #high(10 / 0x10000) 
+0917 120280     524       lcall div32           ; x = Kelvin
+091A 753411     524            mov y+0, #low (273 % 0x10000) 
+091D 753501     524            mov y+1, #high(273 % 0x10000) 
+0920 753600     524            mov y+2, #low (273 / 0x10000) 
+0923 753700     524            mov y+3, #high(273 / 0x10000) 
+0926 1200F6     524       lcall sub32           ; x = Celsius
+0929            524       
+0929 853046     524       mov tempCold+0, x+0
+092C 853147     524            mov tempCold+1, x+1
+092F 853248     524            mov tempCold+2, x+2
+0932 853349     524            mov tempCold+3, x+3
+0935            524       
+0935            524       
+0935            524   
+0935            525            
+0935 75A101     526            mov ADC_C, #OP07_ADC
+0938            527            ; Load 32-bit 'x' with 12-bit adc result
+0938 753300     527            mov x+3, #0
+093B 753200     527            mov x+2, #0
+093E 85A331     527            mov x+1, ADC_H
+0941 85A230     527            mov x+0, ADC_L
+0944            527   
+0944 753410     527            mov y+0, #low (10000 % 0x10000) 
+0947 753527     527            mov y+1, #high(10000 % 0x10000) 
+094A 753600     527            mov y+2, #low (10000 / 0x10000) 
+094D 753700     527            mov y+3, #high(10000 / 0x10000)          ; Was 1000, now 10000 to keep one decimal place
+0950 12018C     527       lcall mul32
+0953 75340C     527            mov y+0, #low (12300 % 0x10000) 
+0956 753530     527            mov y+1, #high(12300 % 0x10000) 
+0959 753600     527            mov y+2, #low (12300 / 0x10000) 
+095C 753700     527            mov y+3, #high(12300 / 0x10000) 
+095F 120280     527       lcall div32           ; x = scaled TC temperature (e.g., 123 for 12.3C)
+0962            527   
+0962            527       ; Save this intermediate result in y to free up x for CJ scaling
+0962 853034     527       mov y+0, x+0
+0965 853135     527       mov y+1, x+1
+0968 853236     527       mov y+2, x+2
+096B 853337     527       mov y+3, x+3
+096E            527   
+096E            527       
+096E            527   
+096E            528            
+096E            529            ; Load Cold Junction and scale it by 10 to match units
+096E 854630     529       mov x+0, tempCold+0
+0971 854731     529       mov x+1, tempCold+1
+0974 854832     529       mov x+2, tempCold+2
+0977 854933     529       mov x+3, tempCold+3
+097A            529       
+097A C034       529       push y+0              ; Save our TC result safely
+097C C035       529       push y+1
+097E C036       529       push y+2
+0980 C037       529       push y+3
+0982            529       
+0982 75340A     529            mov y+0, #low (10 % 0x10000) 
+0985 753500     529            mov y+1, #high(10 % 0x10000) 
+0988 753600     529            mov y+2, #low (10 / 0x10000) 
+098B 753700     529            mov y+3, #high(10 / 0x10000) 
+098E 12018C     529       lcall mul32           ; x = CJ * 10
+0991            529       
+0991 D037       529       pop y+3               ; Restore TC result into y
+0993 D036       529       pop y+2
+0995 D035       529       pop y+1
+0997 D034       529       pop y+0
+0999            529       
+0999 1200D3     529       lcall add32           ; Final result: (TC_temp*10) + (CJ_temp*10)
+099C            529       
+099C 85304A     529       mov tempFinal+0, x+0
+099F 85314B     529            mov tempFinal+1, x+1
+09A2 85324C     529            mov tempFinal+2, x+2
+09A5 85334D     529            mov tempFinal+3, x+3
+09A8            529       
+09A8            529   
+09A8            529   
+09A8            529   
+09A8            530            
+09A8            531            ; Add temperatures
+09A8 854230     532            mov x+0, tempHot+0
+09AB 854331     533            mov x+1, tempHot+1
+09AE 854432     534            mov x+2, tempHot+2
+09B1 854533     535            mov x+3, tempHot+3
+09B4            536            
+09B4 854634     537            mov y+0, tempCold+0
+09B7 854735     538            mov y+1, tempCold+1
+09BA 854836     539            mov y+2, tempCold+2
+09BD 854937     540            mov y+3, tempCold+3
+09C0            541            
+09C0 1200D3     542            lcall add32
+09C3            543            
+09C3 85304A     544            mov tempFinal+0, x+0
+09C6 85314B     545            mov tempFinal+1, x+1
+09C9 85324C     546            mov tempFinal+2, x+2
+09CC 85334D     547            mov tempFinal+3, x+3
+09CF D2AF       548            setb EA
+09D1            549   
+09D1            550   Emergency_Lockout:
+09D1 C280       551       clr SSR_PIN        ; always keep heater off
+09D3            552   
+09D3            553       ; Stay here until emergency button is released
+09D3            554       ; active-high release condition:
+09D3 309303     555       jnb STOP_BUTTON, Emergency_Clear
+09D6 02088D     556       ljmp loop          ; still pressed -> keep looping locked out
+09D9            557   
+09D9            558   Emergency_Clear:
+09D9 C203       559       clr emergency_f
+09DB D202       560       setb state_flag    ; update title (IDLE / SETUP)
+09DD 02088D     561       ljmp loop
+09E0            562       
+09E0            563            
+09E0            564       
+09E0            565   ;-------------------------------------------------------------------------------
+09E0            566   ;FSM
+09E0            567   ;-------------------------------------------------------------------------------
+09E0            568   
+09E0            569   ; Clears second counter per state
+09E0 300209     570            jnb state_flag, no_new_state
+09E3            571            
+09E3 C202       572            clr state_flag
+09E5 C2AF       573            clr EA
+09E7 755D00     574            mov SecondsCounter, #0x00
+09EA D2AF       575            setb EA
+09EC            576            no_new_state:
+09EC            577   
+09EC            578   ; non-blocking FSM for the one second counter starts here.
+09EC E560       579            mov a, FSM_state
+09EE 75E800     580            mov LEDRA, #0
+09F1            581   
+09F1            582   FSM_state0:
+09F1            583            ;Only moves on to state 1 once start button is pressed
+09F1 B40025     584            cjne a, #0, FSM_state1
+09F4            585            
+09F4 C2AF       586            clr EA
+09F6 120517     587            lcall Keypad        ; Scan keypad
+09F9 1203FA     588       lcall Display       ; Update HEX displays (or later, LCD)
+09FC 5003       589       jnc  skip_keypad        ; If C=0 -> no digit to insert (mode/backspace/clear/none)
+09FE            590   
+09FE 120460     591       lcall Shift_Digits_Left  ; If C=1 -> numeric key; insert new digit from R7
+0A01            592      
+0A01            593   skip_keypad:
+0A01 D2AF       594            setb EA
+0A03            595            
+0A03            596   noChange:
+0A03 D2E8       597            setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
+0A05 C280       598            clr SSR_PIN
+0A07            599   
+0A07 20E808     600            jb SWA.0, FSM_done_state_0_skip
+0A0A            601            
+0A0A 208202     602            jb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
+0A0D 8003       603            sjmp FSM_done_state_0_Skip
+0A0F            604            FSM_done_state_0_Continue:
+0A0F 020C2C     605            ljmp FSM_done
+0A12            606            FSM_done_state_0_Skip:
+0A12            607            
+0A12 D202       608            setb state_flag
+0A14 0560       609            inc FSM_state
+0A16 020C2C     610            ljmp FSM_done
+0A19            611   
+0A19            612   FSM_state1:      
+0A19            613            ;Only move to next stat if temp > 150c
+0A19 B4017A     614            cjne a, #1, FSM_state2
+0A1C D2E9       615            setb LEDRA.1
+0A1E            616   
+0A1E D280       617            setb SSR_PIN
+0A20            618   
+0A20 C2AF       619            clr EA
+0A22            620            ;If it didint reach 50 degrees in 60 seconds
+0A22            621            ;If time > 60 check
+0A22 75303C     622            mov x+0, #low (60 % 0x10000) 
+0A25 753100     622            mov x+1, #high(60 % 0x10000) 
+0A28 753200     622            mov x+2, #low (60 / 0x10000) 
+0A2B 753300     622            mov x+3, #high(60 / 0x10000) 
+0A2E            623       
+0A2E 855D34     623   mov y+0, SecondsCounter+0
+0A31 753500     623   mov y+1, #0
+0A34 753600     623   mov y+2, #0
+0A37 753700     623   mov y+3, #0
+0A3A 120136     624            lcall x_gt_y
+0A3D 300023     625            jnb mf, emergency_check
+0A40 C200       626            clr mf
+0A42            627            ;Only check if time > 60 and if checks if temp is less then 50
+0A42 75304A     628            mov x+0, #low (tempFinal % 0x10000) 
+0A45 753100     628            mov x+1, #high(tempFinal % 0x10000) 
+0A48 753200     628            mov x+2, #low (tempFinal / 0x10000) 
+0A4B 753300     628            mov x+3, #high(tempFinal / 0x10000) 
+0A4E            628   
+0A4E 753432     629            mov y+0, #low (50 % 0x10000) 
+0A51 753500     629            mov y+1, #high(50 % 0x10000) 
+0A54 753600     629            mov y+2, #low (50 / 0x10000) 
+0A57 753700     629            mov y+3, #high(50 / 0x10000) 
+0A5A 12011A     630            lcall x_lt_y
+0A5D 300003     631            jnb mf, emergency_check
+0A60            632            ;If so it failed and we do an emergency abort
+0A60 756000     633            mov FSM_State, #0x00
+0A63            634            emergency_check:
+0A63            635   
+0A63 C200       636            clr mf
+0A65            637            
+0A65            638            ;if temp > 150
+0A65 75304A     639            mov x+0, #low (tempFinal % 0x10000) 
+0A68 753100     639            mov x+1, #high(tempFinal % 0x10000) 
+0A6B 753200     639            mov x+2, #low (tempFinal / 0x10000) 
+0A6E 753300     639            mov x+3, #high(tempFinal / 0x10000) 
+0A71 855034     640   mov y+0, soak_temp+0
+0A74 855135     640   mov y+1, soak_temp+1
+0A77 753600     640   mov y+2, #0
+0A7A 753700     640   mov y+3, #0
+0A7D C200       641            clr mf
+0A7F 120136     642            lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)     
+0A82            643            
+0A82 D2AF       644            setb EA
+0A84            645            
+0A84 20E908     646            jb SWA.1, FSM_done_state_1_skip
+0A87            647            
+0A87 300002     648            jnb mf, FSM_done_state_1_Continue 
+0A8A 8003       649            sjmp FSM_done_state_1_Skip
+0A8C            650            FSM_done_state_1_Continue:
+0A8C 020C2C     651            ljmp FSM_done
+0A8F            652            FSM_done_state_1_Skip:
+0A8F            653            
+0A8F D202       654            setb state_flag
+0A91 0560       655            inc FSM_state
+0A93 020C2C     656            ljmp FSM_done
+0A96            657   
+0A96            658   FSM_state2:      
+0A96            659            ;state management
+0A96 B40202     660            cjne a, #2, FSM_state3_continue_move
+0A99 8003       661            sjmp FSM_state3_skip_move
+0A9B            662            
+0A9B            663            FSM_state3_continue_move:
+0A9B 020B2D     664            ljmp FSM_state3
+0A9E            665            
+0A9E            666            FSM_state3_skip_move:
+0A9E D2EA       667            setb LEDRA.2
+0AA0            668            
+0AA0 C2AF       669            clr EA
+0AA2            670            ;Convert percentage of time into a time it needs to be on #20 is percentage(i.e 20 is 20%) on, soak_time is total time, timeOn is the time on
+0AA2            670            ;load_x(#20)
+0AA2 753014     670            mov x+0, #20
+0AA5 753100     670            mov x+1, #0
+0AA8 753200     670            mov x+2, #0
+0AAB 753300     670            mov x+3, #0
+0AAE            670            ;converts x to a percentage through fractions
+0AAE 855234     670   mov y+0, soak_time+0
+0AB1 855335     670   mov y+1, soak_time+1
+0AB4 753600     670   mov y+2, #0
+0AB7 753700     670   mov y+3, #0
+0ABA 12018C     670            lcall mul32
+0ABD            670            
+0ABD 753464     670            mov y+0, #low (100 % 0x10000) 
+0AC0 753500     670            mov y+1, #high(100 % 0x10000) 
+0AC3 753600     670            mov y+2, #low (100 / 0x10000) 
+0AC6 753700     670            mov y+3, #high(100 / 0x10000) 
+0AC9 120280     670            lcall div32
+0ACC            670            
+0ACC 85304E     670            mov timeOn+0, x+0
+0ACF 85314F     670            mov timeOn+1, x+1
+0AD2            671            
+0AD2            672            ;While time is < timeOn ssr remains on, otherwise off
+0AD2            673       
+0AD2 855D30     673   mov x+0, SecondsCounter+0
+0AD5 753100     673   mov x+1, #0
+0AD8 753200     673   mov x+2, #0
+0ADB 753300     673   mov x+3, #0      
+0ADE 854E34     674   mov y+0, timeOn+0
+0AE1 854F35     674   mov y+1, timeOn+1
+0AE4 753600     674   mov y+2, #0
+0AE7 753700     674   mov y+3, #0
+0AEA C200       675            clr mf
+0AEC 120136     676            lcall x_gt_y
+0AEF D2AF       677            setb EA
+0AF1 300004     678            jnb mf, ssr_off
+0AF4 D280       679            setb SSR_PIN
+0AF6 8002       680            sjmp ssr_on
+0AF8            681   
+0AF8            682            ssr_off:
+0AF8 C280       683                    clr SSR_PIN
+0AFA            684            ssr_on:
+0AFA            685            
+0AFA            686            ;If time in this state > soak time then we move on
+0AFA C2AF       687            clr EA
+0AFC            688       
+0AFC 855D30     688   mov x+0, SecondsCounter+0
+0AFF 753100     688   mov x+1, #0
+0B02 753200     688   mov x+2, #0
+0B05 753300     688   mov x+3, #0 
+0B08 855234     689   mov y+0, soak_time+0
+0B0B 855335     689   mov y+1, soak_time+1
+0B0E 753600     689   mov y+2, #0
+0B11 753700     689   mov y+3, #0
+0B14            690            ;load_y(10)
+0B14 C200       691            clr mf  
+0B16 120136     692            lcall x_gt_y     ; Use GE (Greater than or equal) for stability
+0B19 D2AF       693            setb EA
+0B1B            694            
+0B1B 20EA08     695            jb SWA.2, FSM_done_state_2_skip
+0B1E            696            
+0B1E 300002     697            jnb mf, FSM_done_state_2_Continue
+0B21 8003       698            sjmp FSM_done_state_2_Skip
+0B23            699            FSM_done_state_2_Continue:
+0B23 020C2C     700            ljmp FSM_done
+0B26            701            FSM_done_state_2_Skip:
+0B26            702            
+0B26 D202       703            setb state_flag
+0B28 0560       704            inc FSM_state
+0B2A 020C2C     705            ljmp FSM_done
+0B2D            706   
+0B2D            707   FSM_state3:      
+0B2D            708            ;Only moves on when the temp is > 220c
+0B2D B40337     709            cjne a, #3, FSM_state4
+0B30 D2EB       710            setb LEDRA.3
+0B32            711   
+0B32 D280       712            setb SSR_PIN
+0B34            713   
+0B34            714            ;if temp > 150
+0B34 C2AF       715            clr EA
+0B36 855430     716   mov x+0, reflow_temp+0
+0B39 855531     716   mov x+1, reflow_temp+1
+0B3C 753200     716   mov x+2, #0
+0B3F 753300     716   mov x+3, #0
+0B42 75344A     717            mov y+0, #low (tempFinal % 0x10000) 
+0B45 753500     717            mov y+1, #high(tempFinal % 0x10000) 
+0B48 753600     717            mov y+2, #low (tempFinal / 0x10000) 
+0B4B 753700     717            mov y+3, #high(tempFinal / 0x10000) 
+0B4E C200       718            clr mf
+0B50 120136     719            lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+0B53 D2AF       720            setb EA
+0B55            721            
+0B55 20EB08     722            jb SWA.3, FSM_done_state_3_skip
+0B58            723            
+0B58 200002     724            jb mf, FSM_done_state_3_Continue 
+0B5B 8003       725            sjmp FSM_done_state_3_Skip
+0B5D            726            FSM_done_state_3_Continue:
+0B5D 020C2C     727            ljmp FSM_done
+0B60            728            FSM_done_state_3_Skip:
+0B60            729            
+0B60 D202       730            setb state_flag
+0B62 0560       731            inc FSM_state
+0B64 020C2C     732            ljmp FSM_done
+0B67            733   
+0B67            734   FSM_state4:      
+0B67            735            ;only moves on after 45s
+0B67 B40402     736            cjne a, #4, FSM_state5_continue_move
+0B6A 8003       737            sjmp FSM_state5_skip_move
+0B6C            738            FSM_state5_continue_move:
+0B6C 020BF9     739            ljmp FSM_state5
+0B6F            740            FSM_state5_skip_move:
+0B6F            741            
+0B6F D2EC       742            setb LEDRA.4
+0B71            743            
+0B71 C2AF       744            clr EA
+0B73            745            ;Convert percentage of time into a time it needs to be on #20 is percentage(i.e 20 is 20%) on, reflow_time is total time, timeOn is the time on
+0B73            745            ;load_x(#20)
+0B73 753014     745            mov x+0, #20
+0B76 753100     745            mov x+1, #0
+0B79 753200     745            mov x+2, #0
+0B7C 753300     745            mov x+3, #0
+0B7F            745            ;converts x to a percentage through fractions
+0B7F 855634     745   mov y+0, reflow_time+0
+0B82 855735     745   mov y+1, reflow_time+1
+0B85 753600     745   mov y+2, #0
+0B88 753700     745   mov y+3, #0
+0B8B 12018C     745            lcall mul32
+0B8E            745            
+0B8E 753464     745            mov y+0, #low (100 % 0x10000) 
+0B91 753500     745            mov y+1, #high(100 % 0x10000) 
+0B94 753600     745            mov y+2, #low (100 / 0x10000) 
+0B97 753700     745            mov y+3, #high(100 / 0x10000) 
+0B9A 120280     745            lcall div32
+0B9D            745            
+0B9D 85304E     745            mov timeOn+0, x+0
+0BA0 85314F     745            mov timeOn+1, x+1
+0BA3            745   
+0BA3            746            ;While time is < timeOn ssr remains on, otherwise off
+0BA3            747       
+0BA3 855D30     747   mov x+0, SecondsCounter+0
+0BA6 753100     747   mov x+1, #0
+0BA9 753200     747   mov x+2, #0
+0BAC 753300     747   mov x+3, #0
+0BAF 854E34     748   mov y+0, timeOn+0
+0BB2 854F35     748   mov y+1, timeOn+1
+0BB5 753600     748   mov y+2, #0
+0BB8 753700     748   mov y+3, #0 
+0BBB C200       749            clr mf  
+0BBD 120136     750            lcall x_gt_y 
+0BC0            751            
+0BC0 D2AF       752            setb EA
+0BC2 300004     753            jnb mf, ssr_off1
+0BC5 D280       754            setb SSR_PIN
+0BC7 8002       755            sjmp ssr_on1
+0BC9            756   
+0BC9            757            ssr_off1:
+0BC9 C280       758                    clr SSR_PIN
+0BCB            759            ssr_on1:
+0BCB            760   
+0BCB            761            ;If time in this state > soak time then we move on
+0BCB C2AF       762            clr EA
+0BCD            763   
+0BCD            764            ;load_x(10)
+0BCD 855630     765   mov x+0, reflow_time+0
+0BD0 855731     765   mov x+1, reflow_time+1
+0BD3 753200     765   mov x+2, #0
+0BD6 753300     765   mov x+3, #0
+0BD9            766       
+0BD9 855D34     766   mov y+0, SecondsCounter+0
+0BDC 753500     766   mov y+1, #0
+0BDF 753600     766   mov y+2, #0
+0BE2 753700     766   mov y+3, #0
+0BE5 C200       767            clr mf
+0BE7 120136     768            lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+0BEA D2AF       769            setb EA
+0BEC            770            
+0BEC            771            
+0BEC 20EC03     772            jb SWA.4, FSM_done_state_4_Skip
+0BEF 20003A     773            jb mf, FSM_done
+0BF2            774            
+0BF2            775            FSM_done_state_4_Skip:
+0BF2            776            
+0BF2 D202       777            setb state_flag
+0BF4 0560       778            inc FSM_state
+0BF6 020C2C     779            ljmp FSM_done
+0BF9            780   
+0BF9            781   FSM_state5:      
+0BF9            782            ;only resets when temp is < 60
+0BF9 B40530     783            cjne a, #5, FSM_done
+0BFC D2ED       784            setb LEDRA.5
+0BFE            785   
+0BFE C280       786            clr SSR_PIN
+0C00            787            
+0C00 C2AF       788            clr EA
+0C02 75304A     789            mov x+0, #low (tempFinal % 0x10000) 
+0C05 753100     789            mov x+1, #high(tempFinal % 0x10000) 
+0C08 753200     789            mov x+2, #low (tempFinal / 0x10000) 
+0C0B 753300     789            mov x+3, #high(tempFinal / 0x10000) 
+0C0E 75343C     790            mov y+0, #low (60 % 0x10000) 
+0C11 753500     790            mov y+1, #high(60 % 0x10000) 
+0C14 753600     790            mov y+2, #low (60 / 0x10000) 
+0C17 753700     790            mov y+3, #high(60 / 0x10000) 
+0C1A C200       791            clr mf
+0C1C 12011A     792            lcall x_lt_y ;returns a mf of 1 when (x < y)
+0C1F D2AF       793            setb EA
+0C21            794            
+0C21 20ED03     795            jb SWA.5, FSM_done_state_5_Skip
+0C24 300005     796            jnb mf, FSM_done
+0C27            797            
+0C27            798            FSM_done_state_5_Skip:
+0C27            799            
+0C27 D202       800            setb state_flag
+0C29 756000     801            mov FSM_state, #0x00
+0C2C            802   
+0C2C            803            FSM_done:
+0C2C            804   
+0C2C            805            ;-------------------------------------------------------------------------------
+0C2C 02088D     806            ljmp loop
+0C2F            807   
+0C2F            808   END
