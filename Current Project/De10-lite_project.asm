@@ -42,6 +42,9 @@ math_space: ds 5
 
 tempHot:	ds 4
 tempCold:	ds 4
+
+V_tc: ds 4
+V_cj: ds 4
 tempFinal:  ds 4
 timeOn:     ds 2
 ;Variables from keypad
@@ -68,6 +71,7 @@ bseg
 mf       	: dbit 1
 ssr_f    	: dbit 1
 state_flag	: dbit 1
+QuarterSecondsFlag : dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
@@ -87,6 +91,9 @@ ELCD_D7 equ P0.1
 SSR_PIN equ P0.0
 START_BUTTON equ P0.2
 SOUND_OUT equ P0.4
+
+
+Initial_Message:  db 'Tmperature Test', 0
 
 cseg
 ;----------------------FUNCTIONS----------------
@@ -151,6 +158,8 @@ Timer2_ISR:
 	mov a, FSM_timer
 	cjne a, #250, FSM_timer_done
 	
+	setb QuarterSecondsFlag
+	
 	inc QuarterSecondsCounter
 	mov FSM_timer, #0x00
 	
@@ -168,6 +177,79 @@ Timer2_ISR:
 	
 	FSM_timer_done:
 	reti
+	
+	
+	
+	; ALL TEMP STUFF---------------------------------------------------------------------------------------
+
+
+Display_Voltage_7seg:
+    mov dptr, #myLUT
+    
+    ; Display Hundreds digit on HEX3
+    mov a, bcd+1
+    swap a
+    anl a, #0FH
+    movc a, @a+dptr
+    mov HEX3, a
+    
+    ; Display Tens digit on HEX2
+    mov a, bcd+1
+    anl a, #0FH
+    movc a, @a+dptr
+    mov HEX2, a
+
+    ; Display Ones digit on HEX1 and turn on the DOT
+    mov a, bcd+0
+    swap a
+    anl a, #0FH
+    movc a, @a+dptr
+    anl a, #0x7f          ; Clears bit 7 to turn on the decimal point
+    mov HEX1, a
+
+    ; Display Tenths digit on HEX0
+    mov a, bcd+0
+    anl a, #0FH
+    movc a, @a+dptr
+    mov HEX0, a
+    ret
+
+Display_Voltage_LCD:
+    Set_Cursor(2,1)
+    mov a, #'T'
+    lcall ?WriteData
+    mov a, #'='
+    lcall ?WriteData
+
+    ; Hundreds
+    mov a, bcd+1
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall ?WriteData
+
+    ; Tens
+    mov a, bcd+1
+    anl a, #0FH
+    orl a, #'0'
+    lcall ?WriteData
+
+    ; Ones
+    mov a, bcd+0
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall ?WriteData
+
+    mov a, #'.'           ; Insert the dot
+    lcall ?WriteData
+
+    ; Tenths
+    mov a, bcd+0
+    anl a, #0FH
+    orl a, #'0'
+    lcall ?WriteData
+    ret
 
 ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
 T_7seg:
@@ -239,31 +321,7 @@ Hex_to_bcd_8bit:
 	mov R0, a
 	ret
 	
-InitSerialPort:
-; Configure serial port and baud rate
-clr TR2 ; Disable timer 2
-mov T2CON, #30H ; RCLK=1, TCLK=1
-mov RCAP2H, #high(T2LOAD)  
-mov RCAP2L, #low(T2LOAD)
-setb TR2 ; Enable timer 2
-mov SCON, #52H
-ret
 
-putchar:
-    JNB TI, putchar
-    CLR TI
-    MOV SBUF, a
-    RET
-
-SendString:
-    CLR A
-    MOVC A, @A+DPTR
-    JZ SSDone
-    LCALL putchar
-    INC DPTR
-    SJMP SendString
-SSDone:
-    ret
 
 
 ;-------MACROS--------------------;
@@ -425,7 +483,6 @@ Initial_ALL:
    	mov SP, #7FH ; Set the beginning of the stack (more on this later)
 	mov LEDRA, #0 ; Turn off all unused LEDs (Too bright!)
 	mov LEDRB, #0
-	mov SP, #0x7F
    	
    	
    	; Initialize variables
@@ -434,6 +491,7 @@ Initial_ALL:
 	clr mf
 	clr ssr_f
 	setb state_flag ;tells the de10-lite its a new state
+	clr QuarterSecondsFlag
 	
 	mov MinutesCounterTotal, #0x00
 	mov SecondsCounterTotal, #0x00
@@ -487,17 +545,21 @@ Initial_ALL:
 	
 	
 main:
-	mov P0MOD, #0x01 ;configures P0.0
+	mov P0MOD, #10101011b ; P0.1, P0.3, P0.5, P0.7 are outputs.  ('1' makes the pin output)
+    mov P1MOD, #10000010b ; P1.7 and P1.1 are outputs
 	lcall Initial_ALL
 	
-	lcall InitSerialPort
-
 	; Configure the pins connected to the LCD as outputs
 	mov P0MOD, #10101010b ; P0.1, P0.3, P0.5, P0.7 are outputs.  ('1' makes the pin output)
     mov P1MOD, #10000010b ; P1.7 and P1.1 are outputs
 
     lcall ELCD_4BIT ; Configure LCD in four bit mode
 	
+	Set_Cursor(1, 1)
+    Send_Constant_String(#Initial_Message)
+	
+	mov ADC_C, #0x80 ; Reset ADC
+	lcall Wait25ms
 	
 loop:
 	
@@ -526,16 +588,126 @@ loop:
 	skip_debug_stuff:
 
 	
+	
+	
+	jnb QuarterSecondsFlag, skiptemptemptemp
+	
+	sjmp skiptemoteteipj
+	
+	skiptemptemptemp:
+	
+	ljmp skiptemptemptemptemp
+	
+	skiptemoteteipj:
+	
+	clr QuarterSecondsFlag
 	; ALL TEMP MATH -------------------------
 	clr EA
-	mov ADC_C, #LM335_ADC
-	tempConv_cold
-	
-	mov ADC_C, #OP07_ADC
-	tempConv_hot
-	
-	tempConv_final
+; ---------------------------------------------------------
+    ; 1) Read thermocouple channel and convert to mV
+    ; ---------------------------------------------------------
+    mov a, #0
+    mov R7, a             ; Save channel number
+    mov ADC_C, a
+
+    mov x+3, #0
+    mov x+2, #0
+    mov x+1, ADC_H
+    mov x+0, ADC_L
+
+    Load_y(5000)
+    lcall mul32
+    Load_y(4096)
+    lcall div32           ; x now holds Vtc in mV
+    
+    ; Save it
+    mov V_tc+0, x+0
+    mov V_tc+1, x+1
+    mov V_tc+2, x+2
+    mov V_tc+3, x+3
+
+    ; ---------------------------------------------------------
+    ; 2) Read LM335 (next channel) and convert to Celsius
+    ; ---------------------------------------------------------
+    mov a, R7
+    inc a
+    anl a, #0x07
+    mov ADC_C, a
+
+    mov x+3, #0
+    mov x+2, #0
+    mov x+1, ADC_H
+    mov x+0, ADC_L
+
+    Load_y(5000)
+    lcall mul32
+    Load_y(4096)
+    lcall div32           ; x = Vlm in mV
+
+    Load_y(10)
+    lcall div32           ; x = Kelvin
+    Load_y(273)
+    lcall sub32           ; x = Celsius
+    
+    ; Save cold junction temp
+    mov V_cj+0, x+0
+    mov V_cj+1, x+1
+    mov V_cj+2, x+2
+    mov V_cj+3, x+3
+
+; ---------------------------------------------------------
+    ; 3) Calculate: Temp_x10 = (V_tc * 10000 / 12300) + (V_cj * 10)
+    ; ---------------------------------------------------------
+    mov x+0, V_tc+0
+    mov x+1, V_tc+1
+    mov x+2, V_tc+2
+    mov x+3, V_tc+3
+
+    Load_y(10000)         ; Was 1000, now 10000 to keep one decimal place
+    lcall mul32
+    Load_y(12300)
+    lcall div32           ; x = scaled TC temperature (e.g., 123 for 12.3C)
+
+    ; Save this intermediate result in y to free up x for CJ scaling
+    mov y+0, x+0
+    mov y+1, x+1
+    mov y+2, x+2
+    mov y+3, x+3
+
+    ; Load Cold Junction and scale it by 10 to match units
+    mov x+0, V_cj+0
+    mov x+1, V_cj+1
+    mov x+2, V_cj+2
+    mov x+3, V_cj+3
+    
+    push y+0              ; Save our TC result safely
+    push y+1
+    push y+2
+    push y+3
+    
+    Load_y(10)
+    lcall mul32           ; x = CJ * 10
+    
+    pop y+3               ; Restore TC result into y
+    pop y+2
+    pop y+1
+    pop y+0
+    
+    lcall add32           ; Final result: (TC_temp*10) + (CJ_temp*10)
+
+    ; ---------------------------------------------------------
+    ; 4) Display
+    ; ---------------------------------------------------------
+    lcall hex2bcd
+    lcall Display_Voltage_7seg
+    lcall Display_Voltage_LCD
+    
+    
+    
+    mov R7, #20 
 	setb EA
+	
+	skiptemptemptemptemp:
     
 	
     
@@ -562,7 +734,7 @@ FSM_state0:
 	
 	clr EA
 	lcall Keypad        ; Scan keypad
-    lcall Display       ; Update HEX displays (or later, LCD)
+    ;lcall Display       ; Update HEX displays (or later, LCD)
     jnc  skip_keypad        ; If C=0 -> no digit to insert (mode/backspace/clear/none)
 
     lcall Shift_Digits_Left  ; If C=1 -> numeric key; insert new digit from R7
