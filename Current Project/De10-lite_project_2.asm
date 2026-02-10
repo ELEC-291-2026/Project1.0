@@ -549,7 +549,14 @@ main:
 	lcall Wait25ms
 	
 loop:
-	
+	Overflow/Underflow_Check:
+	;Soak time min and max behaviour
+
+	;Soak temp min and max behaviour
+
+	;Reflow time min and max behaviour
+
+	;Reflow temp min and max behaviour
 	
 	ljmp skip_debug_stuff 
 	
@@ -928,4 +935,5 @@ FSM_state5:
 	ljmp loop
 
 END
+
 
