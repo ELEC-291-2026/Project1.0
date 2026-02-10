@@ -68,8 +68,6 @@ bseg
 mf       	: dbit 1
 ssr_f    	: dbit 1
 state_flag	: dbit 1
-emergency_f : dbit 1
-
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
@@ -88,7 +86,6 @@ ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
 SSR_PIN equ P0.0
 START_BUTTON equ P0.2
-STOP_BUTTON equ P1.3
 SOUND_OUT equ P0.4
 
 cseg
@@ -97,25 +94,6 @@ cseg
 ; Routine to initialize the ISR   ;
 ; for timer 0                     ;
 ;---------------------------------;
-Emergency_Check_Button:
-    ; Assume active-high emergency input.
-    ; If your button is active-low, flip the JB/JNB logic below.
-    jb STOP_BUTTON, Emergency_Triggered
-    ret
-
-Emergency_Triggered:
-    setb emergency_f     ; latch emergency condition
-
-    clr SSR_PIN          ; heater OFF immediately
-    mov FSM_state, #0x00 ; go to idle
-    setb state_flag      ; force "new state" UI update
-
-    ; Optional: stop buzzer if you had one running
-    clr TR0
-    clr ET0
-
-    ret
-
 Timer0_Init:
 	mov a, TMOD
 	anl a, #0xf0 ; 11110000 Clear the bits for timer 0
@@ -523,10 +501,7 @@ main:
 	
 loop:
 	
-	lcall Emergency_Check_Button
-	jnb emergency_f, No_Emergency
-	ljmp Emergency_Lockout
-	No_Emergency:
+	
 	ljmp skip_debug_stuff 
 	
 	clr EA
@@ -547,8 +522,7 @@ loop:
 	lcall Display_BCD_7_Seg_HEX54
 	
 	setb EA
-	ljmp FSM_Start
-	FSM_Start:
+	
 	skip_debug_stuff:
 
 	
@@ -562,19 +536,6 @@ loop:
 	
 	tempConv_final
 	setb EA
-
-Emergency_Lockout:
-    clr SSR_PIN        ; always keep heater off
-
-    ; Stay here until emergency button is released
-    ; active-high release condition:
-    jnb STOP_BUTTON, Emergency_Clear
-    ljmp loop          ; still pressed -> keep looping locked out
-
-Emergency_Clear:
-    clr emergency_f
-    setb state_flag    ; update title (IDLE / SETUP)
-    ljmp loop
     
 	
     
