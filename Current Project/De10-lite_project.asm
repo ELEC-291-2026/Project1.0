@@ -11,7 +11,7 @@ TIMER0_RATE     EQU 1024    ; 2048Hz squarewave (peak amplitude of CEM-1203 spea
 TIMER0_RELOAD   EQU ((65536-(CLK/TIMER0_RATE)))
 FREQ   			EQU 33333333
 BAUD   			EQU 115200
-T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
+T1LOAD 			EQU 256-(FREQ/(32*12*BAUD))
 
 ;PIN Assignemet
 ;Need to figure out wich ADC pins the LM335 and OP07 are on 
@@ -50,8 +50,10 @@ timeOn:     ds 2
 ;Variables from keypad
 soak_temp:      ds 2      ; mode A 150 +-20
 soak_time:      ds 2      ; mode B 60-120
+soak_time_hex: 	ds 2
 reflow_temp:    ds 2      ; mode C 230 < 240
 reflow_time:    ds 2      ; mode D  30 < 45
+reflow_time_hex: ds 2
 active_param:   ds 1
 
 Timer0Reload:   ds 2
@@ -76,7 +78,8 @@ State0Flag : dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
-$include(keypad_lib_2.asm)
+$include(keypad_lib_3.asm)
+$include(temperature_lib.asm)
 
 cseg
 ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
@@ -144,6 +147,7 @@ Timer2_Init:
 	; Enable the timer and interrupts
     setb ET2  ; Enable timer 2 interrupt
     setb TR2  ; Enable timer 2
+    
 	ret
 
 ;---------------------------------;
@@ -179,78 +183,6 @@ Timer2_ISR:
 	FSM_timer_done:
 	reti
 	
-	
-	
-	; ALL TEMP STUFF---------------------------------------------------------------------------------------
-
-
-Display_Voltage_7seg:
-    mov dptr, #myLUT
-    
-    ; Display Hundreds digit on HEX3
-    mov a, bcd+1
-    swap a
-    anl a, #0FH
-    movc a, @a+dptr
-    mov HEX3, a
-    
-    ; Display Tens digit on HEX2
-    mov a, bcd+1
-    anl a, #0FH
-    movc a, @a+dptr
-    mov HEX2, a
-
-    ; Display Ones digit on HEX1 and turn on the DOT
-    mov a, bcd+0
-    swap a
-    anl a, #0FH
-    movc a, @a+dptr
-    anl a, #0x7f          ; Clears bit 7 to turn on the decimal point
-    mov HEX1, a
-
-    ; Display Tenths digit on HEX0
-    mov a, bcd+0
-    anl a, #0FH
-    movc a, @a+dptr
-    mov HEX0, a
-    ret
-
-Display_Voltage_LCD:
-    Set_Cursor(2,1)
-    mov a, #'T'
-    lcall ?WriteData
-    mov a, #'='
-    lcall ?WriteData
-
-    ; Hundreds
-    mov a, bcd+1
-    swap a
-    anl a, #0FH
-    orl a, #'0'
-    lcall ?WriteData
-
-    ; Tens
-    mov a, bcd+1
-    anl a, #0FH
-    orl a, #'0'
-    lcall ?WriteData
-
-    ; Ones
-    mov a, bcd+0
-    swap a
-    anl a, #0FH
-    orl a, #'0'
-    lcall ?WriteData
-
-    mov a, #'.'           ; Insert the dot
-    lcall ?WriteData
-
-    ; Tenths
-    mov a, bcd+0
-    anl a, #0FH
-    orl a, #'0'
-    lcall ?WriteData
-    ret
 
 ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
 T_7seg:
@@ -334,6 +266,20 @@ ADD_16 MAC
     MOV A, R1       ; Move existing high byte to A
     ADDC A, %1     ; Add high byte with carry
     MOV R1, A       ; Store back in R1
+ENDMAC
+
+Load_X_Var32 MAC
+mov x+0, %0+0
+mov x+1, %0+1
+mov x+2, %0+2
+mov x+3, %0+3
+ENDMAC
+
+Load_Y_Var32 MAC
+mov y+0, %0+0
+mov y+1, %0+1
+mov y+2, %0+2
+mov y+3, %0+3
 ENDMAC
 
 Load_X_Var16 MAC
@@ -478,6 +424,8 @@ Initial_ALL:
 
    	clr EA ;disables global interupts
    	
+   	;lcall InitSerialPort
+   	
    	; Initialization of hardware
     lcall Timer2_Init
     lcall ELCD_4BIT ; Configure LCD in four bit mode
@@ -502,14 +450,20 @@ Initial_ALL:
     mov QuarterSecondsCounter, #0x00
     
     
-    mov soak_temp+0, 	#150    ; mode A 150 +-20
-    mov soak_temp+1, 	#0
-	mov soak_time+0, 	#5     ; mode B 60-120
+    load_x(300)
+    lcall hex2bcd
+    mov soak_temp+0, 	bcd+0    ; mode A 150 +-20
+    mov soak_temp+1, 	bcd+1
+
+	mov soak_time+0, 	#0     ; mode B 60-120
 	mov soak_time+1, 	#0
-	mov reflow_temp+0,  #150		; mode C 230 < 240
+	
+	mov reflow_temp+0,  #0		; mode C 230 < 240
 	mov reflow_temp+1,  #0
-	mov reflow_time+0,  #5 	; mode D  30 < 45
+	
+	mov reflow_time+0,  #0 	; mode D  30 < 45
 	mov reflow_time+1,  #0
+	
 	
 	mov tempFinal+0, #0
 	mov tempFinal+1, #0
@@ -562,6 +516,13 @@ main:
 	Set_Cursor(1, 1)
     Send_Constant_String(#Initial_Message)
 	
+	mov dptr, #Initial_Message
+	lcall SendString
+	mov a, #'\r'
+	lcall putchar
+	mov a, #'\n'
+	lcall putchar
+	
 	mov ADC_C, #0x80 ; Reset ADC
 	lcall Wait25ms
 	
@@ -569,40 +530,36 @@ loop:
 	
 	
 	ljmp skip_debug_stuff 
-	
-	clr EA
-	Load_X_Var8(SecondsCounter)
-	lcall hex2bcd
-	mov R0, bcd+0
-	lcall Display_BCD_7_Seg_HEX10
-	
-	
-	Load_X_Var8(SecondsCounterTotal)
-	lcall hex2bcd
-	mov R0, bcd+0
-	lcall Display_BCD_7_Seg_HEX32
-	
-	Load_X_Var8(MinutesCounterTotal)
-	lcall hex2bcd
-	mov R0, bcd+0
-	lcall Display_BCD_7_Seg_HEX54
-	
-	setb EA
+		
+		clr EA
+		Load_X_Var8(SecondsCounter)
+		lcall hex2bcd
+		mov R0, bcd+0
+		lcall Display_BCD_7_Seg_HEX10
+		
+		
+		Load_X_Var8(SecondsCounterTotal)
+		lcall hex2bcd
+		mov R0, bcd+0
+		lcall Display_BCD_7_Seg_HEX32
+		
+		Load_X_Var8(MinutesCounterTotal)
+		lcall hex2bcd
+		mov R0, bcd+0
+		lcall Display_BCD_7_Seg_HEX54
+		
+		setb EA
 	
 	skip_debug_stuff:
 
 	
 	
 	jb State0Flag, skiptemptemptemp
-	
 	jnb QuarterSecondsFlag, skiptemptemptemp
-	
 	sjmp skiptemoteteipj
-	
 	skiptemptemptemp:
 	
 	ljmp skiptemptemptemptemp
-	
 	skiptemoteteipj:
 	
 	clr QuarterSecondsFlag
@@ -693,38 +650,45 @@ loop:
     pop y+1
     pop y+0
     
+    lcall add32           ; Final result: (TC_temp*10) + (CJ_temp*10)
+    
     mov tempFinal+0, x+0
     mov tempFinal+1, x+1
     mov tempFinal+2, x+2
     mov tempFinal+3, x+3
     
-    lcall add32           ; Final result: (TC_temp*10) + (CJ_temp*10)
+    
+    
 
     ; ---------------------------------------------------------
     ; 4) Display
     ; ---------------------------------------------------------
     lcall hex2bcd
     lcall Display_Voltage_7seg
+    
+    ;Set_Cursor(2,1)
+    ;lcall Display_Voltage_LCD_Hex
+    
+    
     lcall Display_Voltage_LCD
+    ;lcall Display_Voltage_Serial
     
     
     
-    mov R7, #20 
 	setb EA
 	
 	skiptemptemptemptemp:
     
-	restart_button:
+
 	jb State0Flag, skip_button
 	jb START_BUTTON, skip_button
 	lcall Wait25ms ;Debouncing
 	jb START_BUTTON, skip_button
-	jb START_BUTTON, $
+	jnb START_BUTTON, $
 	
-	mov FSM_State, #0x00
-	setb State0Flag
-	lcall Wait25ms
+		mov FSM_state, #0x00
 	skip_button:
+
     
 ;-------------------------------------------------------------------------------
 ;FSM
@@ -745,46 +709,59 @@ loop:
 FSM_state0:
 	;Only moves on to state 1 once start button is pressed
 	mov a, FSM_state
-	cjne a, #0, FSM_state1
+	cjne a, #0x00, FSM_state1
+	
+	setb State0Flag
 	
 	clr EA
 	lcall Keypad        ; Scan keypad
-	
     lcall Display       ; Update HEX displays (or later, LCD)
     jnc  skip_keypad        ; If C=0 -> no digit to insert (mode/backspace/clear/none)
-
     lcall Shift_Digits_Left  ; If C=1 -> numeric key; insert new digit from R7
    
-skip_keypad:
-	setb EA
+	skip_keypad:
+		setb EA
 	
-noChange:
-	setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
-	clr SSR_PIN
+	noChange:
+		setb LEDRA.0 ; We are using the LEDs to debug in what state is this machine
+		clr SSR_PIN
 
 	jb SWA.0, FSM_done_state_0_skip
 	
-	jb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high (might be active low)
-	sjmp FSM_done_state_0_Skip
+	jb START_BUTTON, FSM_done_state_0_Continue; only moves on when button is high
+	lcall Wait25ms ;Debouncing
+	jb START_BUTTON, FSM_done_state_0_Continue
+	jnb START_BUTTON, $
+		sjmp FSM_done_state_0_Skip
+		
 	FSM_done_state_0_Continue:
-	ljmp FSM_done
+		ljmp FSM_done
+		
 	FSM_done_state_0_Skip:
 	
-	setb state_flag
-	clr State0Flag
-	inc FSM_state
+		setb state_flag
+		clr State0Flag
+		inc FSM_state
 	ljmp FSM_done
 
 ;Restarts if not in state 0 and start button is pressed
 FSM_state1:	
 	;Only move to next stat if temp > 150c
 	mov a, FSM_state
-	cjne a, #1, FSM_state2
+	cjne a, #1, FSM_state2_continue_move
+	sjmp FSM_state2_skip_move
+	
+	FSM_state2_continue_move:
+	ljmp FSM_state2
+	
+	FSM_state2_skip_move:
+	
 	setb LEDRA.1
 
 	setb SSR_PIN
 
 	clr EA
+	
 	;If it didint reach 50 degrees in 60 seconds
 	;If time > 60 check
 	load_x(60)
@@ -792,8 +769,10 @@ FSM_state1:
 	lcall x_gt_y
 	jnb mf, emergency_check
 	clr mf
+	
+	
 	;Only check if time > 60 and if checks if temp is less then 50
-	load_x(tempFinal)
+	Load_X_Var32(tempFinal)
 	load_y(50)
 	lcall x_lt_y
 	jnb mf, emergency_check
@@ -802,12 +781,32 @@ FSM_state1:
 	emergency_check:
 
 	clr mf
+
 	
-	;if temp > 150
-	load_x(tempFinal)
-	Load_Y_Var16(soak_temp)
+	;if temp > 150 
+	
+	mov bcd+0, soak_temp+0
+    mov bcd+1, soak_temp+1
+    mov bcd+2, #0
+    mov bcd+3, #0
+    mov bcd+4, #0
+    lcall bcd2hex
+    
+    load_y(10)
+    
+    lcall mul32
+        
+    mov y+0, x+0
+    mov y+1, x+1
+    mov y+2, x+2
+    mov y+3, x+3
+    
+    
+    Load_X_Var32(tempFinal)
+
 	clr mf
 	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)	
+	
 	
 	setb EA
 	
@@ -819,8 +818,8 @@ FSM_state1:
 	ljmp FSM_done
 	FSM_done_state_1_Skip:
 	
-	setb state_flag
-	inc FSM_state
+		setb state_flag
+		inc FSM_state
 	ljmp FSM_done
 
 FSM_state2:	
@@ -836,6 +835,17 @@ FSM_state2:
 	setb LEDRA.2
 	
 	clr EA
+	
+	mov bcd+0, soak_time+0
+    mov bcd+1, soak_time+1
+    mov bcd+2, #0
+    mov bcd+3, #0
+    mov bcd+4, #0
+    lcall bcd2hex
+        
+    mov soak_time_hex+0, x+0
+    mov soak_time_hex+1, x+1
+    
 	powerPercent(#20, soak_time, timeOn)
 	
 	;While time is < timeOn ssr remains on, otherwise off
@@ -855,7 +865,7 @@ FSM_state2:
 	;If time in this state > soak time then we move on
 	clr EA
 	Load_X_Var8(SecondsCounter) 
-	Load_Y_Var16(soak_time)
+	Load_Y_Var16(soak_time_hex)
 	;load_y(10)
 	clr mf  
 	lcall x_gt_y     ; Use GE (Greater than or equal) for stability
@@ -868,9 +878,9 @@ FSM_state2:
 	FSM_done_state_2_Continue:
 	ljmp FSM_done
 	FSM_done_state_2_Skip:
-	
-	setb state_flag
-	inc FSM_state
+		
+		setb state_flag
+		inc FSM_state
 	ljmp FSM_done
 
 FSM_state3:	
@@ -883,8 +893,24 @@ FSM_state3:
 
 	;if temp > 150
 	clr EA
-	Load_X_Var16(reflow_temp)
-	load_y(tempFinal)
+	
+	mov bcd+0, reflow_temp+0
+    mov bcd+1, reflow_temp+1
+    mov bcd+2, #0
+    mov bcd+3, #0
+    mov bcd+4, #0
+    lcall bcd2hex
+    
+    load_y(10)
+    
+    lcall mul32
+        
+    mov y+0, x+0
+    mov y+1, x+1
+    mov y+2, x+2
+    mov y+3, x+3
+	
+	Load_Y_Var32(tempFinal)
 	clr mf
 	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
 	setb EA
@@ -897,8 +923,8 @@ FSM_state3:
 	ljmp FSM_done
 	FSM_done_state_3_Skip:
 	
-	setb state_flag
-	inc FSM_state
+		setb state_flag
+		inc FSM_state
 	ljmp FSM_done
 
 FSM_state4:	
@@ -914,7 +940,17 @@ FSM_state4:
 	setb LEDRA.4
 	
 	clr EA
-	powerPercent(#20, reflow_time, timeOn)
+	mov bcd+0, reflow_time+0
+    mov bcd+1, reflow_time+1
+    mov bcd+2, #0
+    mov bcd+3, #0
+    mov bcd+4, #0
+    lcall bcd2hex
+        
+    mov reflow_time_hex+0, x+0
+    mov reflow_time_hex+1, x+1
+    
+	powerPercent(#20, reflow_time_hex, timeOn)
 	;While time is < timeOn ssr remains on, otherwise off
 	Load_X_Var8(SecondsCounter)
 	Load_Y_Var16(timeOn) 
@@ -934,7 +970,7 @@ FSM_state4:
 	clr EA
 
 	;load_x(10)
-	Load_X_Var16(reflow_time)
+	Load_X_Var16(reflow_time_hex)
 	Load_Y_Var8(SecondsCounter)
 	clr mf
 	lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
@@ -946,12 +982,13 @@ FSM_state4:
 	
 	FSM_done_state_4_Skip:
 	
-	setb state_flag
-	inc FSM_state
+		setb state_flag
+		inc FSM_state
 	ljmp FSM_done
 
 FSM_state5:	
 	;only resets when temp is < 60
+	
 	mov a, FSM_state
 	cjne a, #5, FSM_done
 	setb LEDRA.5
@@ -959,8 +996,8 @@ FSM_state5:
 	clr SSR_PIN
 	
 	clr EA
-	load_x(tempFinal)
-	load_y(60)
+	Load_X_Var32(tempFinal)
+	load_y(220)
 	clr mf
 	lcall x_lt_y ;returns a mf of 1 when (x < y)
 	setb EA
@@ -970,9 +1007,8 @@ FSM_state5:
 	
 	FSM_done_state_5_Skip:
 	
-	setb state_flag
-	setb State0Flag
-	mov FSM_state, #0x00
+		setb state_flag
+		mov FSM_state, #0x00
 
 	FSM_done:
 
