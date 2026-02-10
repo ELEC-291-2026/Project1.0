@@ -280,6 +280,7 @@ mov y+2, #0
 mov y+3, #0
 ENDMAC
 
+;Macro for conversion of LM335
 tempConv_cold MAC
 	; Load 32-bit 'x' with 12-bit adc result
 	mov x+3, #0
@@ -287,17 +288,26 @@ tempConv_cold MAC
 	mov x+1, ADC_H
 	mov x+0, ADC_L
 
-	Load_y(50300) ; VCC voltage measured
-	lcall mul32
-	Load_y(4096)
-	lcall div32
-	Load_y(27300)
-	lcall sub32
-	Load_y(100)
-	lcall mul32
+	Load_y(5000)
+    lcall mul32
+    Load_y(4096)
+    lcall div32           ; x = Vlm in mV
+
+    Load_y(10)
+    lcall div32           ; x = Kelvin
+    Load_y(273)
+    lcall sub32           ; x = Celsius
+    
+    mov tempCold+0, x+0
+	mov tempCold+1, x+1
+	mov tempCold+2, x+2
+	mov tempCold+3, x+3
+    
+    
 
 ENDMAC
 
+;For the coupling wire
 tempConv_hot MAC
 	; Load 32-bit 'x' with 12-bit adc result
 	mov x+3, #0
@@ -305,11 +315,43 @@ tempConv_hot MAC
 	mov x+1, ADC_H
 	mov x+0, ADC_L
 
-	Load_y(12288)   ; gain constant
-	lcall mul32
-	
-	Load_y(4096)
-	lcall div32
+	Load_y(10000)         ; Was 1000, now 10000 to keep one decimal place
+    lcall mul32
+    Load_y(12300)
+    lcall div32           ; x = scaled TC temperature (e.g., 123 for 12.3C)
+
+    ; Save this intermediate result in y to free up x for CJ scaling
+    mov y+0, x+0
+    mov y+1, x+1
+    mov y+2, x+2
+    mov y+3, x+3
+
+    ; Load Cold Junction and scale it by 10 to match units
+    mov x+0, V_cj+0
+    mov x+1, V_cj+1
+    mov x+2, V_cj+2
+    mov x+3, V_cj+3
+    
+    push y+0              ; Save our TC result safely
+    push y+1
+    push y+2
+    push y+3
+    
+    Load_y(10)
+    lcall mul32           ; x = CJ * 10
+    
+    pop y+3               ; Restore TC result into y
+    pop y+2
+    pop y+1
+    pop y+0
+    
+    lcall add32           ; Final result: (TC_temp*10) + (CJ_temp*10)
+    
+    mov tempHot+0, x+0
+	mov tempHot+1, x+1
+	mov tempHot+2, x+2
+	mov tempHot+3, x+3
+    
 
 ENDMAC
 
@@ -447,17 +489,9 @@ loop:
 	clr EA
 	mov ADC_C, #LM335_ADC
 	tempConv_cold
-	mov tempCold+0, x+0
-	mov tempCold+1, x+1
-	mov tempCold+2, x+2
-	mov tempCold+3, x+3
 	
 	mov ADC_C, #OP07_ADC
 	tempConv_hot
-	mov tempHot+0, x+0
-	mov tempHot+1, x+1
-	mov tempHot+2, x+2
-	mov tempHot+3, x+3
 	
 	; Add temperatures
 	mov x+0, tempHot+0
