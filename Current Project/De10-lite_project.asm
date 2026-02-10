@@ -89,6 +89,7 @@ START_BUTTON equ P0.2
 SOUND_OUT equ P0.4
 
 cseg
+;----------------------FUNCTIONS----------------
 ;---------------------------------;
 ; Routine to initialize the ISR   ;
 ; for timer 0                     ;
@@ -237,6 +238,32 @@ Hex_to_bcd_8bit:
 	orl a, b
 	mov R0, a
 	ret
+	
+InitSerialPort:
+; Configure serial port and baud rate
+clr TR2 ; Disable timer 2
+mov T2CON, #30H ; RCLK=1, TCLK=1
+mov RCAP2H, #high(T2LOAD)  
+mov RCAP2L, #low(T2LOAD)
+setb TR2 ; Enable timer 2
+mov SCON, #52H
+ret
+
+putchar:
+    JNB TI, putchar
+    CLR TI
+    MOV SBUF, a
+    RET
+
+SendString:
+    CLR A
+    MOVC A, @A+DPTR
+    JZ SSDone
+    LCALL putchar
+    INC DPTR
+    SJMP SendString
+SSDone:
+    ret
 
 
 ;-------MACROS--------------------;
@@ -463,6 +490,15 @@ main:
 	mov P0MOD, #0x01 ;configures P0.0
 	lcall Initial_ALL
 	
+	lcall InitSerialPort
+
+	; Configure the pins connected to the LCD as outputs
+	mov P0MOD, #10101010b ; P0.1, P0.3, P0.5, P0.7 are outputs.  ('1' makes the pin output)
+    mov P1MOD, #10000010b ; P1.7 and P1.1 are outputs
+
+    lcall ELCD_4BIT ; Configure LCD in four bit mode
+	
+	
 loop:
 	
 	
@@ -479,8 +515,6 @@ loop:
 	lcall hex2bcd
 	mov R0, bcd+0
 	lcall Display_BCD_7_Seg_HEX32
-	
-	;load_x(tempFinal)
 	
 	Load_X_Var8(MinutesCounterTotal)
 	lcall hex2bcd
@@ -501,24 +535,6 @@ loop:
 	tempConv_hot
 	
 	tempConv_final
-	
-	; Add temperatures
-	mov x+0, tempHot+0
-	mov x+1, tempHot+1
-	mov x+2, tempHot+2
-	mov x+3, tempHot+3
-	
-	mov y+0, tempCold+0
-	mov y+1, tempCold+1
-	mov y+2, tempCold+2
-	mov y+3, tempCold+3
-	
-	lcall add32
-	
-	mov tempFinal+0, x+0
-	mov tempFinal+1, x+1
-	mov tempFinal+2, x+2
-	mov tempFinal+3, x+3
 	setb EA
     
 	
