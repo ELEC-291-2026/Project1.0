@@ -425,88 +425,6 @@ mov y+2, #0
 mov y+3, #0
 ENDMAC
 
-;Macro for conversion of LM335
-tempConv_cold MAC
-	; Load 32-bit 'x' with 12-bit adc result
-	mov x+3, #0
-	mov x+2, #0
-	mov x+1, ADC_H
-	mov x+0, ADC_L
-
-	Load_y(5000)
-    lcall mul32
-    Load_y(4096)
-    lcall div32           ; x = Vlm in mV
-
-    Load_y(10)
-    lcall div32           ; x = Kelvin
-    Load_y(273)
-    lcall sub32           ; x = Celsius
-    
-    mov tempCold+0, x+0
-	mov tempCold+1, x+1
-	mov tempCold+2, x+2
-	mov tempCold+3, x+3
-    
-    
-
-ENDMAC
-
-;For the coupling wire
-tempConv_hot MAC
-	; Load 32-bit 'x' with 12-bit adc result
-	mov x+3, #0
-	mov x+2, #0
-	mov x+1, ADC_H
-	mov x+0, ADC_L
-
-	Load_y(10000)         ; Was 1000, now 10000 to keep one decimal place
-    lcall mul32
-    Load_y(12300)
-    lcall div32           ; x = scaled TC temperature (e.g., 123 for 12.3C)
-
-    ; Save this intermediate result in y to free up x for CJ scaling
-    mov y+0, x+0
-    mov y+1, x+1
-    mov y+2, x+2
-    mov y+3, x+3
-
-    
-
-ENDMAC
-
-tempConv_final MAC
-	; Load Cold Junction and scale it by 10 to match units
-    mov x+0, tempCold+0
-    mov x+1, tempCold+1
-    mov x+2, tempCold+2
-    mov x+3, tempCold+3
-    
-    push y+0              ; Save our TC result safely
-    push y+1
-    push y+2
-    push y+3
-    
-    Load_y(10)
-    lcall mul32           ; x = CJ * 10
-    
-    pop y+3               ; Restore TC result into y
-    pop y+2
-    pop y+1
-    pop y+0
-    
-    lcall add32           ; Final result: (TC_temp*10) + (CJ_temp*10)
-    
-    mov tempFinal+0, x+0
-	mov tempFinal+1, x+1
-	mov tempFinal+2, x+2
-	mov tempFinal+3, x+3
-    
-
-
-
-ENDMAC
-
 powerPercent MAC
 	;Convert percentage of time into a time it needs to be on %0 is percentage(i.e 20 is 20%) on, %1 is total time, %2 is the time on
 	;load_x(%0)
@@ -1010,3 +928,4 @@ FSM_state5:
 	ljmp loop
 
 END
+
