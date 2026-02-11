@@ -71,28 +71,52 @@ R_A5  EQU 0F9D6h   ; 880.00 Hz (La)
 R_As5 EQU 0FA31h   ; 932.33 Hz (La Sharp)
 R_B5  EQU 0FA82h   ; 987.77 Hz (Si)
 R_C6  EQU 0FAD0h   ; 1046.50 Hz (Do - higher octave)
+R_Cs6 EQU 0FB1Fh   ; 1108.73 Hz
+R_D6  EQU 0FB61h   ; 1174.66 Hz
+R_Ds6 EQU 0FBA7h   ; 1244.51 Hz
+R_E6  EQU 0FBE3h   ; 1318.51 Hz
+R_F6  EQU 0FC1Dh   ; 1396.91 Hz
+R_Fs6 EQU 0FC56h   ; 1479.98 Hz
+R_G6  EQU 0FC8Ah   ; 1567.98 Hz
+R_Gs6 EQU 0FCBDh   ; 1661.22 Hz
+R_A6  EQU 0FCEBh   ; 1760.00 Hz
+R_As6 EQU 0FD19h   ; 1864.66 Hz
+R_B6  EQU 0FD41h   ; 1975.53 Hz
+R_C7  EQU 0FD68h   ; 2093.00 Hz
+No_Note  EQU 0000h   ; 000 Hz
 
 
-; Simple rhythm: C D E F G A B C
-; Each note plays for 400ms
 SIMPLE_RHYTHM:
-    DW R_C5, 400    ; Do
-    DW R_C5, 400    ; Do
-    DW R_G5, 400    ; Sol
-    DW R_G5, 400    ; Sol
-    DW R_A5, 400    ; La
-    DW R_A5, 400    ; La
-    DW R_G5, 600    ; Sol
-    DW R_F5, 400    ; Fa
-    DW R_F5, 400    ; Fa
-    DW R_E5, 400    ; Sol
-    DW R_E5, 400    ; La
-    DW R_D5, 400    ; Si
-    DW R_D5, 400    ; Do (longer final note)
-    DW R_C5, 600    ; Do (longer final note)
+
+    DW R_C5, 250    
+    DW R_Cs5, 250   
+    DW R_D5, 250   
+    DW R_Ds5, 250  
+    DW R_E5, 250  
+    DW R_F5, 250    
+    DW R_Fs5, 250  
+    DW R_G5, 250     
+    DW R_Gs5,  250   
+    DW R_A5, 250    
+    DW R_As5, 250 
+    DW R_B5, 250 
+    DW No_Note, 250
+    DW No_Note, 250
+    DW R_C6, 250  
+    DW R_Cs6, 250  
+    DW R_D6, 250    
+    DW R_Ds6, 250     
+    DW R_E6, 250   
+    DW R_F6, 250    
+    DW R_Fs6, 250 
+    DW R_G6, 250    
+    DW R_Gs6,250  
+    DW R_A6, 250    
+    DW R_As6, 250 
+    DW R_B6, 250 
     
 
-SONG_LEN EQU 14    ; number of notes
+SONG_LEN EQU 24    ; number of notes
 
 ;---------------------------------;
 ; Load current note from song     ;
