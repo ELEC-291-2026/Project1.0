@@ -16,7 +16,7 @@ ser = serial.Serial(
     baudrate=115200,
     parity=serial.PARITY_NONE,
     stopbits=serial.STOPBITS_TWO,
-    bytesize=serial.EIGHTBITS
+   bytesize=serial.EIGHTBITS
 )
 ser.isOpen()
 
@@ -149,7 +149,7 @@ profile_params = {
     'reflow_temp': 235,       # °C
     'reflow_time': 30,        # seconds above reflow
     'peak_temp': 245,         # °C
-    'heating_rate': 2,      # °C/s - maximum heating rate
+    'heating_rate': 1,      # °C/s - maximum heating rate
     'cooling_rate': 1         # °C/s - cooling rate
 }
 
