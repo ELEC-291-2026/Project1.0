@@ -1,6 +1,8 @@
 # Reflow Oven Controller
-
-![Image](1.jpg)
+<p align="center">
+  <img src="Public/2.jpg" width="40%">
+  <img src="Public/4.jpg" width="40%">
+</p>
 
 ## Hardware Overview
 * Microcontroller: DE10-Lite/DE1-SoC
