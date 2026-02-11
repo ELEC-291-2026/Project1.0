@@ -378,10 +378,7 @@ WriteInitialVals:
     anl a, #0FH
     orl a, #'0'
     lcall putchar
-
-    mov a, #','
-    lcall putchar
-
+    
     mov a, #'\r'
     lcall putchar
     mov a, #'\n'
