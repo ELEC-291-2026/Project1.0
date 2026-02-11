@@ -44,7 +44,7 @@ No_Note  EQU 0x0000   ; 000 Hz
 ; Each note plays for 400ms
 SIMPLE_RHYTHM:
 
-    DB low(R_Es5),  high(R_Es5),  250  
+    DB low(R_Gs5),  high(R_Gs5),  250  
     DB low(R_A5),  high(R_A5),  250   
     DB low(R_E6),  high(R_E6),  250  
 	DB low(No_Note),  high(No_Note),  250    
