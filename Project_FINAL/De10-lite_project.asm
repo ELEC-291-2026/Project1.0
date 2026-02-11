@@ -478,7 +478,7 @@ Initial_ALL:
 	
 	
 main:
-	mov P0MOD, #10101111b
+	mov P0MOD, #10111011b
     mov P1MOD, #10000010b
 	lcall Initial_ALL
 	
@@ -536,7 +536,6 @@ loop:
 	clr QuarterSecondsFlag
 	clr EA
 	
-	clr SpeakerFlag
     mov ADC_C, #LM335_ADC
 
     mov x+3, #0
