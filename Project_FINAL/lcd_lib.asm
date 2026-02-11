@@ -81,31 +81,31 @@ LSP_Done:
 ;   Displays total elapsed time in MM:SS format:
 ;     Row 2: "Tot MM:SS"
 ;-----------------------------------------------------------
+  
 LCD_ShowTotalTime:
     push acc
     push b
     push ar0
 
-    ; Row 2, col 1: "Tot "
-    Set_Cursor(2,1)
+    ; Print label "Tot "
     Send_Constant_String(#TotalLbl)
 
-    ; Minutes
-    mov a, MinutesCounterTotal
-    lcall Hex_to_bcd_8bit      ; result in R0 (packed BCD)
-    lcall ?Display_BCD         ; prints 2 digits
+    ; ----- Minutes (MM) -----
+    mov  a, MinutesCounterTotal
+    lcall Hex_to_bcd_8bit      ; result packed in R0 (tens/units)
+    lcall ?Display_BCD         ; prints 2 digits from R0
 
-    ; Colon
+    ; Colon separator
     Display_char(#':')
 
-    ; Seconds
-    mov a, SecondsCounterTotal
+    ; ----- Seconds (SS) -----
+    mov  a, SecondsCounterTotal
     lcall Hex_to_bcd_8bit
     lcall ?Display_BCD
 
-    pop ar0
-    pop b
-    pop acc
+    pop  ar0
+    pop  b
+    pop  acc
     ret
 
 
