@@ -24,7 +24,6 @@ SIMPLE_RHYTHM:
 	DB low(No_Note),  high(No_Note),  250    
     DB low(No_Note),  high(No_Note),  250 
 	DB low(No_Note),  high(No_Note),  250    
-    DB low(No_Note),  high(No_Note),  250 
     DB low(R_A5),  high(R_A5),  250   
     DB low(R_E6),  high(R_E6),  250  
 	DB low(No_Note),  high(No_Note),  250    
@@ -38,17 +37,62 @@ SIMPLE_RHYTHM:
     DB low(R_B5),  high(R_B5),  250  
     DB low(R_A5),  high(R_A5),  250  
     DB low(R_E6),  high(R_E6),  250  
-	DB low(No_Note),  high(No_Note),  250    
-    DB low(No_Note),  high(No_Note),  250 
+	DB low(No_Note),  high(No_Note),  250 
 	DB low(No_Note),  high(No_Note),  250    
     DB low(No_Note),  high(No_Note),  250 
     DB low(R_A5),  high(R_A5),  250   
-    DB low(R_E6),  high(R_E6),  250  
+    DB low(R_E6),  high(R_E6),  250 
+	DB low(No_Note),  high(No_Note),  250 
+	DB low(No_Note),  high(No_Note),  250    
+    DB low(No_Note),  high(No_Note),  250 
+    DB low(No_Note),  high(No_Note),  250 
+	DB low(R_E6),  high(R_E6),  250
+    DB low(R_D6),  high(R_D6),  250  
+    DB low(R_C6),  high(R_C6),  250  
+    DB low(R_B5),  high(R_B5),  250  
+    DB low(R_D6),  high(R_D6),  250  
+    DB low(R_C6),  high(R_C6),  250  
+    DB low(R_B5),  high(R_B5),  250  
+    DB low(R_A5),  high(R_A5),  250  
+    DB low(R_A5),  high(R_A5),  250  
+    DB low(No_Note),  high(No_Note),  250 
+    DB low(No_Note),  high(No_Note),  250 
+    DB low(R_A6),  high(R_A6),  250 
+	DB low(No_Note),  high(No_Note),  250 
+    DB low(No_Note),  high(No_Note),  250  
+    DB low(R_G6),  high(R_G6),  250 
+	DB low(No_Note),  high(No_Note),  250 
+    DB low(No_Note),  high(No_Note),  250  
+    DB low(R_E6),  high(R_E6),  250 
+    DB low(R_F6),  high(R_F6),  250 
+    DB low(R_G6),  high(R_G6),  250 
+	DB low(No_Note),  high(No_Note),  250    
+    DB low(No_Note),  high(No_Note),  250 
+    DB low(R_D6),  high(R_D6),  250 
+	DB low(No_Note),  high(No_Note),  250    
+    DB low(No_Note),  high(No_Note),  250 
+    DB low(R_Cs6),  high(R_Cs6),  250 
+	DB low(No_Note),  high(No_Note),  250    
+    DB low(No_Note),  high(No_Note),  250 
+	DB low(R_E6),  high(R_E6),  250
+    DB low(R_D6),  high(R_D6),  250  
+    DB low(R_C6),  high(R_C6),  250  
+    DB low(R_B5),  high(R_B5),  250  
+    DB low(R_D6),  high(R_D6),  250  
+    DB low(R_C6),  high(R_C6),  250  
+    DB low(R_B5),  high(R_B5),  250  
+    DB low(R_A5),  high(R_A5),  250  
+    DB low(R_B5),  high(R_B5),  250  
+    DB low(R_B5),  high(R_B5),  250  
+    DB low(R_B5),  high(R_B5),  250  
+    DB low(R_C6),  high(R_C6),  250
+	DB low(R_D6),  high(R_D6),  250  
+
 	DB low(No_Note),  high(No_Note),  250    
     DB low(No_Note),  high(No_Note),  250 
 	DB low(No_Note),  high(No_Note),  250    
     DB low(No_Note),  high(No_Note),  250 
-    
+
     DB low(R_E6),  high(R_E6),  250  
 	DB low(R_Ds6), high(R_Ds6), 250  
     DB low(R_E6),  high(R_E6),  250  
@@ -97,11 +141,7 @@ SIMPLE_RHYTHM:
 	DB low(No_Note),  high(No_Note),  250    
     DB low(No_Note),  high(No_Note),  250 
     
-    
-    
-    
-    
-	SONG_LEN EQU 76    ; number of notes
+	SONG_LEN EQU 117    ; number of notes
 
 	
 	
