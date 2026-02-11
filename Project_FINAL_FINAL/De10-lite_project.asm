@@ -1002,7 +1002,7 @@ FSM_state2:
     mov soak_time_hex+0, x+0
     mov soak_time_hex+1, x+1
     
-	powerPercent(#20, soak_time, timeOn)
+	powerPercent(#12, soak_time, timeOn)
 	
 	Load_X_Var8(SecondsCounter)	
 	Load_Y_Var16(timeOn)
