@@ -25,7 +25,7 @@ org 0x0000
 org 0x000B
 	ljmp Timer0_ISR
 
-Profile:  db 'Profile,', 0
+Profile:  db 'PROFILE,', 0
 Comma:    db ',', 0
 
 dseg at 0x30
