@@ -2074,7 +2074,11 @@
 0D5F 8003       735            sjmp FSM_state1_skip_move
 0D61            736            
 0D61            737            FSM_state1_continue_move:
+<<<<<<< HEAD
 0D61 020D9D     738            ljmp FSM_state1
+=======
+0D61 020DA0     738            ljmp FSM_state1
+>>>>>>> 20c172e896fc135f5c09130776f7bbd621ffd55b
 0D64            739            
 0D64            740            FSM_state1_skip_move:
 0D64            741            
@@ -2104,6 +2108,7 @@
 0D88 8003       765                    sjmp FSM_done_state_0_Skip
 0D8A            766                    
 0D8A            767            FSM_done_state_0_Continue:
+<<<<<<< HEAD
 0D8A 021031     768                    ljmp FSM_done
 0D8D            769                    
 0D8D            770            FSM_done_state_0_Skip:
@@ -2488,3 +2493,391 @@
 1031 020BDC    1050            ljmp loop
 1034           1051   
 1034           1052   END
+=======
+0D8A 021034     768                    ljmp FSM_done
+0D8D            769                    
+0D8D            770            FSM_done_state_0_Skip:
+0D8D            771                    
+0D8D C2AF       772                    clr EA
+0D8F 120959     773                    lcall Over_Under_Check_Rewrite
+0D92 D2AF       774                    setb EA
+0D94            775            
+0D94 756400     776                    mov active_param, #0
+0D97            777            
+0D97 D202       778                    setb state_flag
+0D99 C204       779                    clr State0Flag
+0D9B 056C       780                    inc FSM_state
+0D9D 021034     781            ljmp FSM_done
+0DA0            782   
+0DA0            783   ;Restarts if not in state 0 and start button is pressed
+0DA0            784   FSM_state1:      
+0DA0            785            ;Only move to next stat if temp > 150c
+0DA0 E56C       786            mov a, FSM_state
+0DA2 B40102     787            cjne a, #1, FSM_state2_continue_move
+0DA5 8003       788            sjmp FSM_state2_skip_move
+0DA7            789            
+0DA7            790            FSM_state2_continue_move:
+0DA7 020E45     791            ljmp FSM_state2
+0DAA            792            
+0DAA            793            FSM_state2_skip_move:
+0DAA            794            
+0DAA D2E9       795            setb LEDRA.1
+0DAC            796   
+0DAC D280       797            setb SSR_PIN
+0DAE            798   
+0DAE C2AF       799            clr EA
+0DB0            800            
+0DB0            801            ;If it didint reach 50 degrees in 60 seconds
+0DB0            802            ;If time > 60 check
+0DB0 75303C     803            mov x+0, #low (60 % 0x10000) 
+0DB3 753100     803            mov x+1, #high(60 % 0x10000) 
+0DB6 753200     803            mov x+2, #low (60 / 0x10000) 
+0DB9 753300     803            mov x+3, #high(60 / 0x10000) 
+0DBC            804       
+0DBC 856934     804   mov y+0, SecondsCounter+0
+0DBF 753500     804   mov y+1, #0
+0DC2 753600     804   mov y+2, #0
+0DC5 753700     804   mov y+3, #0
+0DC8 120136     805            lcall x_gt_y
+0DCB 300023     806            jnb mf, emergency_check
+0DCE C200       807            clr mf
+0DD0            808            
+0DD0            809            
+0DD0            810            ;Only check if time > 60 and if checks if temp is less then 50
+0DD0 855230     811   mov x+0, tempFinal+0
+0DD3 855331     811   mov x+1, tempFinal+1
+0DD6 855432     811   mov x+2, tempFinal+2
+0DD9 855533     811   mov x+3, tempFinal+3
+0DDC 753432     812            mov y+0, #low (50 % 0x10000) 
+0DDF 753500     812            mov y+1, #high(50 % 0x10000) 
+0DE2 753600     812            mov y+2, #low (50 / 0x10000) 
+0DE5 753700     812            mov y+3, #high(50 / 0x10000) 
+0DE8 12011A     813            lcall x_lt_y
+0DEB 300003     814            jnb mf, emergency_check
+0DEE            815            ;If so it failed and we do an emergency abort
+0DEE 756C00     816            mov FSM_State, #0x00
+0DF1            817            emergency_check:
+0DF1            818   
+0DF1 C200       819            clr mf
+0DF3            820   
+0DF3            821            
+0DF3            822            ;if temp > 150 
+0DF3            823            
+0DF3 855838     824            mov bcd+0, soak_temp+0
+0DF6 855939     825       mov bcd+1, soak_temp+1
+0DF9 753A00     826       mov bcd+2, #0
+0DFC 753B00     827       mov bcd+3, #0
+0DFF 753C00     828       mov bcd+4, #0
+0E02 12007B     829       lcall bcd2hex
+0E05            830       
+0E05 75340A     831            mov y+0, #low (10 % 0x10000) 
+0E08 753500     831            mov y+1, #high(10 % 0x10000) 
+0E0B 753600     831            mov y+2, #low (10 / 0x10000) 
+0E0E 753700     831            mov y+3, #high(10 / 0x10000) 
+0E11            832       
+0E11 12018C     833       lcall mul32
+0E14            834           
+0E14 853034     835       mov y+0, x+0
+0E17 853135     836       mov y+1, x+1
+0E1A 853236     837       mov y+2, x+2
+0E1D 853337     838       mov y+3, x+3
+0E20            839       
+0E20            840       
+0E20 855230     841   mov x+0, tempFinal+0
+0E23 855331     841   mov x+1, tempFinal+1
+0E26 855432     841   mov x+2, tempFinal+2
+0E29 855533     841   mov x+3, tempFinal+3
+0E2C            842   
+0E2C C200       843            clr mf
+0E2E 120136     844            lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)     
+0E31            845            
+0E31            846            
+0E31 D2AF       847            setb EA
+0E33            848            
+0E33 20E908     849            jb SWA.1, FSM_done_state_1_skip
+0E36            850            
+0E36 300002     851            jnb mf, FSM_done_state_1_Continue 
+0E39 8003       852            sjmp FSM_done_state_1_Skip
+0E3B            853            FSM_done_state_1_Continue:
+0E3B 021034     854            ljmp FSM_done
+0E3E            855            FSM_done_state_1_Skip:
+0E3E            856            
+0E3E D202       857                    setb state_flag
+0E40 056C       858                    inc FSM_state
+0E42 021034     859            ljmp FSM_done
+0E45            860   
+0E45            861   FSM_state2:      
+0E45            862            ;state management
+0E45 E56C       863            mov a, FSM_state
+0E47 B40202     864            cjne a, #2, FSM_state3_continue_move
+0E4A 8003       865            sjmp FSM_state3_skip_move
+0E4C            866            
+0E4C            867            FSM_state3_continue_move:
+0E4C 020EF6     868            ljmp FSM_state3
+0E4F            869            
+0E4F            870            FSM_state3_skip_move:
+0E4F D2EA       871            setb LEDRA.2
+0E51            872            
+0E51 C2AF       873            clr EA
+0E53            874            
+0E53 855A38     875            mov bcd+0, soak_time+0
+0E56 855B39     876       mov bcd+1, soak_time+1
+0E59 753A00     877       mov bcd+2, #0
+0E5C 753B00     878       mov bcd+3, #0
+0E5F 753C00     879       mov bcd+4, #0
+0E62 12007B     880       lcall bcd2hex
+0E65            881           
+0E65 85305C     882       mov soak_time_hex+0, x+0
+0E68 85315D     883       mov soak_time_hex+1, x+1
+0E6B            884       
+0E6B            885            ;Convert percentage of time into a time it needs to be on #20 is percentage(i.e 20 is 20%) on, soak_time is total time, timeOn is the time on
+0E6B            885            ;load_x(#20)
+0E6B 753014     885            mov x+0, #20
+0E6E 753100     885            mov x+1, #0
+0E71 753200     885            mov x+2, #0
+0E74 753300     885            mov x+3, #0
+0E77            885            ;converts x to a percentage through fractions
+0E77 855A34     885   mov y+0, soak_time+0
+0E7A 855B35     885   mov y+1, soak_time+1
+0E7D 753600     885   mov y+2, #0
+0E80 753700     885   mov y+3, #0
+0E83 12018C     885            lcall mul32
+0E86            885            
+0E86 753464     885            mov y+0, #low (100 % 0x10000) 
+0E89 753500     885            mov y+1, #high(100 % 0x10000) 
+0E8C 753600     885            mov y+2, #low (100 / 0x10000) 
+0E8F 753700     885            mov y+3, #high(100 / 0x10000) 
+0E92 120280     885            lcall div32
+0E95            885            
+0E95 853056     885            mov timeOn+0, x+0
+0E98 853157     885            mov timeOn+1, x+1
+0E9B            886            
+0E9B            887            ;While time is < timeOn ssr remains on, otherwise off
+0E9B            888       
+0E9B 856930     888   mov x+0, SecondsCounter+0
+0E9E 753100     888   mov x+1, #0
+0EA1 753200     888   mov x+2, #0
+0EA4 753300     888   mov x+3, #0      
+0EA7 855634     889   mov y+0, timeOn+0
+0EAA 855735     889   mov y+1, timeOn+1
+0EAD 753600     889   mov y+2, #0
+0EB0 753700     889   mov y+3, #0
+0EB3 C200       890            clr mf
+0EB5 120136     891            lcall x_gt_y
+0EB8 D2AF       892            setb EA
+0EBA 300004     893            jnb mf, ssr_off
+0EBD C280       894            clr SSR_PIN
+0EBF 8002       895            sjmp ssr_on
+0EC1            896   
+0EC1            897            ssr_off:
+0EC1 D280       898                    setb SSR_PIN
+0EC3            899            ssr_on:
+0EC3            900            
+0EC3            901            ;If time in this state > soak time then we move on
+0EC3 C2AF       902            clr EA
+0EC5            903       
+0EC5 856930     903   mov x+0, SecondsCounter+0
+0EC8 753100     903   mov x+1, #0
+0ECB 753200     903   mov x+2, #0
+0ECE 753300     903   mov x+3, #0 
+0ED1 855C34     904   mov y+0, soak_time_hex+0
+0ED4 855D35     904   mov y+1, soak_time_hex+1
+0ED7 753600     904   mov y+2, #0
+0EDA 753700     904   mov y+3, #0
+0EDD            905            ;load_y(10)
+0EDD C200       906            clr mf  
+0EDF 120136     907            lcall x_gt_y     ; Use GE (Greater than or equal) for stability
+0EE2 D2AF       908            setb EA
+0EE4            909            
+0EE4 20EA08     910            jb SWA.2, FSM_done_state_2_skip
+0EE7            911            
+0EE7 300002     912            jnb mf, FSM_done_state_2_Continue
+0EEA 8003       913            sjmp FSM_done_state_2_Skip
+0EEC            914            FSM_done_state_2_Continue:
+0EEC 021034     915            ljmp FSM_done
+0EEF            916            FSM_done_state_2_Skip:
+0EEF            917                    
+0EEF D202       918                    setb state_flag
+0EF1 056C       919                    inc FSM_state
+0EF3 021034     920            ljmp FSM_done
+0EF6            921   
+0EF6            922   FSM_state3:      
+0EF6 E56C       923            mov a, FSM_state
+0EF8            924            ;Only moves on when the temp is > 220c
+0EF8 B40358     925            cjne a, #3, FSM_state4
+0EFB D2EB       926            setb LEDRA.3
+0EFD            927   
+0EFD D280       928            setb SSR_PIN
+0EFF            929   
+0EFF            930            ;if temp > 150
+0EFF C2AF       931            clr EA
+0F01            932            
+0F01 855E38     933            mov bcd+0, reflow_temp+0
+0F04 855F39     934       mov bcd+1, reflow_temp+1
+0F07 753A00     935       mov bcd+2, #0
+0F0A 753B00     936       mov bcd+3, #0
+0F0D 753C00     937       mov bcd+4, #0
+0F10 12007B     938       lcall bcd2hex
+0F13            939       
+0F13 75340A     940            mov y+0, #low (10 % 0x10000) 
+0F16 753500     940            mov y+1, #high(10 % 0x10000) 
+0F19 753600     940            mov y+2, #low (10 / 0x10000) 
+0F1C 753700     940            mov y+3, #high(10 / 0x10000) 
+0F1F            941       
+0F1F 12018C     942       lcall mul32
+0F22            943           
+0F22 853034     944       mov y+0, x+0
+0F25 853135     945       mov y+1, x+1
+0F28 853236     946       mov y+2, x+2
+0F2B 853337     947       mov y+3, x+3
+0F2E            948            
+0F2E 855234     949   mov y+0, tempFinal+0
+0F31 855335     949   mov y+1, tempFinal+1
+0F34 855436     949   mov y+2, tempFinal+2
+0F37 855537     949   mov y+3, tempFinal+3
+0F3A C200       950            clr mf
+0F3C 120136     951            lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+0F3F D2AF       952            setb EA
+0F41            953            
+0F41 20EB08     954            jb SWA.3, FSM_done_state_3_skip
+0F44            955            
+0F44 200002     956            jb mf, FSM_done_state_3_Continue 
+0F47 8003       957            sjmp FSM_done_state_3_Skip
+0F49            958            FSM_done_state_3_Continue:
+0F49 021034     959            ljmp FSM_done
+0F4C            960            FSM_done_state_3_Skip:
+0F4C            961            
+0F4C D202       962                    setb state_flag
+0F4E 056C       963                    inc FSM_state
+0F50 021034     964            ljmp FSM_done
+0F53            965   
+0F53            966   FSM_state4:      
+0F53            967   
+0F53            968            ;only moves on after 45s
+0F53 E56C       969            mov a, FSM_state
+0F55 B40402     970            cjne a, #4, FSM_state5_continue_move
+0F58 8003       971            sjmp FSM_state5_skip_move
+0F5A            972            FSM_state5_continue_move:
+0F5A 020FFF     973            ljmp FSM_state5
+0F5D            974            FSM_state5_skip_move:
+0F5D            975            
+0F5D D2EC       976            setb LEDRA.4
+0F5F            977            
+0F5F C2AF       978            clr EA
+0F61 856038     979            mov bcd+0, reflow_time+0
+0F64 856139     980       mov bcd+1, reflow_time+1
+0F67 753A00     981       mov bcd+2, #0
+0F6A 753B00     982       mov bcd+3, #0
+0F6D 753C00     983       mov bcd+4, #0
+0F70 12007B     984       lcall bcd2hex
+0F73            985           
+0F73 853062     986       mov reflow_time_hex+0, x+0
+0F76 853163     987       mov reflow_time_hex+1, x+1
+0F79            988       
+0F79            989            ;Convert percentage of time into a time it needs to be on #20 is percentage(i.e 20 is 20%) on, reflow_time_hex is total time, timeOn is the time on
+0F79            989            ;load_x(#20)
+0F79 753014     989            mov x+0, #20
+0F7C 753100     989            mov x+1, #0
+0F7F 753200     989            mov x+2, #0
+0F82 753300     989            mov x+3, #0
+0F85            989            ;converts x to a percentage through fractions
+0F85 856234     989   mov y+0, reflow_time_hex+0
+0F88 856335     989   mov y+1, reflow_time_hex+1
+0F8B 753600     989   mov y+2, #0
+0F8E 753700     989   mov y+3, #0
+0F91 12018C     989            lcall mul32
+0F94            989            
+0F94 753464     989            mov y+0, #low (100 % 0x10000) 
+0F97 753500     989            mov y+1, #high(100 % 0x10000) 
+0F9A 753600     989            mov y+2, #low (100 / 0x10000) 
+0F9D 753700     989            mov y+3, #high(100 / 0x10000) 
+0FA0 120280     989            lcall div32
+0FA3            989            
+0FA3 853056     989            mov timeOn+0, x+0
+0FA6 853157     989            mov timeOn+1, x+1
+0FA9            990            ;While time is < timeOn ssr remains on, otherwise off
+0FA9            991       
+0FA9 856930     991   mov x+0, SecondsCounter+0
+0FAC 753100     991   mov x+1, #0
+0FAF 753200     991   mov x+2, #0
+0FB2 753300     991   mov x+3, #0
+0FB5 855634     992   mov y+0, timeOn+0
+0FB8 855735     992   mov y+1, timeOn+1
+0FBB 753600     992   mov y+2, #0
+0FBE 753700     992   mov y+3, #0 
+0FC1 C200       993            clr mf  
+0FC3 120136     994            lcall x_gt_y 
+0FC6            995            
+0FC6 D2AF       996            setb EA
+0FC8 300004     997            jnb mf, ssr_off1
+0FCB D280       998            setb SSR_PIN
+0FCD 8002       999            sjmp ssr_on1
+0FCF           1000   
+0FCF           1001            ssr_off1:
+0FCF C280      1002                    clr SSR_PIN
+0FD1           1003            ssr_on1:
+0FD1           1004   
+0FD1           1005            ;If time in this state > soak time then we move on
+0FD1 C2AF      1006            clr EA
+0FD3           1007   
+0FD3           1008            ;load_x(10)
+0FD3 856230    1009   mov x+0, reflow_time_hex+0
+0FD6 856331    1009   mov x+1, reflow_time_hex+1
+0FD9 753200    1009   mov x+2, #0
+0FDC 753300    1009   mov x+3, #0
+0FDF           1010       
+0FDF 856934    1010   mov y+0, SecondsCounter+0
+0FE2 753500    1010   mov y+1, #0
+0FE5 753600    1010   mov y+2, #0
+0FE8 753700    1010   mov y+3, #0
+0FEB C200      1011            clr mf
+0FED 120136    1012            lcall x_gt_y ;returns a mf of 1 if true (i.e x > y)
+0FF0 D2AF      1013            setb EA
+0FF2           1014            
+0FF2           1015            
+0FF2 20EC03    1016            jb SWA.4, FSM_done_state_4_Skip
+0FF5 20003C    1017            jb mf, FSM_done
+0FF8           1018            
+0FF8           1019            FSM_done_state_4_Skip:
+0FF8           1020            
+0FF8 D202      1021                    setb state_flag
+0FFA 056C      1022                    inc FSM_state
+0FFC 021034    1023            ljmp FSM_done
+0FFF           1024   
+0FFF           1025   FSM_state5:      
+0FFF           1026            ;only resets when temp is < 60
+0FFF           1027            
+0FFF E56C      1028            mov a, FSM_state
+1001 B40530    1029            cjne a, #5, FSM_done
+1004 D2ED      1030            setb LEDRA.5
+1006           1031   
+1006 C280      1032            clr SSR_PIN
+1008           1033            
+1008 C2AF      1034            clr EA
+100A 855230    1035   mov x+0, tempFinal+0
+100D 855331    1035   mov x+1, tempFinal+1
+1010 855432    1035   mov x+2, tempFinal+2
+1013 855533    1035   mov x+3, tempFinal+3
+1016 7534DC    1036            mov y+0, #low (220 % 0x10000) 
+1019 753500    1036            mov y+1, #high(220 % 0x10000) 
+101C 753600    1036            mov y+2, #low (220 / 0x10000) 
+101F 753700    1036            mov y+3, #high(220 / 0x10000) 
+1022 C200      1037            clr mf
+1024 12011A    1038            lcall x_lt_y ;returns a mf of 1 when (x < y)
+1027 D2AF      1039            setb EA
+1029           1040            
+1029 20ED03    1041            jb SWA.5, FSM_done_state_5_Skip
+102C 300005    1042            jnb mf, FSM_done
+102F           1043            
+102F           1044            FSM_done_state_5_Skip:
+102F           1045            
+102F D202      1046                    setb state_flag
+1031 756C00    1047                    mov FSM_state, #0x00
+1034           1048   
+1034           1049            FSM_done:
+1034           1050   
+1034           1051            ;-------------------------------------------------------------------------------
+1034 020BDC    1052            ljmp loop
+1037           1053   
+1037           1054   END
+>>>>>>> 20c172e896fc135f5c09130776f7bbd621ffd55b
