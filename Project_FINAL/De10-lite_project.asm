@@ -26,6 +26,7 @@ org 0x000B
 	ljmp Timer0_ISR
 
 Profile:  db 'PROFILE,', 0
+Comma:    db ',', 0
 
 dseg at 0x30
 ; For math 
@@ -430,6 +431,7 @@ Initial_ALL:
 	setb state_flag
 	clr QuarterSecondsFlag
 	setb State0Flag
+	clr SpeakerFlag
 	
 	mov MinutesCounterTotal, #0x00
 	mov SecondsCounterTotal, #0x00
@@ -643,10 +645,12 @@ loop:
 		clr state_flag
 		clr EA
 		mov SecondsCounter, #0x00
+		setb EA
+		
 		setb SpeakerFlag
 		lcall Wait25ms
+		lcall Wait25ms
 		clr SpeakerFlag
-		setb EA
 	no_new_state:
 
 	mov LEDRA, #0
