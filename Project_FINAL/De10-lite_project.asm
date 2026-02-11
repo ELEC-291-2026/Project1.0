@@ -308,8 +308,8 @@ Mov_A_to_B MAC
 ;%0 is A, %1 is B
 	mov %1+0, %0+0
 	mov %1+1, %0+1
-	mov %1+2, %0+2
-	mov %1+3, %0+3
+	mov %1+2, #0
+	mov %1+3, #0
 ENDMAC
 
 powerPercent MAC
@@ -472,7 +472,7 @@ loop:
 		;Min temp check for 
 		mov a, FSM_State
 		cjne a, #0, underflow_soaktemp_check
-		Mov_A_to_B(soak_temp,bcd)
+		Mov_A_to_B(soak_temp, bcd)
 		lcall bcd2hex
 		load_y(130) ; Our min temp
 		lcall x_lt_y ;mf 1 if true
@@ -488,8 +488,8 @@ loop:
 		cjne a, #0, underflow_soaktemp_check
 		Mov_A_to_B(soak_temp,bcd)
 		lcall bcd2hex
-		lcall load_y(170) ; Our max temp
-		x_gt_y ;mf 1 if true
+		load_y(170) ; Our max temp
+		lcall x_gt_y ;mf 1 if true
 		jnb mf, underflow_soaktemp_check
 	    lcall hex2bcd
 	    mov soak_temp+0, 	bcd+0    ; mode A 150 +-20
