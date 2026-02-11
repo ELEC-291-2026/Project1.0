@@ -140,7 +140,7 @@ skip_tens:
     ret
     
 Display_Voltage_Serial:
-
+    ;Format: PROFILE,soak_temp,soak_time,reflow_temp,reflow_time[,peak_temp][,heating_rate][,cooling_rate]
     ; 1. Display Hundreds Digit (from bcd+1 high nibble)
     mov a, bcd+1
     swap a
@@ -260,4 +260,17 @@ Display_Voltage_LCD_Hex:
     ret
     
     
+WriteInitialVals:
+    mov dptr, #Initial_Message
+    lcall SendString
+    mov a, #'\r'
+    lcall putchar
+    mov a, #'\n'
+    lcall putchar
+
+
+
+
+
+    ret
 END

@@ -25,6 +25,8 @@ org 0x0000
 org 0x000B
 	ljmp Timer0_ISR
 
+Profile:  db 'Profile,', 0
+
 dseg at 0x30
 ; For math 
 x:			ds 4
