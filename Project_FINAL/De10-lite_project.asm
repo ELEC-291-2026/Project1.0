@@ -472,10 +472,10 @@ loop:
 	underflow_soaktemp:
 		Mov_A_to_B(soak_temp, bcd)
 		lcall bcd2hex
-		load_y(130) ; Our min temp
+		load_y(1300) ; Our min temp
 		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_soaktemp_check
-		load_x(130)
+		load_x(1300)
 	    lcall hex2bcd
 	    mov soak_temp+0, 	bcd+0    ; mode A 150 +-20
 	    mov soak_temp+1, 	bcd+1
@@ -485,10 +485,10 @@ loop:
 		;Max temp check for 
 		Mov_A_to_B(soak_temp,bcd)
 		lcall bcd2hex
-		load_y(170) ; Our max temp
+		load_y(1700) ; Our max temp
 		lcall x_gt_y ;mf 1 if true
 		jnb mf, overflow_soaktemp_check
-		load_x(170)
+		load_x(1700)
 	    lcall hex2bcd
 	    mov soak_temp+0, 	bcd+0    ; mode A 150 +-20
 	    mov soak_temp+1, 	bcd+1
@@ -499,7 +499,7 @@ loop:
 		Mov_A_to_B(soak_time,bcd)
 		lcall bcd2hex
 		load_y(60) ; Our min time
-		lcall x_gt_y ;mf 1 if true
+		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_soaktime_check
 		load_x(60)
 		lcall hex2bcd
@@ -525,10 +525,10 @@ loop:
 		;Min temp check for 
 		Mov_A_to_B(reflow_temp, bcd)
 		lcall bcd2hex
-		load_y(230) ; Our min temp for reflux
+		load_y(2300) ; Our min temp for reflux
 		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_reflowtemp_check
-		load_x(230)
+		load_x(2300)
 	    lcall hex2bcd
 	    mov reflow_temp+0, 	bcd+0    ;  mode C 230 < t < 240
 	    mov reflow_temp+1, 	bcd+1
@@ -538,10 +538,10 @@ loop:
 		;Max temp check for 
 		Mov_A_to_B(reflow_temp,bcd)
 		lcall bcd2hex
-		load_y(240) ; Our max temp
+		load_y(2400) ; Our max temp
 		lcall x_gt_y ;mf 1 if true
 		jnb mf, overflow_reflowtemp_check
-		load_x(240)
+		load_x(2400)
 	    lcall hex2bcd
 	    mov reflow_temp+0, 	bcd+0    ; mode C 230 < t < 240
 	    mov reflow_temp+1, 	bcd+1
@@ -552,7 +552,7 @@ loop:
 		Mov_A_to_B(reflow_time,bcd)
 		lcall bcd2hex
 		load_y(30) ; Our max temp
-		lcall x_gt_y ;mf 1 if true
+		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_reflowtime_check
 		load_x(30)
 		lcall hex2bcd
