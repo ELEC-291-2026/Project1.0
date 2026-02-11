@@ -488,7 +488,7 @@ loop:
 		cjne a, #0, underflow_soaktemp_check
 		Mov_A_to_B(soak_temp,bcd)
 		lcall bcd2hex
-		lcall load_y(170) ; Our max temp
+		load_y(170) ; Our max temp
 		lcall x_gt_y ;mf 1 if true
 		jnb mf, underflow_soaktemp_check
 	    lcall hex2bcd
