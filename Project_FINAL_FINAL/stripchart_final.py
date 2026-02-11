@@ -281,7 +281,6 @@ def data_gen():
                 "@here 📊 **Process Complete!** Final Lab Report and Correlation Chart generated.", 
                 file_paths=[EXCEL_FILENAME, GRAPH_FILENAME]
             )
-        
             continue   # We then proceed like normal
         
         # Check if it's a profile command
@@ -308,25 +307,6 @@ def data_gen():
                 micro_val = float(text)
                 multi_val = profile_params.get('soak_temp', 0) # Use target as reference if only 1 value
                 diff_val = multi_val - micro_val
-
-            # --- The "Secret Handshake" (Sentinel Value Detection) ---
-            # The 8051 sends 999.9 degrees when the timer hits zero.
-            if micro_val == 999.9:
-                # 1. Capture the current Matplotlib live chart as a backup image
-                plt.savefig(GRAPH_FILENAME)
-                print(f"Live graph snapshot saved: {GRAPH_FILENAME}")
-                
-                # 2. Build the high-tier professional Excel report
-                generate_excel_report(EXCEL_FILENAME)
-
-                # 3. Send BOTH the professional Excel file and the live graph PNG to Discord
-                send_notification(
-                    "@here 📊 **Process Complete!** Final Lab Report and Correlation Chart generated.", 
-                    file_paths=[EXCEL_FILENAME, GRAPH_FILENAME]
-                )
-                
-                # Skip plotting the secret code
-                continue 
             
             # --- Real-Time Data Storage ---
             t_seconds = (t + 1) * 0.25
