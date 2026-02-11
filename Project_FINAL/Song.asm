@@ -154,51 +154,6 @@ Load_Song_Note:
     ret
 
 ;---------------------------------;
-; Routine to initialize the ISR   ;
-; for timer 0                     ;
-;---------------------------------;
-Timer0_Init:
-	mov a, TMOD
-	anl a, #0xf0 ; Clear the bits for timer 0
-	orl a, #0x01 ; Configure timer 0 as 16-timer
-	mov TMOD, a
-	
-	; Don't start timer yet - Load_Song_Note will do it
-    setb ET0  ; Enable timer 0 interrupt
-	ret
-
-;---------------------------------;
-; ISR for timer 0.                ;
-; Generates square wave for tone  ;
-;---------------------------------;
-Timer0_ISR:
-	; Reload timer with current note's value
-	mov TH0, tone_rh
-	mov TL0, tone_rl
-	cpl SOUND_OUT ; Toggle speaker
-	reti
-
-;---------------------------------;
-; Routine to initialize the ISR   ;
-; for timer 2                     ;
-;---------------------------------;
-Timer2_Init:
-	mov T2CON, #0 ; Stop timer/counter.  Autoreload mode.
-	mov TH2, #high(TIMER2_RELOAD)
-	mov TL2, #low(TIMER2_RELOAD)
-	; Set the reload value
-	mov RCAP2H, #high(TIMER2_RELOAD)
-	mov RCAP2L, #low(TIMER2_RELOAD)
-	; Init One millisecond interrupt counter
-	clr a
-	mov Count1ms+0, a
-	mov Count1ms+1, a
-	; Enable the timer and interrupts
-    setb ET2  ; Enable timer 2 interrupt
-    setb TR2  ; Enable timer 2
-	ret
-
-;---------------------------------;
 ; ISR for timer 2 (1ms tick)      ;
 ; Handles note timing             ;
 ;---------------------------------;
@@ -237,17 +192,12 @@ Check_Note_Duration:
 	clr TR0               ; Stop Timer0
 	clr SOUND_OUT         ; Turn off speaker
 	setb LEDRA.0          ; Turn on LED to show song finished
-	sjmp Timer2_ISR_done
+	ljmp Timer2_ISR_done
 	
 Next_Note_OK:
 	mov song_idx, a
 	lcall Load_Song_Note
 	
-Timer2_ISR_done:
-	pop psw
-	pop acc
-	reti
-
 ;---------------------------------;
 ; Main program. Includes hardware ;
 ; initialization and 'forever'    ;

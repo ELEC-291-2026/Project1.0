@@ -96,10 +96,7 @@ START_BUTTON equ P0.2
 SOUND_OUT equ P0.4
 
 
-Initial_Message:  db 'Tmperature Test', 0
-
-
-
+Initial_Message:  db 'Temperature Test', 0
 cseg
 ;----------------------FUNCTIONS----------------
 ;---------------------------------;
@@ -128,10 +125,7 @@ Timer0_ISR:
 	mov TH0, #high(TIMER0_RELOAD)
 	mov TL0, #low(TIMER0_RELOAD)
 	setb TR0
-	
-	
-	
-	
+
 	jnb SpeakerFlag, skip_speaker
 	cpl SOUND_OUT
 	skip_speaker:
@@ -183,7 +177,6 @@ Display_BCD_7_Seg_HEX10:
 	anl a, #0FH
 	movc a, @a+dptr
 	mov HEX0, a
-	
 	ret
 
 ; Displays a BCD number pased in R0 in HEX3-HEX2
@@ -200,7 +193,6 @@ Display_BCD_7_Seg_HEX32:
 	anl a, #0FH
 	movc a, @a+dptr
 	mov HEX2, a
-	
 	ret
 
 ; Displays a BCD number pased in R0 in HEX5-HEX4
@@ -217,7 +209,6 @@ Display_BCD_7_Seg_HEX54:
 	anl a, #0FH
 	movc a, @a+dptr
 	mov HEX4, a
-	
 	ret
 
 ; The 8-bit hex number passed in the accumulator is converted to
@@ -353,8 +344,6 @@ Over_Under_Check_Rewrite:
 
 	ret
 
-
-
 ;-------MACROS--------------------;
 Load_X_Var32 MAC
 mov x+0, %0+0
@@ -418,7 +407,6 @@ ENDMAC
 ; initialization and 'forever'    ;
 ; loop.                           ;
 ;---------------------------------;
-
 Initial_ALL:
 
    	clr EA ;disables global interupts
@@ -480,17 +468,17 @@ Initial_ALL:
 	
 	mov active_param, #0
 		
-	clr EA
+	clr EA ;From many hours of pain we just disable EA whenever we do anythibg mathy
     lcall Load_Param_Into_BCD
     lcall Configure_Keypad_Pins
     setb EA
 
 	setb EA ;enables global interupts
-	
 	ret
 	
 	
 main:
+	;Initial messages and stuff that only runs once at the beggining
 	mov P0MOD, #10111011b
     mov P1MOD, #10000010b
 	lcall Initial_ALL
@@ -532,7 +520,6 @@ loop:
 		lcall hex2bcd
 		mov R0, bcd+0
 		lcall Display_BCD_7_Seg_HEX54
-		
 		setb EA
 	
 	skip_debug_stuff:
@@ -547,6 +534,7 @@ loop:
 	skiptemoteteipj:
 	
 	clr QuarterSecondsFlag
+	
 	clr EA
 	
     mov ADC_C, #LM335_ADC
