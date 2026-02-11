@@ -11,6 +11,9 @@ FREQ   			EQU 33333333
 BAUD   			EQU 115200
 T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
 
+TONE_1024 EQU ((65536-(CLK/1024)))
+TONE_4096 EQU ((65536-(CLK/4096)))
+
 ;PIN Assignemet
 ;Need to figure out wich ADC pins the LM335 and OP07 are on 
 LM335_ADC equ 0
@@ -25,11 +28,16 @@ org 0x0000
 org 0x000B
 	ljmp Timer0_ISR
 
+Profile:  db 'PROFILE,', 0
+Comma:    db ',', 0
+
 dseg at 0x30
 ; For math 
 x:			ds 4
 y:			ds 4
 bcd:		ds 5
+
+
 
 math_space: ds 5
 
@@ -57,6 +65,7 @@ SecondsCounterTotal: ds 1
 MinutesCounterTotal: ds 1
 ; Each FSM has its own state counter
 FSM_state:  ds 1
+Timer0Reload:   ds 2
 
 bseg
 ; For each pushbutton we have a flag.  The corresponding FSM will set this
@@ -65,13 +74,14 @@ mf       	: 	dbit 1
 ssr_f    	: 	dbit 1
 state_flag	: 	dbit 1
 QuarterSecondsFlag : dbit 1
-State0Flag : 	dbit 1
+State0Flag : dbit 1
+SpeakerFlag : dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
 $include(keypad_lib_3.asm)
 $include(temperature_lib.asm)
-
+$include(lcd_lib.asm)
 cseg
 ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
 ELCD_RS equ P1.7
@@ -110,31 +120,33 @@ Timer0_Init:
 	ret
 
 Timer0_ISR:
-    clr TR0
-    ; Use dynamic reload values for the pitch
-    mov TH0, tone_rh
-    mov TL0, tone_rl
-    setb TR0
-    cpl SOUND_OUT
-    
-    ; Increment the timers for each FSM
-    inc FSM_timer 
-    
-    ; --- CORRECTED BEEP DURATION LOGIC ---
-    ; This must be outside the #250 check to work!
-    mov a, FSM_timer
-    cjne a, #100, skip_stop_sound ; Stop sound after 100ms
-    clr TR0                       ; Stop the timer to kill sound
-    clr SOUND_OUT                 ; Ensure pin is low
-skip_stop_sound:
-
-    mov a, FSM_timer
-    cjne a, #250, FSM_timer_done
-    
-    setb QuarterSecondsFlag
-    inc QuarterSecondsCounter
-    mov FSM_timer, #0x00
-
+	clr TR0
+	mov TH0, #high(TIMER0_RELOAD)
+	mov TL0, #low(TIMER0_RELOAD)
+	setb TR0
+	
+	
+	
+	
+	jnb SpeakerFlag, skip_speaker
+	cpl SOUND_OUT
+	skip_speaker:
+	
+	; Increment the timers for each FSM. That is all we do here!
+	inc FSM_timer 
+	
+	mov a, FSM_timer
+	cjne a, #250, FSM_timer_done
+	
+	setb QuarterSecondsFlag
+	
+	inc QuarterSecondsCounter
+	mov FSM_timer, #0x00
+	
+	mov a, QuarterSecondsCounter
+	cjne a, #4, FSM_timer_done
+	
+	mov QuarterSecondsCounter, #0x00
 	inc SecondsCounter
 	inc SecondsCounterTotal ; USE THIS FOR THE TOTAL TIMER. IT NEVER RESETS SO DONT WORRY
 	
@@ -424,10 +436,14 @@ Initial_ALL:
 	setb state_flag
 	clr QuarterSecondsFlag
 	setb State0Flag
+	clr SpeakerFlag
 	
 	mov MinutesCounterTotal, #0x00
 	mov SecondsCounterTotal, #0x00
     mov QuarterSecondsCounter, #0x00
+    
+    mov  Timer0Reload+1, #high(TONE_4096)
+    mov  Timer0Reload+0, #low(TONE_4096)
     
     load_x(300)
     lcall hex2bcd
@@ -471,7 +487,7 @@ Initial_ALL:
 	
 	
 main:
-	mov P0MOD, #10101011b
+	mov P0MOD, #10111011b
     mov P1MOD, #10000010b
 	lcall Initial_ALL
 	
@@ -528,6 +544,7 @@ loop:
 	
 	clr QuarterSecondsFlag
 	clr EA
+	
     mov ADC_C, #LM335_ADC
 
     mov x+3, #0
@@ -633,10 +650,15 @@ loop:
 
 	jnb state_flag, no_new_state
 	
-	clr state_flag
-	clr EA
-	mov SecondsCounter, #0x00
-	setb EA
+		clr state_flag
+		clr EA
+		mov SecondsCounter, #0x00
+		setb EA
+		
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
 	no_new_state:
 
 	mov LEDRA, #0
@@ -678,6 +700,7 @@ FSM_state0:
 		
 		clr EA
 		lcall Over_Under_Check_Rewrite
+		lcall WriteInitialVals
 		setb EA
 	
 		mov active_param, #0
@@ -928,6 +951,27 @@ FSM_state5:
 	
 		setb state_flag
 		mov FSM_state, #0x00
+		
+				
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
+		
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
+				
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
+					
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
 
 	FSM_done:
 

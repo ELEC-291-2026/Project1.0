@@ -4,6 +4,10 @@ import matplotlib.animation as animation
 import sys, time, math
 from matplotlib.collections import LineCollection
 import matplotlib.cm as cm
+import requests    # Required for Discord notifications
+import csv         # Required for Excel/CSV logging
+import os          # Required for file handling
+import xlsxwriter  # Required for professional Excel reports with charts
 
 import serial
 # configure the serial port
@@ -18,6 +22,125 @@ ser.isOpen()
 
 xsize=50
 points=0
+
+# --- Data Logging Setup ---
+EXCEL_FILENAME = "microwave_thermal_report.xlsx"
+LOG_FILENAME = "microwave_backup_log.csv"
+GRAPH_FILENAME = "microwave_live_snapshot.png"
+
+# Global list to store session data for the final Excel report
+# Format: [timestamp, multimeter_temp, micro_temp, difference, status]
+session_data = []
+
+def init_logging():
+    """Initializes the CSV backup file with headers"""
+    with open(LOG_FILENAME, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Timestamp_Seconds", "Multimeter_Temp", "Micro_Temp", "Difference", "Status"])
+    print(f"Initialized logging: {LOG_FILENAME}")
+
+# Start fresh logging when the script runs
+init_logging()
+
+def generate_excel_report(file_path):
+    """
+    Generates a professional Excel (.xlsx) report from session_data 
+    with an embedded comparison chart.
+    """
+    print(f"Generating professional Excel report: {file_path}")
+    workbook = xlsxwriter.Workbook(file_path)
+    worksheet = workbook.add_worksheet("Thermal Data")
+    
+    # Define styles
+    header_format = workbook.add_format({'bold': True, 'bg_color': '#D9EAD3', 'border': 1})
+    data_format = workbook.add_format({'border': 1})
+    
+    # Write Headers
+    headers = ["Time (s)", "Multimeter Temp (C°)", "Microcontroller Temp (C°)", "Difference (C°)", "Status"]
+    for col, header in enumerate(headers):
+        worksheet.write(0, col, header, header_format)
+        
+    # Write Data Rows
+    for row_idx, row_data in enumerate(session_data):
+        for col_idx, value in enumerate(row_data):
+            worksheet.write(row_idx + 1, col_idx, value, data_format)
+    
+    # Create the Comparison Chart
+    chart = workbook.add_chart({'type': 'line'})
+    
+    # Configure Multimeter Series
+    chart.add_series({
+        'name':       '=Thermal Data!$B$1',
+        'categories': ['Thermal Data', 1, 0, len(session_data), 0],
+        'values':     ['Thermal Data', 1, 1, len(session_data), 1],
+        'line':       {'color': 'red'},
+    })
+    
+    # Configure Microcontroller Series
+    chart.add_series({
+        'name':       '=Thermal Data!$C$1',
+        'values':     ['Thermal Data', 1, 2, len(session_data), 2],
+        'line':       {'color': 'blue'},
+    })
+    
+    # Add chart title and labels
+    chart.set_title({'name': 'Multimeter vs Microcontroller Correlation'})
+    chart.set_x_axis({'name': 'Time (Seconds)'})
+    chart.set_y_axis({'name': 'Temperature (°C)'})
+    chart.set_style(10) # Clean modern style
+    
+    # Insert the chart into the worksheet
+    worksheet.insert_chart('G2', chart, {'x_scale': 1.5, 'y_scale': 2.0})
+    
+    workbook.close()
+    print("✅ Excel report created successfully!")
+
+# --- Smart Notification Settings ---
+# This is the "target" where our notifications go. Discord's Webhook API 
+# allows our script to post messages directly to a channel via the internet.
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1471005567177986182/jn6fy27IzxZ0d9MfQwmBaPWUp83ynQLdEiD4y9NGUPayPYACDkOPIJjouZMTopHHVq_R"
+
+def send_notification(message, file_paths=None):
+    """
+    Sends a notification to Discord. 
+    Can handle plain text or text + multiple file attachments.
+    """
+    print(f"Triggering Notification: {message}")
+    
+    if "discord.com" in DISCORD_WEBHOOK_URL:
+        try:
+            payload = {"content": message}
+            
+            # Prepare files list if paths are provided
+            files_dict = {}
+            if file_paths:
+                # Handle single path string or list of paths
+                if isinstance(file_paths, str):
+                    file_paths = [file_paths]
+                
+                # Zip up all existing files to send
+                for i, path in enumerate(file_paths):
+                    if os.path.exists(path):
+                        # We use 'file1', 'file2', etc. as keys for Discord
+                        files_dict[f'file{i}'] = (os.path.basename(path), open(path, 'rb'))
+
+            if files_dict:
+                # Send with multiple attachments
+                response = requests.post(DISCORD_WEBHOOK_URL, data=payload, files=files_dict)
+                # Important: Close files after sending
+                for key, val in files_dict.items():
+                    val[1].close()
+            else:
+                # Send text only
+                response = requests.post(DISCORD_WEBHOOK_URL, json=payload)
+                
+            # HTTP 204 or 200 means "Success" in the web world
+            if response.status_code in [200, 204]:
+                print("✅ Successfully sent notification to Discord!")
+            else:
+                print(f"❌ Failed to send notification. Error: {response.status_code}")
+        except Exception as e:
+            print(f"Error sending notification: {e}")
 
 # Default reflow profile parameters (will be updated from serial)
 profile_params = {
@@ -46,6 +169,14 @@ def parse_profile_command(text):
             profile_params['soak_time'] = float(parts[2])
             profile_params['reflow_temp'] = float(parts[3])
             profile_params['reflow_time'] = float(parts[4])
+            
+            if len(parts) > 5:
+                profile_params['peak_temp'] = float(parts[5])
+            if len(parts) > 6:
+                profile_params['heating_rate'] = float(parts[6])
+            if len(parts) > 7:
+                profile_params['cooling_rate'] = float(parts[7])
+            
             profile_updated = True
             print(f"Profile updated: Soak {profile_params['soak_temp']}°C/{profile_params['soak_time']}s, "
                   f"Reflow {profile_params['reflow_temp']}°C/{profile_params['reflow_time']}s, "
@@ -152,9 +283,56 @@ def data_gen():
             continue  # Don't yield this, get next temperature reading
         
         try:
-            val = float(text)
+            # --- Multi-Temperature Parsing ---
+            # Handles "Temp1, Temp2, Difference" or a single "Temp"
+            parts = text.split(',')
+            
+            # Extract values based on what the serial sent
+            if len(parts) >= 2:
+                # Format: Temp1 (Multimeter), Temp2 (Micro), [Diff]
+                multi_val = float(parts[0])
+                micro_val = float(parts[1])
+                diff_val = float(parts[2]) if len(parts) > 2 else (multi_val - micro_val)
+            else:
+                # Fallback for single-value stream
+                micro_val = float(text)
+                multi_val = profile_params.get('soak_temp', 0) # Use target as reference if only 1 value
+                diff_val = multi_val - micro_val
+
+            # --- The "Secret Handshake" (Sentinel Value Detection) ---
+            # The 8051 sends 999.9 degrees when the timer hits zero.
+            if micro_val == 999.9:
+                # 1. Capture the current Matplotlib live chart as a backup image
+                plt.savefig(GRAPH_FILENAME)
+                print(f"Live graph snapshot saved: {GRAPH_FILENAME}")
+                
+                # 2. Build the high-tier professional Excel report
+                generate_excel_report(EXCEL_FILENAME)
+
+                # 3. Send BOTH the professional Excel file and the live graph PNG to Discord
+                send_notification(
+                    "📊 **Process Complete!** Final Lab Report and Correlation Chart generated.", 
+                    file_paths=[EXCEL_FILENAME, GRAPH_FILENAME]
+                )
+                
+                # Skip plotting the secret code
+                continue 
+            
+            # --- Real-Time Data Storage ---
+            t_seconds = (t + 1) * 0.2
+            _, current_state = get_target_temp(t + 1)
+            
+            # Store in memory for the final Excel report
+            session_data.append([t_seconds, multi_val, micro_val, diff_val, current_state])
+            
+            # Append to CSV backup log for safety
+            with open(LOG_FILENAME, mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([f"{t_seconds:.1f}", multi_val, micro_val, diff_val, current_state])
+                
             t += 1
-            yield t, val
+            # Plot the microcontroller value on the live graph
+            yield t, micro_val
         except:
             # If not a valid temperature, skip
             continue

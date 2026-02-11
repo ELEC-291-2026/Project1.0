@@ -16,3 +16,8 @@
 ## Extra stuff for Python
   - temp change (fahrenheit, kelvins, Cel)
   - Notification on phone
+
+
+## LCD
+- State 0: paramters on the 7segs, temperature of oven and time on the LCD
+- State 1-5: oven temperature on the 7segs, and 2 screens on LCD: one parameters, one oven temperature/total time on first row, second row is progress bar and state running time and state number
