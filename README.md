@@ -42,22 +42,22 @@ completed. Ten beeps when there is an error.
 
 ## EXTRA FINAL (the final features that made it to the end
 
-Microwave mode
+# Microwave mode
 - has a timer
 - has different modes for different foods
 - auto ends after timer
 - shows timer on LCD  
-Keyboard sound mode
+# Keyboard sound mode
 - custom music note characters
 - allows you to make song
-2 songs you can pick
+# 2 songs you can pick
 - 2 fully done songs that will play at the end when its done
 - can chose between them  
-python cool graph
+# python cool graph
 - shows prediction graph by taking in the parameters
 - dynamically resizes based on current temp
 - changes colour the hotter it is  
-discord messaging
+# discord messaging
 - when a string is sent through the serial it sends a message througha discord bot to all of our phones when it's ready
 
 ## LCD
