@@ -11,6 +11,9 @@ FREQ   			EQU 33333333
 BAUD   			EQU 115200
 T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
 
+TONE_1024 EQU ((65536-(CLK/1024)))
+TONE_4096 EQU ((65536-(CLK/4096)))
+
 ;PIN Assignemet
 ;Need to figure out wich ADC pins the LM335 and OP07 are on 
 LM335_ADC equ 0
@@ -33,6 +36,8 @@ dseg at 0x30
 x:			ds 4
 y:			ds 4
 bcd:		ds 5
+
+
 
 math_space: ds 5
 
@@ -60,6 +65,7 @@ SecondsCounterTotal: ds 1
 MinutesCounterTotal: ds 1
 ; Each FSM has its own state counter
 FSM_state:  ds 1
+Timer0Reload:   ds 2
 
 bseg
 ; For each pushbutton we have a flag.  The corresponding FSM will set this
@@ -121,6 +127,8 @@ Timer0_ISR:
 	mov TH0, #high(TIMER0_RELOAD)
 	mov TL0, #low(TIMER0_RELOAD)
 	setb TR0
+	
+	
 	
 	
 	jnb SpeakerFlag, skip_speaker
@@ -436,6 +444,9 @@ Initial_ALL:
 	mov MinutesCounterTotal, #0x00
 	mov SecondsCounterTotal, #0x00
     mov QuarterSecondsCounter, #0x00
+    
+    mov  Timer0Reload+1, #high(TONE_4096)
+    mov  Timer0Reload+0, #low(TONE_4096)
     
     load_x(300)
     lcall hex2bcd
@@ -943,6 +954,27 @@ FSM_state5:
 	
 		setb state_flag
 		mov FSM_state, #0x00
+		
+				
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
+		
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
+				
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
+					
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
 
 	FSM_done:
 
