@@ -48,9 +48,7 @@ def parse_profile_command(text):
             profile_params['reflow_time'] = float(parts[4])
             profile_updated = True
             print(f"Profile updated: Soak {profile_params['soak_temp']}°C/{profile_params['soak_time']}s, "
-                  f"Reflow {profile_params['reflow_temp']}°C/{profile_params['reflow_time']}s, "
-                  f"Peak {profile_params['peak_temp']}°C, "
-                  f"Heating: {profile_params['heating_rate']}°C/s")
+                  f"Reflow {profile_params['reflow_temp']}°C/{profile_params['reflow_time']}s, ")
             return True
         except Exception as e:
             print(f"Error parsing profile command: {e}")
@@ -107,7 +105,7 @@ temp_profile = generate_reflow_profile()
 
 def get_target_temp(t_samples):
     """Get target temperature for given time in samples (200ms intervals)"""
-    t_seconds = t_samples * 0.2  # Convert samples to seconds
+    t_seconds = t_samples * 0.25  # Convert samples to seconds
     
     # Find which segment we're in
     for i in range(len(temp_profile) - 1):
@@ -175,7 +173,7 @@ def run(data):
             # ax2 stays zoomed out to show full profile
         
         # Calculate time in seconds for display
-        t_seconds = t * 0.2
+        t_seconds = t * 0.25
         
         ax1.set_title(f"Reflow Soldering  |  Time: {t_seconds:.1f}s  |  State: {current_state}  |  Samples: {t}")
         
