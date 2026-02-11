@@ -59,7 +59,7 @@ completed. Ten beeps when there is an error.
 - dynamically resizes based on current temp
 - changes colour the hotter it is  
 # discord messaging
-- when a string is sent through the serial it sends a message througha discord bot to all of our phones when it's ready
+- When the cook cycle elapses, members of the community will be notified on discord, so you can monitor your it from wherever you are
 
 ## LCD
 - State 0: paramters on the 7segs, temperature of oven and time on the LCD
