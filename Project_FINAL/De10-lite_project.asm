@@ -61,11 +61,11 @@ FSM_state:  ds 1
 bseg
 ; For each pushbutton we have a flag.  The corresponding FSM will set this
 ; flags to one when a valid press of the pushbutton is detected.
-mf       	: dbit 1
-ssr_f    	: dbit 1
-state_flag	: dbit 1
+mf       	: 	dbit 1
+ssr_f    	: 	dbit 1
+state_flag	: 	dbit 1
 QuarterSecondsFlag : dbit 1
-State0Flag : dbit 1
+State0Flag : 	dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
