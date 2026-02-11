@@ -100,6 +100,87 @@ SOUND_OUT equ P0.4
 Initial_Message:  db 'Tmperature Test', 0
 
 cseg
+;-------MACROS--------------------;
+;Example macro to help with process %0,1,etc represents the input number, this is all pass by reference(i.e it can actually affect the variable)
+Load_X_Var32 MAC
+mov x+0, %0+0
+mov x+1, %0+1
+mov x+2, %0+2
+mov x+3, %0+3
+ENDMAC
+
+Load_Y_Var32 MAC
+mov y+0, %0+0
+mov y+1, %0+1
+mov y+2, %0+2
+mov y+3, %0+3
+ENDMAC
+
+Load_X_Var16 MAC
+mov x+0, %0+0
+mov x+1, %0+1
+mov x+2, #0
+mov x+3, #0
+ENDMAC
+
+Load_Y_Var16 MAC
+mov y+0, %0+0
+mov y+1, %0+1
+mov y+2, #0
+mov y+3, #0
+ENDMAC
+
+Load_X_Var8 MAC
+    
+mov x+0, %0+0
+mov x+1, #0
+mov x+2, #0
+mov x+3, #0
+ENDMAC
+
+Load_Y_Var8 MAC
+    
+mov y+0, %0+0
+mov y+1, #0
+mov y+2, #0
+mov y+3, #0
+ENDMAC
+
+powerPercent MAC
+	;Convert percentage of time into a time it needs to be on %0 is percentage(i.e 20 is 20%) on, %1 is total time, %2 is the time on
+	;load_x(%0)
+	mov x+0, %0
+	mov x+1, #0
+	mov x+2, #0
+	mov x+3, #0
+	;converts x to a percentage through fractions
+	Load_Y_Var16(%1)
+	lcall mul32
+	
+	load_y(100)
+	lcall div32
+	
+	mov %2+0, x+0
+	mov %2+1, x+1
+ENDMAC
+
+;We should probably start using this from now on oh well live laugh love
+Mov_A_to_B16Bit MAC
+;%0 is A, %1 is B
+	mov %1+0, %0+0
+	mov %1+1, %0+1
+	mov %1+2, #0
+	mov %1+3, #0
+ENDMAC
+
+Mov_A_to_B32Bit MAC
+	mov %1+0, %0+0
+	mov %1+1, %0+1
+	mov %1+2, %0+2
+	mov %1+3, %0+3
+ENDMAC
+
+
 ;----------------------FUNCTIONS----------------
 ;---------------------------------;
 ; Routine to initialize the ISR   ;
@@ -254,190 +335,105 @@ Hex_to_bcd_8bit:
 	mov R0, a
 	ret
 	
-	
-;We should probably start using this from now on oh well live laugh love
-Mov_A_to_B MAC
-;%0 is A, %1 is B
-	mov %1+0, %0+0
-	mov %1+1, %0+1
-	mov %1+2, #0
-	mov %1+3, #0
-ENDMAC
-	
 Over_Under_Check_Rewrite:
-
+	;-------SoakStageStuff-----------------
 	underflow_soaktemp:
-		Mov_A_to_B(soak_temp, bcd)
+		Mov_A_to_B16Bit(soak_temp, bcd)
 		lcall bcd2hex
 		load_y(130) ; Our min temp
 		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_soaktemp_check
 		load_x(130)
 	    lcall hex2bcd
-	    mov soak_temp+0, 	bcd+0    ; mode A 150 +-20
-	    mov soak_temp+1, 	bcd+1
+		Mov_A_to_B16Bit(bcd, soak_temp)
 	underflow_soaktemp_check:
 
 	overflow_soaktemp:
 		;Max temp check for 
-		Mov_A_to_B(soak_temp,bcd)
+		Mov_A_to_B16Bit(soak_temp,bcd)
 		lcall bcd2hex
 		load_y(170) ; Our max temp
 		lcall x_gt_y ;mf 1 if true
 		jnb mf, overflow_soaktemp_check
 		load_x(170)
 	    lcall hex2bcd
-	    mov soak_temp+0, 	bcd+0    ; mode A 150 +-20
-	    mov soak_temp+1, 	bcd+1
+		Mov_A_to_B16Bit(bcd, soak_temp)
 	overflow_soaktemp_check:
 
 	underflow_soaktime:
 		;Max temp check for 
-		Mov_A_to_B(soak_time,bcd)
+		Mov_A_to_B16Bit(soak_time,bcd)
 		lcall bcd2hex
 		load_y(60) ; Our min time
 		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_soaktime_check
 		load_x(60)
 		lcall hex2bcd
-	    mov soak_time+0, 	bcd+0    ;mode B 60 < t < 120
-	    mov soak_time+1, 	bcd+1
+		Mov_A_to_B16Bit(bcd, soak_time)
 	underflow_soaktime_check:
 
 	overflow_soaktime:
 		;Max temp check for 
-		Mov_A_to_B(soak_time,bcd)
+		Mov_A_to_B16Bit(soak_time,bcd)
 		lcall bcd2hex
 		load_y(120) ; Our max time
 		lcall x_gt_y ;mf 1 if true
 		jnb mf, overflow_soaktime_check
 		load_x(120)
 		lcall hex2bcd
-	    mov soak_time+0, 	bcd+0    ;mode B 60 < t < 120
-	    mov soak_time+1, 	bcd+1
+		Mov_A_to_B16Bit(bcd, soak_time)
 	overflow_soaktime_check:
 
 	;----Reflux Checks-----------------------
 	underflow_reflowtemp:
 		;Min temp check for 
-		Mov_A_to_B(reflow_temp, bcd)
+		Mov_A_to_B16Bit(reflow_temp, bcd)
 		lcall bcd2hex
 		load_y(230) ; Our min temp for reflux
 		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_reflowtemp_check
 		load_x(230)
 	    lcall hex2bcd
-	    mov reflow_temp+0, 	bcd+0    ;  mode C 230 < t < 240
-	    mov reflow_temp+1, 	bcd+1
+		Mov_A_to_B16Bit(bcd, reflow_temp)
 	underflow_reflowtemp_check:
 
 	overflow_reflowtemp:
 		;Max temp check for 
-		Mov_A_to_B(reflow_temp,bcd)
+		Mov_A_to_B16Bit(reflow_temp,bcd)
 		lcall bcd2hex
 		load_y(240) ; Our max temp
 		lcall x_gt_y ;mf 1 if true
 		jnb mf, overflow_reflowtemp_check
 		load_x(240)
 	    lcall hex2bcd
-	    mov reflow_temp+0, 	bcd+0    ; mode C 230 < t < 240
-	    mov reflow_temp+1, 	bcd+1
+		Mov_A_to_B16Bit(bcd, reflow_temp)
 	overflow_reflowtemp_check:
 
 	underflow_reflowtime:
 		;Max temp check for 
-		Mov_A_to_B(reflow_time,bcd)
+		Mov_A_to_B16Bit(reflow_time,bcd)
 		lcall bcd2hex
 		load_y(30) ; Our max temp
 		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_reflowtime_check
 		load_x(30)
 		lcall hex2bcd
-	    mov reflow_time+0, 	bcd+0    ; mode D  30 < 45
-	    mov reflow_time+1, 	bcd+1
+		Mov_A_to_B16Bit(bcd, reflow_time)
 	underflow_reflowtime_check:
 
 	overflow_reflowtime:
 		;Max temp check for 
-		Mov_A_to_B(reflow_time,bcd)
+		Mov_A_to_B16Bit(reflow_time,bcd)
 		lcall bcd2hex
 		load_y(45) ; Our max temp
 		lcall x_gt_y ;mf 1 if true
 		jnb mf, overflow_reflowtime_check
 		load_x(45)
 		lcall hex2bcd
-	    mov reflow_time+0, 	bcd+0    ; mode D  30 < 45
-	    mov reflow_time+1, 	bcd+1
+		Mov_A_to_B16Bit(bcd, reflow_time)
 	overflow_reflowtime_check:
 
 	ret
-
-
-
-;-------MACROS--------------------;
-;Example macro to help with process %0,1,etc represents the input number, this is all pass by reference(i.e it can actually affect the variable)
-Load_X_Var32 MAC
-mov x+0, %0+0
-mov x+1, %0+1
-mov x+2, %0+2
-mov x+3, %0+3
-ENDMAC
-
-Load_Y_Var32 MAC
-mov y+0, %0+0
-mov y+1, %0+1
-mov y+2, %0+2
-mov y+3, %0+3
-ENDMAC
-
-Load_X_Var16 MAC
-mov x+0, %0+0
-mov x+1, %0+1
-mov x+2, #0
-mov x+3, #0
-ENDMAC
-
-Load_Y_Var16 MAC
-mov y+0, %0+0
-mov y+1, %0+1
-mov y+2, #0
-mov y+3, #0
-ENDMAC
-
-Load_X_Var8 MAC
-    
-mov x+0, %0+0
-mov x+1, #0
-mov x+2, #0
-mov x+3, #0
-ENDMAC
-
-Load_Y_Var8 MAC
-    
-mov y+0, %0+0
-mov y+1, #0
-mov y+2, #0
-mov y+3, #0
-ENDMAC
-
-powerPercent MAC
-	;Convert percentage of time into a time it needs to be on %0 is percentage(i.e 20 is 20%) on, %1 is total time, %2 is the time on
-	;load_x(%0)
-	mov x+0, %0
-	mov x+1, #0
-	mov x+2, #0
-	mov x+3, #0
-	;converts x to a percentage through fractions
-	Load_Y_Var16(%1)
-	lcall mul32
-	
-	load_y(100)
-	lcall div32
-	
-	mov %2+0, x+0
-	mov %2+1, x+1
-ENDMAC
-
 ;---------------------------------;
 ; Main program. Includes hardware ;
 ; initialization and 'forever'    ;
@@ -687,7 +683,11 @@ loop:
     ; ---------------------------------------------------------
     lcall hex2bcd
     lcall Display_Voltage_7seg
-    
+
+	mov x+0, V_cj+0
+	mov x+1, V_cj+1
+    mov x+2, V_cj+2
+	mov x+3, V_cj+3
     ;Set_Cursor(2,1)
     ;lcall Display_Voltage_LCD_Hex
     
