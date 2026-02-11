@@ -12,11 +12,11 @@ import xlsxwriter  # Required for professional Excel reports with charts
 import serial
 # configure the serial port
 ser = serial.Serial(
-    port='COM5',
+    port='COM8',
     baudrate=115200,
     parity=serial.PARITY_NONE,
     stopbits=serial.STOPBITS_TWO,
-   bytesize=serial.EIGHTBITS
+    bytesize=serial.EIGHTBITS
 )
 ser.isOpen()
 
@@ -93,7 +93,7 @@ def generate_excel_report(file_path):
     worksheet.insert_chart('G2', chart, {'x_scale': 1.5, 'y_scale': 2.0})
     
     workbook.close()
-    print("✅ Excel report created successfully!")
+    print("Excel report created successfully!")
 
 # --- Smart Notification Settings ---
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1471005567177986182/jn6fy27IzxZ0d9MfQwmBaPWUp83ynQLdEiD4y9NGUPayPYACDkOPIJjouZMTopHHVq_R"
@@ -134,9 +134,9 @@ def send_notification(message, file_paths=None):
                 
             # HTTP 204 or 200 means "Success" in the web world
             if response.status_code in [200, 204]:
-                print("✅ Successfully sent notification to Discord!")
+                print("Successfully sent notification to Discord!")
             else:
-                print(f"❌ Failed to send notification. Error: {response.status_code}")
+                print(f"Failed to send notification. Error: {response.status_code}")
         except Exception as e:
             print(f"Error sending notification: {e}")
 
@@ -270,6 +270,7 @@ def data_gen():
     while True:
         strin = ser.readline()
         text = strin.decode('ascii').strip()
+        print(text)
         # --- Checks tos see if done was sent-----#
         if text == "DONE":
             plt.savefig(GRAPH_FILENAME)
@@ -278,9 +279,10 @@ def data_gen():
             generate_excel_report(EXCEL_FILENAME)
         
             send_notification(
-                "@here 📊 **Process Complete!** Final Lab Report and Correlation Chart generated.", 
+                "@here **Process Complete!** Final Lab Report and Correlation Chart generated.", 
                 file_paths=[EXCEL_FILENAME, GRAPH_FILENAME]
             )
+        
             continue   # We then proceed like normal
         
         # Check if it's a profile command
@@ -307,6 +309,25 @@ def data_gen():
                 micro_val = float(text)
                 multi_val = profile_params.get('soak_temp', 0) # Use target as reference if only 1 value
                 diff_val = multi_val - micro_val
+
+            # --- The "Secret Handshake" (Sentinel Value Detection) ---
+            # The 8051 sends 999.9 degrees when the timer hits zero.
+            if micro_val == 999.9:
+                # 1. Capture the current Matplotlib live chart as a backup image
+                plt.savefig(GRAPH_FILENAME)
+                print(f"Live graph snapshot saved: {GRAPH_FILENAME}")
+                
+                # 2. Build the high-tier professional Excel report
+                generate_excel_report(EXCEL_FILENAME)
+
+                # 3. Send BOTH the professional Excel file and the live graph PNG to Discord
+                send_notification(
+                    "@here  **Process Complete!** Final Lab Report and Correlation Chart generated.", 
+                    file_paths=[EXCEL_FILENAME, GRAPH_FILENAME]
+                )
+                
+                # Skip plotting the secret code
+                continue 
             
             # --- Real-Time Data Storage ---
             t_seconds = (t + 1) * 0.25
