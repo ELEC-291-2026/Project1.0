@@ -16,7 +16,7 @@ TIMER2_RELOAD  EQU (65536-(CLK/(12*TIMER2_RATE)))  ; 1ms tick
 ; -------------------------
 ; Pick your speaker pin here
 ; -------------------------
-SPEAKER        BIT P1.0    
+SPEAKER        BIT P0.4  
 
 ; ============================================================
 ; Interrupt vectors
