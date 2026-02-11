@@ -4,7 +4,6 @@
 * Microcontroller: DE10-Lite/DE1-SoC
 
 ## Tasks
-- Start/Stop button
 - Display Room temp and Oven temp on De-10 LCD, and display time and current state on lcd
 - Speaker with 1 beep when in new state and 5 beeps when done
 
