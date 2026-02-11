@@ -109,30 +109,32 @@ Timer0_Init:
     setb TR0  ; Start timer 0
 	ret
 
-;---------------------------------;
-; ISR for timer 0.  Runs every ms ;
-;---------------------------------;
 Timer0_ISR:
-	clr TR0
-	mov TH0, #high(TIMER0_RELOAD)
-	mov TL0, #low(TIMER0_RELOAD)
-	setb TR0
-	
-	; Increment the timers for each FSM. That is all we do here!
-	inc FSM_timer 
-	
-	mov a, FSM_timer
-	cjne a, #250, FSM_timer_done
-	
-	setb QuarterSecondsFlag
-	
-	inc QuarterSecondsCounter
-	mov FSM_timer, #0x00
-	
-	mov a, QuarterSecondsCounter
-	cjne a, #4, FSM_timer_done
-	
-	mov QuarterSecondsCounter, #0x00
+    clr TR0
+    ; Use dynamic reload values for the pitch
+    mov TH0, tone_rh
+    mov TL0, tone_rl
+    setb TR0
+    cpl SOUND_OUT
+    
+    ; Increment the timers for each FSM
+    inc FSM_timer 
+    
+    ; --- CORRECTED BEEP DURATION LOGIC ---
+    ; This must be outside the #250 check to work!
+    mov a, FSM_timer
+    cjne a, #100, skip_stop_sound ; Stop sound after 100ms
+    clr TR0                       ; Stop the timer to kill sound
+    clr SOUND_OUT                 ; Ensure pin is low
+skip_stop_sound:
+
+    mov a, FSM_timer
+    cjne a, #250, FSM_timer_done
+    
+    setb QuarterSecondsFlag
+    inc QuarterSecondsCounter
+    mov FSM_timer, #0x00
+
 	inc SecondsCounter
 	inc SecondsCounterTotal ; USE THIS FOR THE TOTAL TIMER. IT NEVER RESETS SO DONT WORRY
 	
