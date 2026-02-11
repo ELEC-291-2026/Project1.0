@@ -1169,11 +1169,18 @@ FSM_state5:
 		mov dptr, #DONE
     	lcall SendString
 
+		mov a, #'\r'
+  		lcall putchar
+    	mov a, #'\n'
+   		lcall putchar
+		
+
 
 	FSM_done:
 	ljmp loop
 	
 
 END
+
 
 
