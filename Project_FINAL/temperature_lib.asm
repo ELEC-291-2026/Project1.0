@@ -261,16 +261,131 @@ Display_Voltage_LCD_Hex:
     
     
 WriteInitialVals:
-    mov dptr, #Initial_Message
+    ;Format: PROFILE,soak_temp,soak_time,reflow_temp,reflow_time[,peak_temp][,heating_rate][,cooling_rate]
+    mov dptr, #Profile
     lcall SendString
+
+    ;--------------------------------SOAK TEMP-------------------------------
+    ; 1. Display Hundreds Digit (from bcd+1 high nibble)
+    mov a, soak_temp+1
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 2. Display Tens Digit (from bcd+1 low nibble)
+    mov a, soak_temp+1
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 3. Display Ones Digit (from bcd+0 high nibble)
+    mov a, soak_temp+0
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 5. Display Tenths Digit (from bcd+0 low nibble)
+    mov a, soak_temp+0
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    mov a, #','
+    lcall putchar
+
+    ;----------------------- SOAK TIME------------------------
+    mov a, soak_time+1
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 2. Display Tens Digit (from bcd+1 low nibble)
+    mov a, soak_time+1
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 3. Display Ones Digit (from bcd+0 high nibble)
+    mov a, soak_time+0
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 5. Display Tenths Digit (from bcd+0 low nibble)
+    mov a, soak_time+0
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    mov a, #','
+    lcall putchar
+
+    ;----------------------------- REFLOW TEMP---------------------------------------
+    mov a, reflow_temp+1
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 2. Display Tens Digit (from bcd+1 low nibble)
+    mov a, reflow_temp+1
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 3. Display Ones Digit (from bcd+0 high nibble)
+    mov a, reflow_temp+0
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 5. Display Tenths Digit (from bcd+0 low nibble)
+    mov a, reflow_temp+0
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    mov a, #','
+    lcall putchar
+
+    ;----------------------------------- REFLOW TIME------------------------
+    mov a, reflow_time+1
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 2. Display Tens Digit (from bcd+1 low nibble)
+    mov a, reflow_time+1
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 3. Display Ones Digit (from bcd+0 high nibble)
+    mov a, reflow_time+0
+    swap a
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    ; 5. Display Tenths Digit (from bcd+0 low nibble)
+    mov a, reflow_time+0
+    anl a, #0FH
+    orl a, #'0'
+    lcall putchar
+
+    mov a, #','
+    lcall putchar
+
     mov a, #'\r'
     lcall putchar
     mov a, #'\n'
     lcall putchar
-
-
-
-
 
     ret
 END

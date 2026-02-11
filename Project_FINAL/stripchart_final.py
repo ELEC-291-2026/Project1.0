@@ -5,6 +5,8 @@ import sys, time, math
 from matplotlib.collections import LineCollection
 import matplotlib.cm as cm
 
+global flag 
+
 import serial
 # configure the serial port
 ser = serial.Serial(
@@ -13,6 +15,7 @@ ser = serial.Serial(
     parity=serial.PARITY_NONE,
     stopbits=serial.STOPBITS_TWO,
     bytesize=serial.EIGHTBITS
+    flag = 0
 )
 ser.isOpen()
 

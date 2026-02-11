@@ -26,6 +26,7 @@ org 0x000B
 	ljmp Timer0_ISR
 
 Profile:  db 'Profile,', 0
+Comma:    db ',', 0
 
 dseg at 0x30
 ; For math 
@@ -676,6 +677,7 @@ FSM_state0:
 		
 		clr EA
 		lcall Over_Under_Check_Rewrite
+		lcall WriteInitialVals
 		setb EA
 	
 		mov active_param, #0
