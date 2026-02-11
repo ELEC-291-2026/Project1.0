@@ -31,6 +31,7 @@ org 0x000B
 Profile:  db 'PROFILE,', 0
 Comma:    db ',', 0
 Clear_Message:  db '                ', 0
+DONE:    db 'DONE', 0
 
 S0_TXT: db 'INIT   ', 0
 S1_TXT: db 'RAMP1  ', 0
@@ -1168,8 +1169,12 @@ FSM_state5:
 		lcall putchar
 
 	FSM_done:
+	;Just added this to fix discrod integration
+	mov dptr, #DONE
+    lcall SendString
 
 	ljmp loop
 	
 
 END
+
