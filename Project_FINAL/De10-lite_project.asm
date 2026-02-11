@@ -63,6 +63,9 @@ QuarterSecondsCounter: ds 1
 SecondsCounter: ds 1
 SecondsCounterTotal: ds 1
 MinutesCounterTotal: ds 1
+
+SecondsCounterState: ds 1
+MinutesCounterState: ds 1
 ; Each FSM has its own state counter
 FSM_state:  ds 1
 Timer0Reload:   ds 2
@@ -82,6 +85,7 @@ $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
 $include(keypad_lib_3.asm)
 $include(temperature_lib.asm)
+$include(lcd_lib.asm)
 $include(song.asm)
 
 
@@ -169,12 +173,18 @@ Timer0_ISR:
 	
 	mov QuarterSecondsCounter, #0x00
 	inc SecondsCounter
+	inc SecondsCounterState
 	inc SecondsCounterTotal ; USE THIS FOR THE TOTAL TIMER. IT NEVER RESETS SO DONT WORRY
 	
 	mov a, SecondsCounterTotal
-	cjne a, #60, FSM_timer_done
+	cjne a, #60, second_state_check
 	inc MinutesCounterTotal
 	mov SecondsCounterTotal, #0x00
+	
+	second_state_check:
+	cjne a, #60, FSM_timer_done
+	inc MinutesCounterState
+	mov SecondsCounterState, #0x00
 	
 FSM_timer_done:
 	reti
@@ -700,14 +710,24 @@ FSM_state0:
 	clr SSR_PIN
 	setb State0Flag
 	
+		
+	Set_Cursor(1,1)
+	Display_BCD(MinutesCounterState)
+	
+	Display_char(#'.')
+	
+	Display_BCD(SecondsCounterState)
+	
+	
+	
 	clr EA
 	lcall Keypad
     lcall Display
     jnc  skip_keypad
     lcall Shift_Digits_Left
-   
 	skip_keypad:
-		setb EA
+	
+	setb EA
 	
 	jb SWA.0, FSM_done_state_0_skip
 	
@@ -978,6 +998,9 @@ FSM_state5:
 		
 				
 		lcall Play_song
+		
+		mov a, #'0'
+		lcall putchar
 
 	FSM_done:
 
