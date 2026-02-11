@@ -38,9 +38,9 @@ R_F5  EQU 0F83Bh   ; 698.46 Hz (Fa)
 R_Fs5 EQU 0F8ACh   ; 739.99 Hz (Fa Sharp)
 R_G5  EQU 0F914h   ; 783.99 Hz (Sol)
 R_Gs5 EQU 0F97Bh   ; 830.61 Hz (Sol Sharp)
-R_A5  EQU 0F9D6h   ; 
-R_As5 EQU 0FA31h
-R_B5  EQU 0FA82h
+R_A5  EQU 0F9D6h   ; 880.00 Hz (La)
+R_As5 EQU 0FA31h   ; 932.33 Hz (La Sharp)
+R_B5  EQU 0FA82h   ; 987.77 Hz (Si)
 R_C6  EQU 0FAD0h   ; 1046.50 Hz (Do - higher octave)
 
 
