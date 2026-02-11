@@ -10,35 +10,6 @@ CLK           EQU 33333333 ; Microcontroller system crystal frequency in Hz
 TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD EQU ((65536-(CLK/(12*TIMER2_RATE))))
 
-SOUND_OUT     equ P0.4
-
-; Reset vector
-org 0x0000
-    ljmp main
-
-; External interrupt 0 vector (not used in this code)
-org 0x0003
-	reti
-
-; Timer/Counter 0 overflow interrupt vector
-org 0x000B
-	ljmp Timer0_ISR
-
-; External interrupt 1 vector (not used in this code)
-org 0x0013
-	reti
-
-; Timer/Counter 1 overflow interrupt vector (not used in this code)
-org 0x001B
-	reti
-
-; Serial port receive/transmit interrupt vector (not used in this code)
-org 0x0023 
-	reti
-	
-; Timer/Counter 2 overflow interrupt vector
-org 0x002B
-	ljmp Timer2_ISR
 
 ; Variables
 dseg at 0x30
