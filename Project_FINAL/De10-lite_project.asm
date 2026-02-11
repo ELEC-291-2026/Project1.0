@@ -76,6 +76,7 @@ state_flag	: dbit 1
 QuarterSecondsFlag : dbit 1
 State0Flag : dbit 1
 SpeakerFlag : dbit 1
+SongFlag : dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
@@ -83,6 +84,8 @@ $include(keypad_lib_3.asm)
 $include(temperature_lib.asm)
 $include(lcd_lib.asm)
 $include(song.asm)
+
+
 cseg
 ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
 ELCD_RS equ P1.7
@@ -96,7 +99,10 @@ START_BUTTON equ P0.2
 SOUND_OUT equ P0.4
 
 
-Initial_Message:  db 'Temperature Test', 0
+Initial_Message:  db 'Tmperature Test', 0
+
+
+
 cseg
 ;----------------------FUNCTIONS----------------
 ;---------------------------------;
@@ -121,11 +127,28 @@ Timer0_Init:
 ; ISR for timer 0.  Runs every ms ;
 ;---------------------------------;
 Timer0_ISR:
+
+
+	jb SongFlag, play_song_timers
+	
 	clr TR0
 	mov TH0, #high(TIMER0_RELOAD)
 	mov TL0, #low(TIMER0_RELOAD)
 	setb TR0
-
+	
+	sjmp skip_song_timers
+	
+	play_song_timers:
+	
+	clr TR0
+	mov TH0, tone_rh
+	mov TL0, tone_rl
+	setb TR0
+	
+	skip_song_timers:
+	
+	
+	
 	jnb SpeakerFlag, skip_speaker
 	cpl SOUND_OUT
 	skip_speaker:
@@ -159,6 +182,9 @@ FSM_timer_done:
 ;---------------------------------;
 ; Initialize Serial Port          ;
 ;---------------------------------;
+
+
+
 ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
 T_7seg:
     DB 0C0H, 0F9H, 0A4H, 0B0H, 099H, 092H, 082H, 0F8H, 080H, 090H
@@ -177,6 +203,7 @@ Display_BCD_7_Seg_HEX10:
 	anl a, #0FH
 	movc a, @a+dptr
 	mov HEX0, a
+	
 	ret
 
 ; Displays a BCD number pased in R0 in HEX3-HEX2
@@ -193,6 +220,7 @@ Display_BCD_7_Seg_HEX32:
 	anl a, #0FH
 	movc a, @a+dptr
 	mov HEX2, a
+	
 	ret
 
 ; Displays a BCD number pased in R0 in HEX5-HEX4
@@ -209,6 +237,7 @@ Display_BCD_7_Seg_HEX54:
 	anl a, #0FH
 	movc a, @a+dptr
 	mov HEX4, a
+	
 	ret
 
 ; The 8-bit hex number passed in the accumulator is converted to
@@ -344,47 +373,49 @@ Over_Under_Check_Rewrite:
 
 	ret
 
+
+
 ;-------MACROS--------------------;
 Load_X_Var32 MAC
-mov x+0, %0+0
-mov x+1, %0+1
-mov x+2, %0+2
-mov x+3, %0+3
+	mov x+0, %0+0
+	mov x+1, %0+1
+	mov x+2, %0+2
+	mov x+3, %0+3
 ENDMAC
 
 Load_Y_Var32 MAC
-mov y+0, %0+0
-mov y+1, %0+1
-mov y+2, %0+2
-mov y+3, %0+3
+	mov y+0, %0+0
+	mov y+1, %0+1
+	mov y+2, %0+2
+	mov y+3, %0+3
 ENDMAC
 
 Load_X_Var16 MAC
-mov x+0, %0+0
-mov x+1, %0+1
-mov x+2, #0
-mov x+3, #0
+	mov x+0, %0+0
+	mov x+1, %0+1
+	mov x+2, #0
+	mov x+3, #0
 ENDMAC
 
 Load_Y_Var16 MAC
-mov y+0, %0+0
-mov y+1, %0+1
-mov y+2, #0
-mov y+3, #0
+	mov y+0, %0+0
+	mov y+1, %0+1
+	mov y+2, #0
+	mov y+3, #0
 ENDMAC
 
 Load_X_Var8 MAC
-mov x+0, %0+0
-mov x+1, #0
-mov x+2, #0
-mov x+3, #0
+	mov x+0, %0+0
+	mov x+1, #0
+	mov x+2, #0
+	mov x+3, #0
 ENDMAC
 
 Load_Y_Var8 MAC
-mov y+0, %0+0
-mov y+1, #0
-mov y+2, #0
-mov y+3, #0
+	mov y+0, %0+0
+	mov y+1, #0
+	mov y+2, #0
+	mov y+3, #0
 ENDMAC
 
 powerPercent MAC
@@ -407,6 +438,7 @@ ENDMAC
 ; initialization and 'forever'    ;
 ; loop.                           ;
 ;---------------------------------;
+
 Initial_ALL:
 
    	clr EA ;disables global interupts
@@ -429,6 +461,7 @@ Initial_ALL:
 	clr QuarterSecondsFlag
 	setb State0Flag
 	clr SpeakerFlag
+	clr SongFlag
 	
 	mov MinutesCounterTotal, #0x00
 	mov SecondsCounterTotal, #0x00
@@ -437,10 +470,8 @@ Initial_ALL:
     mov  Timer0Reload+1, #high(TONE_4096)
     mov  Timer0Reload+0, #low(TONE_4096)
     
-    load_x(300)
-    lcall hex2bcd
-    mov soak_temp+0, 	bcd+0
-    mov soak_temp+1, 	bcd+1
+    mov soak_temp+0, 	#0
+    mov soak_temp+1, 	#0
 
 	mov soak_time+0, 	#0
 	mov soak_time+1, 	#0
@@ -468,17 +499,17 @@ Initial_ALL:
 	
 	mov active_param, #0
 		
-	clr EA ;From many hours of pain we just disable EA whenever we do anythibg mathy
+	clr EA
     lcall Load_Param_Into_BCD
     lcall Configure_Keypad_Pins
     setb EA
 
 	setb EA ;enables global interupts
+	
 	ret
 	
 	
 main:
-	;Initial messages and stuff that only runs once at the beggining
 	mov P0MOD, #10111011b
     mov P1MOD, #10000010b
 	lcall Initial_ALL
@@ -501,6 +532,7 @@ main:
 	mov ADC_C, #0x80
 	lcall Wait25ms
 	
+	
 loop:
 	
 	ljmp skip_debug_stuff 
@@ -520,6 +552,7 @@ loop:
 		lcall hex2bcd
 		mov R0, bcd+0
 		lcall Display_BCD_7_Seg_HEX54
+		
 		setb EA
 	
 	skip_debug_stuff:
@@ -534,7 +567,6 @@ loop:
 	skiptemoteteipj:
 	
 	clr QuarterSecondsFlag
-	
 	clr EA
 	
     mov ADC_C, #LM335_ADC
@@ -945,25 +977,7 @@ FSM_state5:
 		mov FSM_state, #0x00
 		
 				
-		setb SpeakerFlag
-		lcall Wait25ms
-		lcall Wait25ms
-		clr SpeakerFlag
-		
-		setb SpeakerFlag
-		lcall Wait25ms
-		lcall Wait25ms
-		clr SpeakerFlag
-				
-		setb SpeakerFlag
-		lcall Wait25ms
-		lcall Wait25ms
-		clr SpeakerFlag
-					
-		setb SpeakerFlag
-		lcall Wait25ms
-		lcall Wait25ms
-		clr SpeakerFlag
+		lcall Play_song
 
 	FSM_done:
 
