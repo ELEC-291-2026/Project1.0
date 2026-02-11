@@ -468,10 +468,8 @@ loop:
 	skip_debug_stuff:
 
 	clr EA
+	
 	underflow_soaktemp:
-		;Min temp check for 
-		mov a, FSM_State
-		cjne a, #0, underflow_soaktemp_check
 		Mov_A_to_B(soak_temp, bcd)
 		lcall bcd2hex
 		load_y(130) ; Our min temp
@@ -485,13 +483,11 @@ loop:
 
 	overflow_soaktemp:
 		;Max temp check for 
-		mov a, FSM_State
-		cjne a, #0, underflow_soaktemp_check
 		Mov_A_to_B(soak_temp,bcd)
 		lcall bcd2hex
 		load_y(170) ; Our max temp
 		lcall x_gt_y ;mf 1 if true
-		jnb mf, underflow_soaktemp_check
+		jnb mf, overflow_soaktemp_check
 		load_x(170)
 	    lcall hex2bcd
 	    mov soak_temp+0, 	bcd+0    ; mode A 150 +-20
@@ -500,13 +496,11 @@ loop:
 
 	underflow_soaktime:
 		;Max temp check for 
-		mov a, FSM_State
-		cjne a, #0, underflow_soaktime_check
-		Mov_A_to_B(soak_temp,bcd)
+		Mov_A_to_B(soak_time,bcd)
 		lcall bcd2hex
 		load_y(60) ; Our min time
 		lcall x_gt_y ;mf 1 if true
-		jnb mf, underflow_soaktemp_check
+		jnb mf, underflow_soaktime_check
 		load_x(60)
 		lcall hex2bcd
 	    mov soak_time+0, 	bcd+0    ;mode B 60 < t < 120
@@ -515,9 +509,7 @@ loop:
 
 	overflow_soaktime:
 		;Max temp check for 
-		mov a, FSM_State
-		cjne a, #0, underflow_soaktemp_check
-		Mov_A_to_B(soak_temp,bcd)
+		Mov_A_to_B(soak_time,bcd)
 		lcall bcd2hex
 		load_y(120) ; Our max time
 		lcall x_gt_y ;mf 1 if true
@@ -529,65 +521,57 @@ loop:
 	overflow_soaktime_check:
 
 	;----Reflux Checks-----------------------
-	underflow_refluxtemp:
+	underflow_reflowtemp:
 		;Min temp check for 
-		mov a, FSM_State
-		cjne a, #0, underflow_refluxtemp_check
-		Mov_A_to_B(reflux_temp, bcd)
+		Mov_A_to_B(reflow_temp, bcd)
 		lcall bcd2hex
 		load_y(230) ; Our min temp for reflux
 		lcall x_lt_y ;mf 1 if true
-		jnb mf, underflow_refluxtemp_check
+		jnb mf, underflow_reflowtemp_check
 		load_x(230)
 	    lcall hex2bcd
-	    mov reflux_temp+0, 	bcd+0    ;  mode C 230 < t < 240
-	    mov reflux_temp+1, 	bcd+1
-	underflow_refluxtemp_check:
+	    mov reflow_temp+0, 	bcd+0    ;  mode C 230 < t < 240
+	    mov reflow_temp+1, 	bcd+1
+	underflow_reflowtemp_check:
 
-	overflow_refluxtemp:
+	overflow_reflowtemp:
 		;Max temp check for 
-		mov a, FSM_State
-		cjne a, #0, underflow_refluxtemp_check
-		Mov_A_to_B(reflux_temp,bcd)
+		Mov_A_to_B(reflow_temp,bcd)
 		lcall bcd2hex
 		load_y(240) ; Our max temp
 		lcall x_gt_y ;mf 1 if true
-		jnb mf, underflow_refluxtemp_check
+		jnb mf, overflow_reflowtemp_check
 		load_x(240)
 	    lcall hex2bcd
-	    mov reflux_temp+0, 	bcd+0    ; mode C 230 < t < 240
-	    mov reflux_temp+1, 	bcd+1
-	overflow_refluxtemp_check:
+	    mov reflow_temp+0, 	bcd+0    ; mode C 230 < t < 240
+	    mov reflow_temp+1, 	bcd+1
+	overflow_reflowtemp_check:
 
-	underflow_refluxtime:
+	underflow_reflowtime:
 		;Max temp check for 
-		mov a, FSM_State
-		cjne a, #0, underflow_soaktime_check
-		Mov_A_to_B(soak_temp,bcd)
+		Mov_A_to_B(reflow_time,bcd)
 		lcall bcd2hex
 		load_y(30) ; Our max temp
 		lcall x_gt_y ;mf 1 if true
-		jnb mf, underflow_soaktemp_check
+		jnb mf, underflow_reflowtime_check
 		load_x(30)
 		lcall hex2bcd
-	    mov soak_time+0, 	bcd+0    ; mode D  30 < 45
-	    mov soak_time+1, 	bcd+1
-	underflow_refluxtime_check:
+	    mov reflow_time+0, 	bcd+0    ; mode D  30 < 45
+	    mov reflow_time+1, 	bcd+1
+	underflow_reflowtime_check:
 
-	overflow_refluxtime:
+	overflow_reflowtime:
 		;Max temp check for 
-		mov a, FSM_State
-		cjne a, #0, underflow_soaktemp_check
-		Mov_A_to_B(soak_temp,bcd)
+		Mov_A_to_B(reflow_time,bcd)
 		lcall bcd2hex
 		load_y(45) ; Our max temp
 		lcall x_gt_y ;mf 1 if true
-		jnb mf, overflow_soaktime_check
+		jnb mf, overflow_reflowtime_check
 		load_x(45)
 		lcall hex2bcd
-	    mov soak_time+0, 	bcd+0    ; mode D  30 < 45
-	    mov soak_time+1, 	bcd+1
-	overflow_refluxtime_check:
+	    mov reflow_time+0, 	bcd+0    ; mode D  30 < 45
+	    mov reflow_time+1, 	bcd+1
+	overflow_reflowtime_check:
 
 	setb EA
 
