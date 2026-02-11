@@ -3,17 +3,17 @@
 
 CSEG
 
-InitSerialPort:
-    ; Configure serial port and baud rate using Timer 1
-    clr TR1              ; Disable timer 1
-    anl TMOD, #0FH       ; Clear timer 1 mode bits
-    orl TMOD, #20H       ; Set timer 1 to mode 2 (8-bit auto-reload)
-    mov TH1, #high(T1LOAD)     ; Load reload value
-    mov TL1, #low(T1LOAD); Load initial value
-    setb TR1             ; Enable timer 1
-    mov SCON, #52H       ; Configure serial port (mode 1, REN=1)
-    ret
 
+InitSerialPort:
+	; Configure serial port and baud rate
+	clr TR2 ; Disable timer 2
+	mov T2CON, #30H ; RCLK=1, TCLK=1
+	mov RCAP2H, #high(T2LOAD)  
+	mov RCAP2L, #low(T2LOAD)
+	setb TR2 ; Enable timer 2
+	mov SCON, #52H
+	ret
+	
 putchar:
     JNB TI, putchar
     CLR TI
