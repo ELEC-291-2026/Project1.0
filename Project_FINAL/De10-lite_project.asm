@@ -53,6 +53,7 @@ active_param:   ds 1
 FSM_timer:  ds 1
 QuarterSecondsCounter: ds 1
 SecondsCounter: ds 1
+half_seconds_flag: dbit 1 ; Set to one in the ISR every time 500 ms had passed
 SecondsCounterTotal: ds 1
 MinutesCounterTotal: ds 1
 ; Each FSM has its own state counter
