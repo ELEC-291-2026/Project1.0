@@ -768,10 +768,12 @@ FSM_state0:
 		ljmp FSM_done
 		
 	FSM_done_state_0_Skip:
+		
+		clr EA
+		lcall Over_Under_Check_Rewrite
+		setb EA
 	
-	clr EA
-	lcall Over_Under_Check_Rewrite
-	setb EA
+		mov active_param, #0
 	
 		setb state_flag
 		clr State0Flag
