@@ -143,13 +143,13 @@ def send_notification(message, file_paths=None):
 # Default reflow profile parameters (will be updated from serial)
 profile_params = {
     'preheat_temp': 150,      # C
-    'preheat_time': 20,       # seconds
+    'preheat_time': 30,       # seconds
     'soak_temp': 140,         # C
     'soak_time': 150,          # seconds (total time at end of soak)
     'reflow_temp': 235,       # C
     'reflow_time': 30,        # seconds above reflow
     'peak_temp': 240,         # C
-    'heating_rate': 2,      # C/s - maximum heating rate
+    'heating_rate': 1.5,      # C/s - maximum heating rate
     'cooling_rate': 1         # C/s - cooling rate
 }
 
