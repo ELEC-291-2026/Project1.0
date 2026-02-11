@@ -9,7 +9,7 @@ TIMER0_RATE   	EQU 1000     ; 1000Hz, for a timer tick of 1ms
 TIMER0_RELOAD 	EQU ((65536-(CLK/(12*TIMER0_RATE))))
 FREQ   			EQU 33333333
 BAUD   			EQU 115200
-T1LOAD 			EQU 256-(FREQ/(32*12*BAUD))
+T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
 
 ;PIN Assignemet
 ;Need to figure out wich ADC pins the LM335 and OP07 are on 
@@ -606,6 +606,7 @@ loop:
     lcall hex2bcd
     lcall Display_Voltage_7seg
     lcall Display_Voltage_LCD
+    lcall Display_Voltage_Serial
     
 	setb EA
 	
