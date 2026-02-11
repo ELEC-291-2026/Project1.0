@@ -86,7 +86,7 @@ $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and u
 $include(keypad_lib_3.asm)
 $include(temperature_lib.asm)
 ;$include(lcd_lib.asm)
-$include(song.asm)
+$include(Song.asm)
 
 
 cseg
