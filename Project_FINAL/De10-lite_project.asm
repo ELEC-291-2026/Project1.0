@@ -646,7 +646,8 @@ FSM_state0:
 	ljmp FSM_state1
 	
 	FSM_state1_skip_move:
-	
+	setb LEDRA.0
+	clr SSR_PIN
 	setb State0Flag
 	
 	clr EA
@@ -658,10 +659,6 @@ FSM_state0:
 	skip_keypad:
 		setb EA
 	
-	noChange:
-		setb LEDRA.0
-		clr SSR_PIN
-
 	jb SWA.0, FSM_done_state_0_skip
 	
 	jb START_BUTTON, FSM_done_state_0_Continue
