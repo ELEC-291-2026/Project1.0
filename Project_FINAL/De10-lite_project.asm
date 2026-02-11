@@ -76,6 +76,11 @@ state_flag	: dbit 1
 QuarterSecondsFlag : dbit 1
 State0Flag : dbit 1
 SpeakerFlag : dbit 1
+screen_flag     : dbit 1  ; 0=PARAMS screen, 1=STATUS screen
+lcd_redraw_flag : dbit 1  ; 1=request full redraw on next refresh tick
+toggle_lock     : dbit 1  ; prevents repeat toggles while held (non-blocking)
+
+
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
@@ -93,6 +98,9 @@ ELCD_D7 equ P0.1
 SSR_PIN equ P0.0
 START_BUTTON equ P0.2
 SOUND_OUT equ P0.4
+TOGGLE_BUTTON  equ P1.5   ; active-low pushbutton on P1.5 (pressed = 0)
+
+; Add these to your CSEG at the end of the file
 
 
 Initial_Message:  db 'Tmperature Test', 0
@@ -100,6 +108,7 @@ Initial_Message:  db 'Tmperature Test', 0
 
 
 cseg
+
 ;----------------------FUNCTIONS----------------
 ;---------------------------------;
 ; Routine to initialize the ISR   ;
@@ -122,46 +131,74 @@ Timer0_Init:
 ;---------------------------------;
 ; ISR for timer 0.  Runs every ms ;
 ;---------------------------------;
-Timer0_ISR:
-	clr TR0
-	mov TH0, #high(TIMER0_RELOAD)
-	mov TL0, #low(TIMER0_RELOAD)
-	setb TR0
-	
-	
-	
-	
-	jnb SpeakerFlag, skip_speaker
-	cpl SOUND_OUT
-	skip_speaker:
-	
-	; Increment the timers for each FSM. That is all we do here!
-	inc FSM_timer 
-	
-	mov a, FSM_timer
-	cjne a, #250, FSM_timer_done
-	
-	setb QuarterSecondsFlag
-	
-	inc QuarterSecondsCounter
-	mov FSM_timer, #0x00
-	
-	mov a, QuarterSecondsCounter
-	cjne a, #4, FSM_timer_done
-	
-	mov QuarterSecondsCounter, #0x00
-	inc SecondsCounter
-	inc SecondsCounterTotal ; USE THIS FOR THE TOTAL TIMER. IT NEVER RESETS SO DONT WORRY
-	
-	mov a, SecondsCounterTotal
-	cjne a, #60, FSM_timer_done
-	inc MinutesCounterTotal
-	mov SecondsCounterTotal, #0x00
-	
-FSM_timer_done:
-	reti
-
 ;---------------------------------;
+; ISR for timer 0.  Runs every ms ;
+;---------------------------------;
+Timer0_ISR:
+    ; ---- SAVE CONTEXT (critical for LCD/DPTR safety) ----
+    push acc
+    push psw
+    push b
+    push dpl
+    push dph
+    push 0
+    push 1
+    push 2
+    push 3
+    push 4
+    push 5
+    push 6
+    push 7
+
+    clr TR0
+    mov TH0, #high(TIMER0_RELOAD)
+    mov TL0, #low(TIMER0_RELOAD)
+    setb TR0
+
+    jnb SpeakerFlag, skip_speaker
+    cpl SOUND_OUT
+skip_speaker:
+
+    ; Increment the timers for each FSM. That is all we do here!
+    inc FSM_timer
+
+    mov a, FSM_timer
+    cjne a, #250, FSM_timer_done
+
+    setb QuarterSecondsFlag
+
+    inc QuarterSecondsCounter
+    mov FSM_timer, #0x00
+
+    mov a, QuarterSecondsCounter
+    cjne a, #4, FSM_timer_done
+
+    mov QuarterSecondsCounter, #0x00
+    inc SecondsCounter
+    inc SecondsCounterTotal
+
+    mov a, SecondsCounterTotal
+    cjne a, #60, FSM_timer_done
+    inc MinutesCounterTotal
+    mov SecondsCounterTotal, #0x00
+
+FSM_timer_done:
+    ; ---- RESTORE CONTEXT ----
+    pop 7
+    pop 6
+    pop 5
+    pop 4
+    pop 3
+    pop 2
+    pop 1
+    pop 0
+    pop dph
+    pop dpl
+    pop b
+    pop psw
+    pop acc
+    reti
+
 ; Initialize Serial Port          ;
 ;---------------------------------;
 ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
@@ -439,8 +476,13 @@ Initial_ALL:
 	setb state_flag
 	clr QuarterSecondsFlag
 	setb State0Flag
-	clr SpeakerFlag
+		clr SpeakerFlag
 	
+    clr screen_flag
+    setb lcd_redraw_flag   ; force first draw on first refresh
+    clr toggle_lock
+
+
 	mov MinutesCounterTotal, #0x00
 	mov SecondsCounterTotal, #0x00
     mov QuarterSecondsCounter, #0x00
@@ -536,6 +578,35 @@ loop:
 	
 	skip_debug_stuff:
 
+	
+	;========================
+; [BLOCK 4] BUTTON TOGGLE (drop inside loop: ... somewhere after skip_debug_stuff:)
+;========================
+Check_Screen_Toggle:
+    ; If released, re-arm and exit
+    jb  TOGGLE_BUTTON, Toggle_Released
+
+    ; Pressed (low). If already toggled while held, do nothing.
+    jb  toggle_lock, ScreenToggle_Done
+
+    ; Debounce the press
+    lcall Wait25ms
+    jb  TOGGLE_BUTTON, ScreenToggle_Done   ; bounced back high -> ignore
+
+    ; Valid press -> toggle once
+    setb toggle_lock
+    cpl  screen_flag
+    setb lcd_redraw_flag
+    setb state_flag                        ; optional
+
+    sjmp ScreenToggle_Done
+
+Toggle_Released:
+    clr toggle_lock
+
+ScreenToggle_Done:
+
+
 
 	jb State0Flag, skiptemptemptemp
 	jnb QuarterSecondsFlag, skiptemptemptemp
@@ -545,8 +616,15 @@ loop:
 	ljmp skiptemptemptemptemp
 	skiptemoteteipj:
 	
-	clr QuarterSecondsFlag
-	clr EA
+clr QuarterSecondsFlag
+clr EA
+
+    ; We are already in the QuarterSecondsFlag-triggered block,
+    ; so just render once right here:
+    lcall LCD_Render
+
+LCD_Refresh_Done:
+
 	
     mov ADC_C, #LM335_ADC
 
@@ -629,9 +707,13 @@ loop:
 
     lcall hex2bcd
     lcall Display_Voltage_7seg
-    lcall Display_Voltage_LCD
-    lcall Display_Voltage_Serial
     
+    ; --- NEW: Prevent the temperature from fighting the state update ---
+    jb state_flag, skip_lcd_temp ; If we are currently changing states, wait one frame
+    lcall Display_Voltage_LCD    ; Now we call the LCD display
+skip_lcd_temp:
+
+    lcall Display_Voltage_Serial
 	setb EA
 	
 	skiptemptemptemptemp:
@@ -648,25 +730,27 @@ loop:
 
     
 ;-------------------------------------------------------------------------------
-;FSM
+; FSM State Transition Logic - Handles LCD Updates and Timer Reset
 ;-------------------------------------------------------------------------------
-
 	jnb state_flag, no_new_state
 	
-		clr state_flag
-		clr EA
-		mov SecondsCounter, #0x00
-		setb EA
-		
-		setb SpeakerFlag
-		lcall Wait25ms
-		lcall Wait25ms
-		clr SpeakerFlag
-	no_new_state:
+    clr state_flag
+    clr EA
+    mov SecondsCounter, #0x00
+    setb EA
+    
+    setb SpeakerFlag
+    lcall Wait25ms
+    lcall Wait25ms
+    clr SpeakerFlag
+
+   lcall Update_LCD_State
+no_new_state:
 
 	mov LEDRA, #0
 
 FSM_state0:
+
 	mov a, FSM_state
 	cjne a, #0, FSM_state1_continue_move
 	sjmp FSM_state1_skip_move
@@ -714,6 +798,7 @@ FSM_state0:
 	ljmp FSM_done
 
 FSM_state1:	
+	
 	mov a, FSM_state
 	cjne a, #1, FSM_state2_continue_move
 	sjmp FSM_state2_skip_move
@@ -978,6 +1063,101 @@ FSM_state5:
 
 	FSM_done:
 
-	ljmp loop
+	ljmp loop ;
+
+; --- Put this right before S0_TXT ---
+Update_LCD_State:
+    ; --- Step A: Clear Row 1 only ---
+    Set_Cursor(1, 1)
+    Send_Constant_String(#CLEAR_TXT) ; Write 16 spaces to "erase" the line
+    
+    Set_Cursor(1, 1) ; Move back to start
+    mov a, FSM_state
+
+    cjne a, #0, lc_s1
+    Send_Constant_String(#S0_TXT)
+    ret
+lc_s1:
+    cjne a, #1, lc_s2
+    Send_Constant_String(#S1_TXT)
+    ret
+lc_s2:
+    cjne a, #2, lc_s3
+    Send_Constant_String(#S2_TXT)
+    ret
+lc_s3:
+    cjne a, #3, lc_s4
+    Send_Constant_String(#S3_TXT)
+    ret
+lc_s4:
+    cjne a, #4, lc_s5
+    Send_Constant_String(#S4_TXT)
+    ret
+lc_s5:
+    Send_Constant_String(#S5_TXT)
+    ret
+    
+ ;========================
+; [BLOCK 6] LCD ROUTINES (put near the bottom with your other LCD functions)
+;========================
+LCD_Render:
+    jb  screen_flag, LCD_Render_Status
+    lcall LCD_Render_Params
+    ret
+
+LCD_Render_Status:
+    jb  lcd_redraw_flag, LCD_Status_Full
+    ; later: update numbers in-place here (tempFinal, SecondsCounter)
+    ret
+
+LCD_Status_Full:
+    clr lcd_redraw_flag
+    Set_Cursor(1,1)
+    Send_Constant_String(#CLEAR_TXT)
+    Set_Cursor(2,1)
+    Send_Constant_String(#CLEAR_TXT)
+
+    ; Row 1: state label
+    Set_Cursor(1,1)
+    lcall Update_LCD_State
+
+    ; Row 2: placeholders for now
+    Set_Cursor(2,1)
+    Send_Constant_String(#STATUS_L2_TXT)
+    ret
+
+LCD_Render_Params:
+    jb  lcd_redraw_flag, LCD_Params_Full
+    ; later: update numbers in-place here (soak_temp/time, reflow_temp/time)
+    ret
+
+LCD_Params_Full:
+    clr lcd_redraw_flag
+    Set_Cursor(1,1)
+    Send_Constant_String(#CLEAR_TXT)
+    Set_Cursor(2,1)
+    Send_Constant_String(#CLEAR_TXT)
+
+    Set_Cursor(1,1)
+    Send_Constant_String(#PARAMS_L1_TXT)
+    Set_Cursor(2,1)
+    Send_Constant_String(#PARAMS_L2_TXT)
+    ret
+
+; --- Bottom of your file ---
+CLEAR_TXT: db '                ', 0 ; 16 spaces
+;========================
+; [BLOCK 7] STRINGS (put with your other db strings near CLEAR_TXT / S0_TXT etc.)
+;========================
+STATUS_L2_TXT:  db 'T=----  t=---', 0
+PARAMS_L1_TXT:  db 'ST=---  t=---', 0
+PARAMS_L2_TXT:  db 'RT=---  t=---', 0
+
+S0_TXT: db 'INIT', 0
+S1_TXT: db 'RAMP1', 0
+S2_TXT: db 'SOAK', 0
+S3_TXT: db 'RAMP2', 0
+S4_TXT: db 'REFLOW', 0
+S5_TXT: db 'COOLING', 0
 
 END
