@@ -266,9 +266,23 @@ def data_gen():
         parse_profile_command(text)
     
     print("Profile received! Starting acquisition...")
+    
     while True:
         strin = ser.readline()
         text = strin.decode('ascii').strip()
+        # --- Checks tos see if done was sent-----#
+        if text == "DONE":
+            plt.savefig(GRAPH_FILENAME)
+            print(f"Live graph snapshot saved: {GRAPH_FILENAME}")
+        
+            generate_excel_report(EXCEL_FILENAME)
+        
+            send_notification(
+                "@here 📊 **Process Complete!** Final Lab Report and Correlation Chart generated.", 
+                file_paths=[EXCEL_FILENAME, GRAPH_FILENAME]
+            )
+        
+            continue   # We then proceed like normal
         
         # Check if it's a profile command
         if parse_profile_command(text):
