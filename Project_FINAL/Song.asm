@@ -44,36 +44,32 @@ No_Note  EQU 0x0000   ; 000 Hz
 ; Each note plays for 400ms
 SIMPLE_RHYTHM:
 
-    DB low(R_C5),  high(R_C5),  250    
-    DB low(R_Cs5), high(R_Cs5), 250   
-    DB low(R_D5),  high(R_D5),  250   
-    DB low(R_Ds5), high(R_Ds5), 250  
-    DB low(R_E5),  high(R_E5),  250  
-    DB low(R_F5),  high(R_F5),  250    
-    DB low(R_Fs5), high(R_Fs5), 250  
-    DB low(R_G5),  high(R_G5),  250     
-    DB low(R_Gs5), high(R_Gs5), 250   
-    DB low(R_A5),  high(R_A5),  250    
-    DB low(R_As5), high(R_As5), 250 
-    DB low(R_B5),  high(R_B5),  250 
-    DB low(No_Note), high(No_Note), 250
-    DB low(No_Note), high(No_Note), 250
-    DB low(R_C6),  high(R_C6),  250  
-    DB low(R_Cs6), high(R_Cs6), 250  
-    DB low(R_D6),  high(R_D6),  250    
-    DB low(R_Ds6), high(R_Ds6), 250     
-    DB low(R_E6),  high(R_E6),  250   
-    DB low(R_F6),  high(R_F6),  250    
-    DB low(R_Fs6), high(R_Fs6), 250 
-    DB low(R_G6),  high(R_G6),  250    
-    DB low(R_Gs6), high(R_Gs6), 250  
-    DB low(R_A6),  high(R_A6),  250    
-    DB low(R_As6), high(R_As6), 250 
+    DB low(R_E6),  high(R_E6),  250  
+	DB low(R_Ds6), high(R_Ds6), 250  
+    DB low(R_E6),  high(R_E6),  250  
+	DB low(R_Ds6), high(R_Ds6), 250  
+    DB low(R_E6),  high(R_E6),  250  
     DB low(R_B6),  high(R_B6),  250 
+	DB low(R_Ds6), high(R_Ds6), 250  
+    DB low(R_C6),  high(R_C6),  250    
+    DB low(R_A5),  high(R_A5),  250    
+    DB low(No_Note),  high(No_Note),  250    
+    DB low(No_Note),  high(No_Note),  250    
+    DB low(R_C5),  high(R_C5),  250  
+	DB low(R_E5),  high(R_E5),  250  
+	DB low(R_A5),  high(R_A5),  250  
+	DB low(R_B5),  high(R_B5),  250  
+	DB low(No_Note),  high(No_Note),  250    
+    DB low(No_Note),  high(No_Note),  250    
+    DB low(R_E5),  high(R_E5),  250  
+    DB low(R_G5s),  high(R_G5s),  250  
+    DB low(R_B5),  high(R_B5),  250  
+    DB low(R_C6),  high(R_C6),  250  
+	DB low(No_Note),  high(No_Note),  250    
+    DB low(No_Note),  high(No_Note),  250    
+	DB low(R_E5),  high(R_E5),  250
 
-    
-
-SONG_LEN EQU 26    ; number of notes
+SONG_LEN EQU 24    ; number of notes
 	
 	
 	
