@@ -46,7 +46,8 @@ completed. Ten beeps when there is an error.
 - has a timer
 - has different modes for different foods
 - auto ends after timer
-- shows timer on LCD  
+- shows timer on LCD
+- times and temperatures are perfectly aliged to mimic a microwave
 # Keyboard sound mode
 - custom music note characters
 - allows you to make song
