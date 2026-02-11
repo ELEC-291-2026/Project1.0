@@ -707,11 +707,12 @@ LCD_Refresh_Done:
 
     lcall hex2bcd
     lcall Display_Voltage_7seg
-    
-    ; --- NEW: Prevent the temperature from fighting the state update ---
-    jb state_flag, skip_lcd_temp ; If we are currently changing states, wait one frame
-    lcall Display_Voltage_LCD    ; Now we call the LCD display
+        ; Only show temperature on STATUS screen (screen_flag=1)
+    jnb screen_flag, skip_lcd_temp   ; if params screen, don't touch LCD here
+    jb  state_flag,  skip_lcd_temp   ; if changing state, skip one frame
+    lcall Display_Voltage_LCD
 skip_lcd_temp:
+
 
     lcall Display_Voltage_Serial
 	setb EA

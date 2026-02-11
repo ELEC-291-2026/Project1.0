@@ -2049,7 +2049,7 @@
 0D04 8003       613            sjmp skiptemoteteipj
 0D06            614            skiptemptemptemp:
 0D06            615            
-0D06 020E21     616            ljmp skiptemptemptemptemp
+0D06 020E24     616            ljmp skiptemptemptemptemp
 0D09            617            skiptemoteteipj:
 0D09            618            
 0D09 C203       619   clr QuarterSecondsFlag
@@ -2057,7 +2057,7 @@
 0D0D            621   
 0D0D            622       ; We are already in the QuarterSecondsFlag-triggered block,
 0D0D            623       ; so just render once right here:
-0D0D 121200     624       lcall LCD_Render
+0D0D 121203     624       lcall LCD_Render
 0D10            625   
 0D10            626   LCD_Refresh_Done:
 0D10            627   
@@ -2170,702 +2170,703 @@
 0E10            707   
 0E10 120019     708       lcall hex2bcd
 0E13 12074B     709       lcall Display_Voltage_7seg
-0E16            710       
-0E16            711       ; --- NEW: Prevent the temperature from fighting the state update ---
-0E16 200203     712       jb state_flag, skip_lcd_temp ; If we are currently changing states, wait one frame
-0E19 12076F     713       lcall Display_Voltage_LCD    ; Now we call the LCD display
-0E1C            714   skip_lcd_temp:
-0E1C            715   
-0E1C 1207DA     716       lcall Display_Voltage_Serial
-0E1F D2AF       717            setb EA
-0E21            718            
-0E21            719            skiptemptemptemptemp:
-0E21            720       
-0E21            721   
-0E21 20040F     722            jb State0Flag, skip_button
-0E24 20820C     723            jb START_BUTTON, skip_button
-0E27 12047E     724            lcall Wait25ms
-0E2A 208206     725            jb START_BUTTON, skip_button
-0E2D 3082FD     726            jnb START_BUTTON, $
-0E30            727            
-0E30 756A00     728                    mov FSM_state, #0x00
-0E33            729            skip_button:
-0E33            730   
-0E33            731       
-0E33            732   ;-------------------------------------------------------------------------------
-0E33            733   ; FSM State Transition Logic - Handles LCD Updates and Timer Reset
-0E33            734   ;-------------------------------------------------------------------------------
-0E33 300216     735            jnb state_flag, no_new_state
-0E36            736            
-0E36 C202       737       clr state_flag
-0E38 C2AF       738       clr EA
-0E3A 756700     739       mov SecondsCounter, #0x00
-0E3D D2AF       740       setb EA
-0E3F            741       
-0E3F D205       742       setb SpeakerFlag
-0E41 12047E     743       lcall Wait25ms
+0E16            710           ; Only show temperature on STATUS screen (screen_flag=1)
+0E16 300606     711       jnb screen_flag, skip_lcd_temp   ; if params screen, don't touch LCD here
+0E19 200203     712       jb  state_flag,  skip_lcd_temp   ; if changing state, skip one frame
+0E1C 12076F     713       lcall Display_Voltage_LCD
+0E1F            714   skip_lcd_temp:
+0E1F            715   
+0E1F            716   
+0E1F 1207DA     717       lcall Display_Voltage_Serial
+0E22 D2AF       718            setb EA
+0E24            719            
+0E24            720            skiptemptemptemptemp:
+0E24            721       
+0E24            722   
+0E24 20040F     723            jb State0Flag, skip_button
+0E27 20820C     724            jb START_BUTTON, skip_button
+0E2A 12047E     725            lcall Wait25ms
+0E2D 208206     726            jb START_BUTTON, skip_button
+0E30 3082FD     727            jnb START_BUTTON, $
+0E33            728            
+0E33 756A00     729                    mov FSM_state, #0x00
+0E36            730            skip_button:
+0E36            731   
+0E36            732       
+0E36            733   ;-------------------------------------------------------------------------------
+0E36            734   ; FSM State Transition Logic - Handles LCD Updates and Timer Reset
+0E36            735   ;-------------------------------------------------------------------------------
+0E36 300216     736            jnb state_flag, no_new_state
+0E39            737            
+0E39 C202       738       clr state_flag
+0E3B C2AF       739       clr EA
+0E3D 756700     740       mov SecondsCounter, #0x00
+0E40 D2AF       741       setb EA
+0E42            742       
+0E42 D205       743       setb SpeakerFlag
 0E44 12047E     744       lcall Wait25ms
-0E47 C205       745       clr SpeakerFlag
-0E49            746   
-0E49 121157     747      lcall Update_LCD_State
-0E4C            748   no_new_state:
-0E4C            749   
-0E4C 75E800     750            mov LEDRA, #0
-0E4F            751   
-0E4F            752   FSM_state0:
-0E4F            753   
-0E4F E56A       754            mov a, FSM_state
-0E51 B40002     755            cjne a, #0, FSM_state1_continue_move
-0E54 8003       756            sjmp FSM_state1_skip_move
-0E56            757            
-0E56            758            FSM_state1_continue_move:
-0E56 020E98     759            ljmp FSM_state1
-0E59            760            
-0E59            761            FSM_state1_skip_move:
-0E59 D2E8       762            setb LEDRA.0
-0E5B C280       763            clr SSR_PIN
-0E5D D204       764            setb State0Flag
-0E5F            765            
-0E5F C2AF       766            clr EA
-0E61 1204EF     767            lcall Keypad
-0E64 1203D2     768       lcall Display
-0E67 5003       769       jnc  skip_keypad
-0E69 120438     770       lcall Shift_Digits_Left
-0E6C            771      
-0E6C            772            skip_keypad:
-0E6C D2AF       773                    setb EA
-0E6E            774            
-0E6E 20E811     775            jb SWA.0, FSM_done_state_0_skip
-0E71            776            
-0E71 20820B     777            jb START_BUTTON, FSM_done_state_0_Continue
-0E74 12047E     778            lcall Wait25ms
-0E77 208205     779            jb START_BUTTON, FSM_done_state_0_Continue
-0E7A 3082FD     780            jnb START_BUTTON, $
-0E7D 8003       781                    sjmp FSM_done_state_0_Skip
-0E7F            782                    
-0E7F            783            FSM_done_state_0_Continue:
-0E7F 021154     784                    ljmp FSM_done
-0E82            785                    
-0E82            786            FSM_done_state_0_Skip:
-0E82            787                    
-0E82 C2AF       788                    clr EA
-0E84 120A19     789                    lcall Over_Under_Check_Rewrite
-0E87 120887     790                    lcall WriteInitialVals
-0E8A D2AF       791                    setb EA
-0E8C            792            
-0E8C 756400     793                    mov active_param, #0
-0E8F            794            
-0E8F D202       795                    setb state_flag
-0E91 C204       796                    clr State0Flag
-0E93 056A       797                    inc FSM_state
-0E95 021154     798            ljmp FSM_done
-0E98            799   
-0E98            800   FSM_state1:      
-0E98            801            
-0E98 E56A       802            mov a, FSM_state
-0E9A B40102     803            cjne a, #1, FSM_state2_continue_move
-0E9D 8003       804            sjmp FSM_state2_skip_move
-0E9F            805            
-0E9F            806            FSM_state2_continue_move:
-0E9F 020F3D     807            ljmp FSM_state2
-0EA2            808            
-0EA2            809            FSM_state2_skip_move:
-0EA2            810            
-0EA2 D2E9       811            setb LEDRA.1
-0EA4            812   
-0EA4 D280       813            setb SSR_PIN
-0EA6            814   
-0EA6 C2AF       815            clr EA
-0EA8            816            
-0EA8 75303C     817            mov x+0, #low (60 % 0x10000) 
-0EAB 753100     817            mov x+1, #high(60 % 0x10000) 
-0EAE 753200     817            mov x+2, #low (60 / 0x10000) 
-0EB1 753300     817            mov x+3, #high(60 / 0x10000) 
-0EB4 856734     818   mov y+0, SecondsCounter+0
-0EB7 753500     818   mov y+1, #0
-0EBA 753600     818   mov y+2, #0
-0EBD 753700     818   mov y+3, #0
-0EC0 120121     819            lcall x_gt_y
-0EC3 300023     820            jnb mf, emergency_check
-0EC6 C200       821            clr mf
-0EC8            822            
-0EC8 855230     823   mov x+0, tempFinal+0
-0ECB 855331     823   mov x+1, tempFinal+1
-0ECE 855432     823   mov x+2, tempFinal+2
-0ED1 855533     823   mov x+3, tempFinal+3
-0ED4 753432     824            mov y+0, #low (50 % 0x10000) 
-0ED7 753500     824            mov y+1, #high(50 % 0x10000) 
-0EDA 753600     824            mov y+2, #low (50 / 0x10000) 
-0EDD 753700     824            mov y+3, #high(50 / 0x10000) 
-0EE0 120105     825            lcall x_lt_y
-0EE3 300003     826            jnb mf, emergency_check
-0EE6 756A00     827            mov FSM_State, #0x00
-0EE9            828            emergency_check:
-0EE9            829   
-0EE9 C200       830            clr mf
-0EEB            831            
-0EEB 855838     832            mov bcd+0, soak_temp+0
-0EEE 855939     833       mov bcd+1, soak_temp+1
-0EF1 753A00     834       mov bcd+2, #0
-0EF4 753B00     835       mov bcd+3, #0
-0EF7 753C00     836       mov bcd+4, #0
-0EFA 120066     837       lcall bcd2hex
-0EFD            838       
-0EFD 75340A     839            mov y+0, #low (10 % 0x10000) 
-0F00 753500     839            mov y+1, #high(10 % 0x10000) 
-0F03 753600     839            mov y+2, #low (10 / 0x10000) 
-0F06 753700     839            mov y+3, #high(10 / 0x10000) 
-0F09            840       
-0F09 120177     841       lcall mul32
-0F0C            842           
-0F0C 853034     843       mov y+0, x+0
-0F0F 853135     844       mov y+1, x+1
-0F12 853236     845       mov y+2, x+2
-0F15 853337     846       mov y+3, x+3
-0F18            847       
-0F18 855230     848   mov x+0, tempFinal+0
-0F1B 855331     848   mov x+1, tempFinal+1
-0F1E 855432     848   mov x+2, tempFinal+2
-0F21 855533     848   mov x+3, tempFinal+3
-0F24            849   
-0F24 C200       850            clr mf
-0F26 120121     851            lcall x_gt_y
-0F29            852            
-0F29 D2AF       853            setb EA
-0F2B            854            
-0F2B 20E908     855            jb SWA.1, FSM_done_state_1_skip
-0F2E            856            
-0F2E 300002     857            jnb mf, FSM_done_state_1_Continue 
-0F31 8003       858            sjmp FSM_done_state_1_Skip
-0F33            859            FSM_done_state_1_Continue:
-0F33 021154     860            ljmp FSM_done
-0F36            861            FSM_done_state_1_Skip:
-0F36            862            
-0F36 D202       863                    setb state_flag
-0F38 056A       864                    inc FSM_state
-0F3A 021154     865            ljmp FSM_done
-0F3D            866   
-0F3D            867   FSM_state2:      
-0F3D E56A       868            mov a, FSM_state
-0F3F B40202     869            cjne a, #2, FSM_state3_continue_move
-0F42 8003       870            sjmp FSM_state3_skip_move
-0F44            871            
-0F44            872            FSM_state3_continue_move:
-0F44 020FEE     873            ljmp FSM_state3
-0F47            874            
-0F47            875            FSM_state3_skip_move:
-0F47 D2EA       876            setb LEDRA.2
-0F49            877            
-0F49 C2AF       878            clr EA
-0F4B            879            
-0F4B 855A38     880            mov bcd+0, soak_time+0
-0F4E 855B39     881       mov bcd+1, soak_time+1
-0F51 753A00     882       mov bcd+2, #0
-0F54 753B00     883       mov bcd+3, #0
-0F57 753C00     884       mov bcd+4, #0
-0F5A 120066     885       lcall bcd2hex
-0F5D            886           
-0F5D 85305C     887       mov soak_time_hex+0, x+0
-0F60 85315D     888       mov soak_time_hex+1, x+1
-0F63            889       
-0F63 753014     890            mov x+0, #20
-0F66 753100     890            mov x+1, #0
-0F69 753200     890            mov x+2, #0
-0F6C 753300     890            mov x+3, #0
-0F6F 855A34     890   mov y+0, soak_time+0
-0F72 855B35     890   mov y+1, soak_time+1
-0F75 753600     890   mov y+2, #0
-0F78 753700     890   mov y+3, #0
-0F7B 120177     890            lcall mul32
-0F7E            890            
-0F7E 753464     890            mov y+0, #low (100 % 0x10000) 
-0F81 753500     890            mov y+1, #high(100 % 0x10000) 
-0F84 753600     890            mov y+2, #low (100 / 0x10000) 
-0F87 753700     890            mov y+3, #high(100 / 0x10000) 
-0F8A 12026B     890            lcall div32
-0F8D            890            
-0F8D 853056     890            mov timeOn+0, x+0
-0F90 853157     890            mov timeOn+1, x+1
-0F93            891            
-0F93 856730     892   mov x+0, SecondsCounter+0
-0F96 753100     892   mov x+1, #0
-0F99 753200     892   mov x+2, #0
-0F9C 753300     892   mov x+3, #0      
-0F9F 855634     893   mov y+0, timeOn+0
-0FA2 855735     893   mov y+1, timeOn+1
-0FA5 753600     893   mov y+2, #0
-0FA8 753700     893   mov y+3, #0
-0FAB C200       894            clr mf
-0FAD 120121     895            lcall x_gt_y
-0FB0 D2AF       896            setb EA
-0FB2 300004     897            jnb mf, ssr_off
-0FB5 C280       898            clr SSR_PIN
-0FB7 8002       899            sjmp ssr_on
-0FB9            900   
-0FB9            901            ssr_off:
-0FB9 D280       902                    setb SSR_PIN
-0FBB            903            ssr_on:
-0FBB            904            
-0FBB C2AF       905            clr EA
-0FBD 856730     906   mov x+0, SecondsCounter+0
-0FC0 753100     906   mov x+1, #0
-0FC3 753200     906   mov x+2, #0
-0FC6 753300     906   mov x+3, #0 
-0FC9 855C34     907   mov y+0, soak_time_hex+0
-0FCC 855D35     907   mov y+1, soak_time_hex+1
-0FCF 753600     907   mov y+2, #0
-0FD2 753700     907   mov y+3, #0
-0FD5 C200       908            clr mf  
-0FD7 120121     909            lcall x_gt_y
-0FDA D2AF       910            setb EA
-0FDC            911            
-0FDC 20EA08     912            jb SWA.2, FSM_done_state_2_skip
-0FDF            913            
-0FDF 300002     914            jnb mf, FSM_done_state_2_Continue
-0FE2 8003       915            sjmp FSM_done_state_2_Skip
-0FE4            916            FSM_done_state_2_Continue:
-0FE4 021154     917            ljmp FSM_done
-0FE7            918            FSM_done_state_2_Skip:
-0FE7            919                    
-0FE7 D202       920                    setb state_flag
-0FE9 056A       921                    inc FSM_state
-0FEB 021154     922            ljmp FSM_done
-0FEE            923   
-0FEE            924   FSM_state3:      
-0FEE E56A       925            mov a, FSM_state
-0FF0 B40358     926            cjne a, #3, FSM_state4
-0FF3 D2EB       927            setb LEDRA.3
-0FF5            928   
-0FF5 D280       929            setb SSR_PIN
-0FF7            930   
-0FF7 C2AF       931            clr EA
-0FF9            932            
-0FF9 855E38     933            mov bcd+0, reflow_temp+0
-0FFC 855F39     934       mov bcd+1, reflow_temp+1
-0FFF 753A00     935       mov bcd+2, #0
-1002 753B00     936       mov bcd+3, #0
-1005 753C00     937       mov bcd+4, #0
-1008 120066     938       lcall bcd2hex
-100B            939       
-100B 75340A     940            mov y+0, #low (10 % 0x10000) 
-100E 753500     940            mov y+1, #high(10 % 0x10000) 
-1011 753600     940            mov y+2, #low (10 / 0x10000) 
-1014 753700     940            mov y+3, #high(10 / 0x10000) 
-1017            941       
-1017 120177     942       lcall mul32
-101A            943           
-101A 853034     944       mov y+0, x+0
-101D 853135     945       mov y+1, x+1
-1020 853236     946       mov y+2, x+2
-1023 853337     947       mov y+3, x+3
-1026            948            
-1026 855234     949   mov y+0, tempFinal+0
-1029 855335     949   mov y+1, tempFinal+1
-102C 855436     949   mov y+2, tempFinal+2
-102F 855537     949   mov y+3, tempFinal+3
-1032 C200       950            clr mf
-1034 120121     951            lcall x_gt_y
-1037 D2AF       952            setb EA
-1039            953            
-1039 20EB08     954            jb SWA.3, FSM_done_state_3_skip
-103C            955            
-103C 200002     956            jb mf, FSM_done_state_3_Continue 
-103F 8003       957            sjmp FSM_done_state_3_Skip
-1041            958            FSM_done_state_3_Continue:
-1041 021154     959            ljmp FSM_done
-1044            960            FSM_done_state_3_Skip:
-1044            961            
-1044 D202       962                    setb state_flag
-1046 056A       963                    inc FSM_state
-1048 021154     964            ljmp FSM_done
-104B            965   
-104B            966   FSM_state4:      
-104B            967   
-104B E56A       968            mov a, FSM_state
-104D B40402     969            cjne a, #4, FSM_state5_continue_move
-1050 8003       970            sjmp FSM_state5_skip_move
-1052            971            FSM_state5_continue_move:
-1052 0210F7     972            ljmp FSM_state5
-1055            973            FSM_state5_skip_move:
-1055            974            
-1055 D2EC       975            setb LEDRA.4
-1057            976            
-1057 C2AF       977            clr EA
-1059 856038     978            mov bcd+0, reflow_time+0
-105C 856139     979       mov bcd+1, reflow_time+1
-105F 753A00     980       mov bcd+2, #0
-1062 753B00     981       mov bcd+3, #0
-1065 753C00     982            mov bcd+4, #0
-1068 120066     983       lcall bcd2hex
-106B            984           
-106B 853062     985       mov reflow_time_hex+0, x+0
-106E 853163     986       mov reflow_time_hex+1, x+1
-1071            987       
-1071 753014     988            mov x+0, #20
-1074 753100     988            mov x+1, #0
-1077 753200     988            mov x+2, #0
-107A 753300     988            mov x+3, #0
-107D 856234     988   mov y+0, reflow_time_hex+0
-1080 856335     988   mov y+1, reflow_time_hex+1
-1083 753600     988   mov y+2, #0
-1086 753700     988   mov y+3, #0
-1089 120177     988            lcall mul32
-108C            988            
-108C 753464     988            mov y+0, #low (100 % 0x10000) 
-108F 753500     988            mov y+1, #high(100 % 0x10000) 
-1092 753600     988            mov y+2, #low (100 / 0x10000) 
-1095 753700     988            mov y+3, #high(100 / 0x10000) 
-1098 12026B     988            lcall div32
-109B            988            
-109B 853056     988            mov timeOn+0, x+0
-109E 853157     988            mov timeOn+1, x+1
-10A1 856730     989   mov x+0, SecondsCounter+0
-10A4 753100     989   mov x+1, #0
-10A7 753200     989   mov x+2, #0
-10AA 753300     989   mov x+3, #0
-10AD 855634     990   mov y+0, timeOn+0
-10B0 855735     990   mov y+1, timeOn+1
-10B3 753600     990   mov y+2, #0
-10B6 753700     990   mov y+3, #0 
-10B9 C200       991            clr mf  
-10BB 120121     992            lcall x_gt_y 
-10BE            993            
-10BE D2AF       994            setb EA
-10C0 300004     995            jnb mf, ssr_off1
-10C3 C280       996            clr SSR_PIN
-10C5 8002       997            sjmp ssr_on1
-10C7            998   
-10C7            999            ssr_off1:
-10C7 D280      1000                    setb SSR_PIN
-10C9           1001            ssr_on1:
-10C9           1002   
-10C9 C2AF      1003            clr EA
-10CB           1004   
-10CB 856230    1005   mov x+0, reflow_time_hex+0
-10CE 856331    1005   mov x+1, reflow_time_hex+1
-10D1 753200    1005   mov x+2, #0
-10D4 753300    1005   mov x+3, #0
-10D7 856734    1006   mov y+0, SecondsCounter+0
-10DA 753500    1006   mov y+1, #0
-10DD 753600    1006   mov y+2, #0
-10E0 753700    1006   mov y+3, #0
-10E3 C200      1007            clr mf
-10E5 120121    1008            lcall x_gt_y
-10E8 D2AF      1009            setb EA
-10EA           1010            
-10EA 20EC03    1011            jb SWA.4, FSM_done_state_4_Skip
-10ED 200064    1012            jb mf, FSM_done
-10F0           1013            
-10F0           1014            FSM_done_state_4_Skip:
-10F0           1015            
-10F0 D202      1016                    setb state_flag
-10F2 056A      1017                    inc FSM_state
-10F4 021154    1018            ljmp FSM_done
-10F7           1019   
-10F7           1020   FSM_state5:      
-10F7           1021            
-10F7 E56A      1022            mov a, FSM_state
-10F9 B40558    1023            cjne a, #5, FSM_done
-10FC D2ED      1024            setb LEDRA.5
-10FE           1025   
-10FE C280      1026            clr SSR_PIN
-1100           1027            
-1100 C2AF      1028            clr EA
-1102 855230    1029   mov x+0, tempFinal+0
-1105 855331    1029   mov x+1, tempFinal+1
-1108 855432    1029   mov x+2, tempFinal+2
-110B 855533    1029   mov x+3, tempFinal+3
-110E 753458    1030            mov y+0, #low (600 % 0x10000) 
-1111 753502    1030            mov y+1, #high(600 % 0x10000) 
-1114 753600    1030            mov y+2, #low (600 / 0x10000) 
-1117 753700    1030            mov y+3, #high(600 / 0x10000)  ; Not already multiplied by 10
-111A C200      1031            clr mf
-111C 120105    1032            lcall x_lt_y
-111F D2AF      1033            setb EA
-1121           1034            
-1121 20ED03    1035            jb SWA.5, FSM_done_state_5_Skip
-1124 30002D    1036            jnb mf, FSM_done
-1127           1037            
-1127           1038            FSM_done_state_5_Skip:
-1127           1039            
-1127 D202      1040                    setb state_flag
-1129 756A00    1041                    mov FSM_state, #0x00
-112C           1042                    
-112C           1043                                    
-112C D205      1044                    setb SpeakerFlag
-112E 12047E    1045                    lcall Wait25ms
+0E47 12047E     745       lcall Wait25ms
+0E4A C205       746       clr SpeakerFlag
+0E4C            747   
+0E4C 12115A     748      lcall Update_LCD_State
+0E4F            749   no_new_state:
+0E4F            750   
+0E4F 75E800     751            mov LEDRA, #0
+0E52            752   
+0E52            753   FSM_state0:
+0E52            754   
+0E52 E56A       755            mov a, FSM_state
+0E54 B40002     756            cjne a, #0, FSM_state1_continue_move
+0E57 8003       757            sjmp FSM_state1_skip_move
+0E59            758            
+0E59            759            FSM_state1_continue_move:
+0E59 020E9B     760            ljmp FSM_state1
+0E5C            761            
+0E5C            762            FSM_state1_skip_move:
+0E5C D2E8       763            setb LEDRA.0
+0E5E C280       764            clr SSR_PIN
+0E60 D204       765            setb State0Flag
+0E62            766            
+0E62 C2AF       767            clr EA
+0E64 1204EF     768            lcall Keypad
+0E67 1203D2     769       lcall Display
+0E6A 5003       770       jnc  skip_keypad
+0E6C 120438     771       lcall Shift_Digits_Left
+0E6F            772      
+0E6F            773            skip_keypad:
+0E6F D2AF       774                    setb EA
+0E71            775            
+0E71 20E811     776            jb SWA.0, FSM_done_state_0_skip
+0E74            777            
+0E74 20820B     778            jb START_BUTTON, FSM_done_state_0_Continue
+0E77 12047E     779            lcall Wait25ms
+0E7A 208205     780            jb START_BUTTON, FSM_done_state_0_Continue
+0E7D 3082FD     781            jnb START_BUTTON, $
+0E80 8003       782                    sjmp FSM_done_state_0_Skip
+0E82            783                    
+0E82            784            FSM_done_state_0_Continue:
+0E82 021157     785                    ljmp FSM_done
+0E85            786                    
+0E85            787            FSM_done_state_0_Skip:
+0E85            788                    
+0E85 C2AF       789                    clr EA
+0E87 120A19     790                    lcall Over_Under_Check_Rewrite
+0E8A 120887     791                    lcall WriteInitialVals
+0E8D D2AF       792                    setb EA
+0E8F            793            
+0E8F 756400     794                    mov active_param, #0
+0E92            795            
+0E92 D202       796                    setb state_flag
+0E94 C204       797                    clr State0Flag
+0E96 056A       798                    inc FSM_state
+0E98 021157     799            ljmp FSM_done
+0E9B            800   
+0E9B            801   FSM_state1:      
+0E9B            802            
+0E9B E56A       803            mov a, FSM_state
+0E9D B40102     804            cjne a, #1, FSM_state2_continue_move
+0EA0 8003       805            sjmp FSM_state2_skip_move
+0EA2            806            
+0EA2            807            FSM_state2_continue_move:
+0EA2 020F40     808            ljmp FSM_state2
+0EA5            809            
+0EA5            810            FSM_state2_skip_move:
+0EA5            811            
+0EA5 D2E9       812            setb LEDRA.1
+0EA7            813   
+0EA7 D280       814            setb SSR_PIN
+0EA9            815   
+0EA9 C2AF       816            clr EA
+0EAB            817            
+0EAB 75303C     818            mov x+0, #low (60 % 0x10000) 
+0EAE 753100     818            mov x+1, #high(60 % 0x10000) 
+0EB1 753200     818            mov x+2, #low (60 / 0x10000) 
+0EB4 753300     818            mov x+3, #high(60 / 0x10000) 
+0EB7 856734     819   mov y+0, SecondsCounter+0
+0EBA 753500     819   mov y+1, #0
+0EBD 753600     819   mov y+2, #0
+0EC0 753700     819   mov y+3, #0
+0EC3 120121     820            lcall x_gt_y
+0EC6 300023     821            jnb mf, emergency_check
+0EC9 C200       822            clr mf
+0ECB            823            
+0ECB 855230     824   mov x+0, tempFinal+0
+0ECE 855331     824   mov x+1, tempFinal+1
+0ED1 855432     824   mov x+2, tempFinal+2
+0ED4 855533     824   mov x+3, tempFinal+3
+0ED7 753432     825            mov y+0, #low (50 % 0x10000) 
+0EDA 753500     825            mov y+1, #high(50 % 0x10000) 
+0EDD 753600     825            mov y+2, #low (50 / 0x10000) 
+0EE0 753700     825            mov y+3, #high(50 / 0x10000) 
+0EE3 120105     826            lcall x_lt_y
+0EE6 300003     827            jnb mf, emergency_check
+0EE9 756A00     828            mov FSM_State, #0x00
+0EEC            829            emergency_check:
+0EEC            830   
+0EEC C200       831            clr mf
+0EEE            832            
+0EEE 855838     833            mov bcd+0, soak_temp+0
+0EF1 855939     834       mov bcd+1, soak_temp+1
+0EF4 753A00     835       mov bcd+2, #0
+0EF7 753B00     836       mov bcd+3, #0
+0EFA 753C00     837       mov bcd+4, #0
+0EFD 120066     838       lcall bcd2hex
+0F00            839       
+0F00 75340A     840            mov y+0, #low (10 % 0x10000) 
+0F03 753500     840            mov y+1, #high(10 % 0x10000) 
+0F06 753600     840            mov y+2, #low (10 / 0x10000) 
+0F09 753700     840            mov y+3, #high(10 / 0x10000) 
+0F0C            841       
+0F0C 120177     842       lcall mul32
+0F0F            843           
+0F0F 853034     844       mov y+0, x+0
+0F12 853135     845       mov y+1, x+1
+0F15 853236     846       mov y+2, x+2
+0F18 853337     847       mov y+3, x+3
+0F1B            848       
+0F1B 855230     849   mov x+0, tempFinal+0
+0F1E 855331     849   mov x+1, tempFinal+1
+0F21 855432     849   mov x+2, tempFinal+2
+0F24 855533     849   mov x+3, tempFinal+3
+0F27            850   
+0F27 C200       851            clr mf
+0F29 120121     852            lcall x_gt_y
+0F2C            853            
+0F2C D2AF       854            setb EA
+0F2E            855            
+0F2E 20E908     856            jb SWA.1, FSM_done_state_1_skip
+0F31            857            
+0F31 300002     858            jnb mf, FSM_done_state_1_Continue 
+0F34 8003       859            sjmp FSM_done_state_1_Skip
+0F36            860            FSM_done_state_1_Continue:
+0F36 021157     861            ljmp FSM_done
+0F39            862            FSM_done_state_1_Skip:
+0F39            863            
+0F39 D202       864                    setb state_flag
+0F3B 056A       865                    inc FSM_state
+0F3D 021157     866            ljmp FSM_done
+0F40            867   
+0F40            868   FSM_state2:      
+0F40 E56A       869            mov a, FSM_state
+0F42 B40202     870            cjne a, #2, FSM_state3_continue_move
+0F45 8003       871            sjmp FSM_state3_skip_move
+0F47            872            
+0F47            873            FSM_state3_continue_move:
+0F47 020FF1     874            ljmp FSM_state3
+0F4A            875            
+0F4A            876            FSM_state3_skip_move:
+0F4A D2EA       877            setb LEDRA.2
+0F4C            878            
+0F4C C2AF       879            clr EA
+0F4E            880            
+0F4E 855A38     881            mov bcd+0, soak_time+0
+0F51 855B39     882       mov bcd+1, soak_time+1
+0F54 753A00     883       mov bcd+2, #0
+0F57 753B00     884       mov bcd+3, #0
+0F5A 753C00     885       mov bcd+4, #0
+0F5D 120066     886       lcall bcd2hex
+0F60            887           
+0F60 85305C     888       mov soak_time_hex+0, x+0
+0F63 85315D     889       mov soak_time_hex+1, x+1
+0F66            890       
+0F66 753014     891            mov x+0, #20
+0F69 753100     891            mov x+1, #0
+0F6C 753200     891            mov x+2, #0
+0F6F 753300     891            mov x+3, #0
+0F72 855A34     891   mov y+0, soak_time+0
+0F75 855B35     891   mov y+1, soak_time+1
+0F78 753600     891   mov y+2, #0
+0F7B 753700     891   mov y+3, #0
+0F7E 120177     891            lcall mul32
+0F81            891            
+0F81 753464     891            mov y+0, #low (100 % 0x10000) 
+0F84 753500     891            mov y+1, #high(100 % 0x10000) 
+0F87 753600     891            mov y+2, #low (100 / 0x10000) 
+0F8A 753700     891            mov y+3, #high(100 / 0x10000) 
+0F8D 12026B     891            lcall div32
+0F90            891            
+0F90 853056     891            mov timeOn+0, x+0
+0F93 853157     891            mov timeOn+1, x+1
+0F96            892            
+0F96 856730     893   mov x+0, SecondsCounter+0
+0F99 753100     893   mov x+1, #0
+0F9C 753200     893   mov x+2, #0
+0F9F 753300     893   mov x+3, #0      
+0FA2 855634     894   mov y+0, timeOn+0
+0FA5 855735     894   mov y+1, timeOn+1
+0FA8 753600     894   mov y+2, #0
+0FAB 753700     894   mov y+3, #0
+0FAE C200       895            clr mf
+0FB0 120121     896            lcall x_gt_y
+0FB3 D2AF       897            setb EA
+0FB5 300004     898            jnb mf, ssr_off
+0FB8 C280       899            clr SSR_PIN
+0FBA 8002       900            sjmp ssr_on
+0FBC            901   
+0FBC            902            ssr_off:
+0FBC D280       903                    setb SSR_PIN
+0FBE            904            ssr_on:
+0FBE            905            
+0FBE C2AF       906            clr EA
+0FC0 856730     907   mov x+0, SecondsCounter+0
+0FC3 753100     907   mov x+1, #0
+0FC6 753200     907   mov x+2, #0
+0FC9 753300     907   mov x+3, #0 
+0FCC 855C34     908   mov y+0, soak_time_hex+0
+0FCF 855D35     908   mov y+1, soak_time_hex+1
+0FD2 753600     908   mov y+2, #0
+0FD5 753700     908   mov y+3, #0
+0FD8 C200       909            clr mf  
+0FDA 120121     910            lcall x_gt_y
+0FDD D2AF       911            setb EA
+0FDF            912            
+0FDF 20EA08     913            jb SWA.2, FSM_done_state_2_skip
+0FE2            914            
+0FE2 300002     915            jnb mf, FSM_done_state_2_Continue
+0FE5 8003       916            sjmp FSM_done_state_2_Skip
+0FE7            917            FSM_done_state_2_Continue:
+0FE7 021157     918            ljmp FSM_done
+0FEA            919            FSM_done_state_2_Skip:
+0FEA            920                    
+0FEA D202       921                    setb state_flag
+0FEC 056A       922                    inc FSM_state
+0FEE 021157     923            ljmp FSM_done
+0FF1            924   
+0FF1            925   FSM_state3:      
+0FF1 E56A       926            mov a, FSM_state
+0FF3 B40358     927            cjne a, #3, FSM_state4
+0FF6 D2EB       928            setb LEDRA.3
+0FF8            929   
+0FF8 D280       930            setb SSR_PIN
+0FFA            931   
+0FFA C2AF       932            clr EA
+0FFC            933            
+0FFC 855E38     934            mov bcd+0, reflow_temp+0
+0FFF 855F39     935       mov bcd+1, reflow_temp+1
+1002 753A00     936       mov bcd+2, #0
+1005 753B00     937       mov bcd+3, #0
+1008 753C00     938       mov bcd+4, #0
+100B 120066     939       lcall bcd2hex
+100E            940       
+100E 75340A     941            mov y+0, #low (10 % 0x10000) 
+1011 753500     941            mov y+1, #high(10 % 0x10000) 
+1014 753600     941            mov y+2, #low (10 / 0x10000) 
+1017 753700     941            mov y+3, #high(10 / 0x10000) 
+101A            942       
+101A 120177     943       lcall mul32
+101D            944           
+101D 853034     945       mov y+0, x+0
+1020 853135     946       mov y+1, x+1
+1023 853236     947       mov y+2, x+2
+1026 853337     948       mov y+3, x+3
+1029            949            
+1029 855234     950   mov y+0, tempFinal+0
+102C 855335     950   mov y+1, tempFinal+1
+102F 855436     950   mov y+2, tempFinal+2
+1032 855537     950   mov y+3, tempFinal+3
+1035 C200       951            clr mf
+1037 120121     952            lcall x_gt_y
+103A D2AF       953            setb EA
+103C            954            
+103C 20EB08     955            jb SWA.3, FSM_done_state_3_skip
+103F            956            
+103F 200002     957            jb mf, FSM_done_state_3_Continue 
+1042 8003       958            sjmp FSM_done_state_3_Skip
+1044            959            FSM_done_state_3_Continue:
+1044 021157     960            ljmp FSM_done
+1047            961            FSM_done_state_3_Skip:
+1047            962            
+1047 D202       963                    setb state_flag
+1049 056A       964                    inc FSM_state
+104B 021157     965            ljmp FSM_done
+104E            966   
+104E            967   FSM_state4:      
+104E            968   
+104E E56A       969            mov a, FSM_state
+1050 B40402     970            cjne a, #4, FSM_state5_continue_move
+1053 8003       971            sjmp FSM_state5_skip_move
+1055            972            FSM_state5_continue_move:
+1055 0210FA     973            ljmp FSM_state5
+1058            974            FSM_state5_skip_move:
+1058            975            
+1058 D2EC       976            setb LEDRA.4
+105A            977            
+105A C2AF       978            clr EA
+105C 856038     979            mov bcd+0, reflow_time+0
+105F 856139     980       mov bcd+1, reflow_time+1
+1062 753A00     981       mov bcd+2, #0
+1065 753B00     982       mov bcd+3, #0
+1068 753C00     983            mov bcd+4, #0
+106B 120066     984       lcall bcd2hex
+106E            985           
+106E 853062     986       mov reflow_time_hex+0, x+0
+1071 853163     987       mov reflow_time_hex+1, x+1
+1074            988       
+1074 753014     989            mov x+0, #20
+1077 753100     989            mov x+1, #0
+107A 753200     989            mov x+2, #0
+107D 753300     989            mov x+3, #0
+1080 856234     989   mov y+0, reflow_time_hex+0
+1083 856335     989   mov y+1, reflow_time_hex+1
+1086 753600     989   mov y+2, #0
+1089 753700     989   mov y+3, #0
+108C 120177     989            lcall mul32
+108F            989            
+108F 753464     989            mov y+0, #low (100 % 0x10000) 
+1092 753500     989            mov y+1, #high(100 % 0x10000) 
+1095 753600     989            mov y+2, #low (100 / 0x10000) 
+1098 753700     989            mov y+3, #high(100 / 0x10000) 
+109B 12026B     989            lcall div32
+109E            989            
+109E 853056     989            mov timeOn+0, x+0
+10A1 853157     989            mov timeOn+1, x+1
+10A4 856730     990   mov x+0, SecondsCounter+0
+10A7 753100     990   mov x+1, #0
+10AA 753200     990   mov x+2, #0
+10AD 753300     990   mov x+3, #0
+10B0 855634     991   mov y+0, timeOn+0
+10B3 855735     991   mov y+1, timeOn+1
+10B6 753600     991   mov y+2, #0
+10B9 753700     991   mov y+3, #0 
+10BC C200       992            clr mf  
+10BE 120121     993            lcall x_gt_y 
+10C1            994            
+10C1 D2AF       995            setb EA
+10C3 300004     996            jnb mf, ssr_off1
+10C6 C280       997            clr SSR_PIN
+10C8 8002       998            sjmp ssr_on1
+10CA            999   
+10CA           1000            ssr_off1:
+10CA D280      1001                    setb SSR_PIN
+10CC           1002            ssr_on1:
+10CC           1003   
+10CC C2AF      1004            clr EA
+10CE           1005   
+10CE 856230    1006   mov x+0, reflow_time_hex+0
+10D1 856331    1006   mov x+1, reflow_time_hex+1
+10D4 753200    1006   mov x+2, #0
+10D7 753300    1006   mov x+3, #0
+10DA 856734    1007   mov y+0, SecondsCounter+0
+10DD 753500    1007   mov y+1, #0
+10E0 753600    1007   mov y+2, #0
+10E3 753700    1007   mov y+3, #0
+10E6 C200      1008            clr mf
+10E8 120121    1009            lcall x_gt_y
+10EB D2AF      1010            setb EA
+10ED           1011            
+10ED 20EC03    1012            jb SWA.4, FSM_done_state_4_Skip
+10F0 200064    1013            jb mf, FSM_done
+10F3           1014            
+10F3           1015            FSM_done_state_4_Skip:
+10F3           1016            
+10F3 D202      1017                    setb state_flag
+10F5 056A      1018                    inc FSM_state
+10F7 021157    1019            ljmp FSM_done
+10FA           1020   
+10FA           1021   FSM_state5:      
+10FA           1022            
+10FA E56A      1023            mov a, FSM_state
+10FC B40558    1024            cjne a, #5, FSM_done
+10FF D2ED      1025            setb LEDRA.5
+1101           1026   
+1101 C280      1027            clr SSR_PIN
+1103           1028            
+1103 C2AF      1029            clr EA
+1105 855230    1030   mov x+0, tempFinal+0
+1108 855331    1030   mov x+1, tempFinal+1
+110B 855432    1030   mov x+2, tempFinal+2
+110E 855533    1030   mov x+3, tempFinal+3
+1111 753458    1031            mov y+0, #low (600 % 0x10000) 
+1114 753502    1031            mov y+1, #high(600 % 0x10000) 
+1117 753600    1031            mov y+2, #low (600 / 0x10000) 
+111A 753700    1031            mov y+3, #high(600 / 0x10000)  ; Not already multiplied by 10
+111D C200      1032            clr mf
+111F 120105    1033            lcall x_lt_y
+1122 D2AF      1034            setb EA
+1124           1035            
+1124 20ED03    1036            jb SWA.5, FSM_done_state_5_Skip
+1127 30002D    1037            jnb mf, FSM_done
+112A           1038            
+112A           1039            FSM_done_state_5_Skip:
+112A           1040            
+112A D202      1041                    setb state_flag
+112C 756A00    1042                    mov FSM_state, #0x00
+112F           1043                    
+112F           1044                                    
+112F D205      1045                    setb SpeakerFlag
 1131 12047E    1046                    lcall Wait25ms
-1134 C205      1047                    clr SpeakerFlag
-1136           1048                    
-1136 D205      1049                    setb SpeakerFlag
-1138 12047E    1050                    lcall Wait25ms
+1134 12047E    1047                    lcall Wait25ms
+1137 C205      1048                    clr SpeakerFlag
+1139           1049                    
+1139 D205      1050                    setb SpeakerFlag
 113B 12047E    1051                    lcall Wait25ms
-113E C205      1052                    clr SpeakerFlag
-1140           1053                                    
-1140 D205      1054                    setb SpeakerFlag
-1142 12047E    1055                    lcall Wait25ms
+113E 12047E    1052                    lcall Wait25ms
+1141 C205      1053                    clr SpeakerFlag
+1143           1054                                    
+1143 D205      1055                    setb SpeakerFlag
 1145 12047E    1056                    lcall Wait25ms
-1148 C205      1057                    clr SpeakerFlag
-114A           1058                                            
-114A D205      1059                    setb SpeakerFlag
-114C 12047E    1060                    lcall Wait25ms
+1148 12047E    1057                    lcall Wait25ms
+114B C205      1058                    clr SpeakerFlag
+114D           1059                                            
+114D D205      1060                    setb SpeakerFlag
 114F 12047E    1061                    lcall Wait25ms
-1152 C205      1062                    clr SpeakerFlag
-1154           1063   
-1154           1064            FSM_done:
-1154           1065   
-1154 020CA3    1066            ljmp loop ;
-1157           1067   
-1157           1068   ; --- Put this right before S0_TXT ---
-1157           1069   Update_LCD_State:
-1157           1070       ; --- Step A: Clear Row 1 only ---
-1157 C0E0      1071            push acc
-1159 7401      1071            mov a, #1
-115B 14        1071            dec a
-115C 1203A7    1071            lcall ?Set_Cursor_1 ; Select column and row
-115F D0E0      1071            pop acc
-1161 C083      1072            push dph
-1163 C082      1072            push dpl
-1165 C0E0      1072            push acc
-1167 9012E6    1072            mov dptr, #CLEAR_TXT
-116A 12039A    1072            lcall ?Send_Constant_String
-116D D0E0      1072            pop acc
-116F D082      1072            pop dpl
-1171 D083      1072            pop dph ; Write 16 spaces to "erase" the line
-1173           1073       
-1173 C0E0      1074            push acc
-1175 7401      1074            mov a, #1
-1177 14        1074            dec a
-1178 1203A7    1074            lcall ?Set_Cursor_1 ; Select column and row
-117B D0E0      1074            pop acc ; Move back to start
-117D E56A      1075       mov a, FSM_state
-117F           1076   
-117F B40013    1077       cjne a, #0, lc_s1
-1182 C083      1078            push dph
-1184 C082      1078            push dpl
-1186 C0E0      1078            push acc
-1188 901321    1078            mov dptr, #S0_TXT
-118B 12039A    1078            lcall ?Send_Constant_String
-118E D0E0      1078            pop acc
-1190 D082      1078            pop dpl
-1192 D083      1078            pop dph
-1194 22        1079       ret
-1195           1080   lc_s1:
-1195 B40113    1081       cjne a, #1, lc_s2
-1198 C083      1082            push dph
-119A C082      1082            push dpl
-119C C0E0      1082            push acc
-119E 901326    1082            mov dptr, #S1_TXT
-11A1 12039A    1082            lcall ?Send_Constant_String
-11A4 D0E0      1082            pop acc
-11A6 D082      1082            pop dpl
-11A8 D083      1082            pop dph
-11AA 22        1083       ret
-11AB           1084   lc_s2:
-11AB B40213    1085       cjne a, #2, lc_s3
-11AE C083      1086            push dph
-11B0 C082      1086            push dpl
-11B2 C0E0      1086            push acc
-11B4 90132C    1086            mov dptr, #S2_TXT
-11B7 12039A    1086            lcall ?Send_Constant_String
-11BA D0E0      1086            pop acc
-11BC D082      1086            pop dpl
-11BE D083      1086            pop dph
-11C0 22        1087       ret
-11C1           1088   lc_s3:
-11C1 B40313    1089       cjne a, #3, lc_s4
-11C4 C083      1090            push dph
-11C6 C082      1090            push dpl
-11C8 C0E0      1090            push acc
-11CA 901331    1090            mov dptr, #S3_TXT
-11CD 12039A    1090            lcall ?Send_Constant_String
-11D0 D0E0      1090            pop acc
-11D2 D082      1090            pop dpl
-11D4 D083      1090            pop dph
-11D6 22        1091       ret
-11D7           1092   lc_s4:
-11D7 B40413    1093       cjne a, #4, lc_s5
-11DA C083      1094            push dph
-11DC C082      1094            push dpl
-11DE C0E0      1094            push acc
-11E0 901337    1094            mov dptr, #S4_TXT
-11E3 12039A    1094            lcall ?Send_Constant_String
-11E6 D0E0      1094            pop acc
-11E8 D082      1094            pop dpl
-11EA D083      1094            pop dph
-11EC 22        1095       ret
-11ED           1096   lc_s5:
-11ED C083      1097            push dph
-11EF C082      1097            push dpl
-11F1 C0E0      1097            push acc
-11F3 90133E    1097            mov dptr, #S5_TXT
-11F6 12039A    1097            lcall ?Send_Constant_String
-11F9 D0E0      1097            pop acc
-11FB D082      1097            pop dpl
-11FD D083      1097            pop dph
-11FF 22        1098       ret
-1200           1099       
-1200           1100    ;========================
-1200           1101   ; [BLOCK 6] LCD ROUTINES (put near the bottom with your other LCD functions)
-1200           1102   ;========================
-1200           1103   LCD_Render:
-1200 200604    1104       jb  screen_flag, LCD_Render_Status
-1203 12126F    1105       lcall LCD_Render_Params
-1206 22        1106       ret
-1207           1107   
-1207           1108   LCD_Render_Status:
-1207 200701    1109       jb  lcd_redraw_flag, LCD_Status_Full
-120A           1110       ; later: update numbers in-place here (tempFinal, SecondsCounter)
-120A 22        1111       ret
-120B           1112   
-120B           1113   LCD_Status_Full:
-120B C207      1114       clr lcd_redraw_flag
-120D C0E0      1115            push acc
-120F 7401      1115            mov a, #1
-1211 14        1115            dec a
-1212 1203A7    1115            lcall ?Set_Cursor_1 ; Select column and row
-1215 D0E0      1115            pop acc
-1217 C083      1116            push dph
-1219 C082      1116            push dpl
-121B C0E0      1116            push acc
-121D 9012E6    1116            mov dptr, #CLEAR_TXT
-1220 12039A    1116            lcall ?Send_Constant_String
-1223 D0E0      1116            pop acc
-1225 D082      1116            pop dpl
-1227 D083      1116            pop dph
-1229 C0E0      1117            push acc
-122B 7401      1117            mov a, #1
-122D 14        1117            dec a
-122E 1203A5    1117            lcall ?Set_Cursor_2 ; Select column and row
-1231 D0E0      1117            pop acc
-1233 C083      1118            push dph
-1235 C082      1118            push dpl
-1237 C0E0      1118            push acc
-1239 9012E6    1118            mov dptr, #CLEAR_TXT
-123C 12039A    1118            lcall ?Send_Constant_String
-123F D0E0      1118            pop acc
-1241 D082      1118            pop dpl
-1243 D083      1118            pop dph
-1245           1119   
-1245           1120       ; Row 1: state label
-1245 C0E0      1121            push acc
-1247 7401      1121            mov a, #1
-1249 14        1121            dec a
-124A 1203A7    1121            lcall ?Set_Cursor_1 ; Select column and row
-124D D0E0      1121            pop acc
-124F 121157    1122       lcall Update_LCD_State
-1252           1123   
-1252           1124       ; Row 2: placeholders for now
-1252 C0E0      1125            push acc
-1254 7401      1125            mov a, #1
-1256 14        1125            dec a
-1257 1203A5    1125            lcall ?Set_Cursor_2 ; Select column and row
-125A D0E0      1125            pop acc
-125C C083      1126            push dph
-125E C082      1126            push dpl
-1260 C0E0      1126            push acc
-1262 9012F7    1126            mov dptr, #STATUS_L2_TXT
-1265 12039A    1126            lcall ?Send_Constant_String
-1268 D0E0      1126            pop acc
-126A D082      1126            pop dpl
-126C D083      1126            pop dph
-126E 22        1127       ret
-126F           1128   
-126F           1129   LCD_Render_Params:
-126F 200701    1130       jb  lcd_redraw_flag, LCD_Params_Full
-1272           1131       ; later: update numbers in-place here (soak_temp/time, reflow_temp/time)
-1272 22        1132       ret
-1273           1133   
-1273           1134   LCD_Params_Full:
-1273 C207      1135       clr lcd_redraw_flag
-1275 C0E0      1136            push acc
-1277 7401      1136            mov a, #1
-1279 14        1136            dec a
-127A 1203A7    1136            lcall ?Set_Cursor_1 ; Select column and row
-127D D0E0      1136            pop acc
-127F C083      1137            push dph
-1281 C082      1137            push dpl
-1283 C0E0      1137            push acc
-1285 9012E6    1137            mov dptr, #CLEAR_TXT
-1288 12039A    1137            lcall ?Send_Constant_String
-128B D0E0      1137            pop acc
-128D D082      1137            pop dpl
-128F D083      1137            pop dph
-1291 C0E0      1138            push acc
-1293 7401      1138            mov a, #1
-1295 14        1138            dec a
-1296 1203A5    1138            lcall ?Set_Cursor_2 ; Select column and row
-1299 D0E0      1138            pop acc
-129B C083      1139            push dph
-129D C082      1139            push dpl
-129F C0E0      1139            push acc
-12A1 9012E6    1139            mov dptr, #CLEAR_TXT
-12A4 12039A    1139            lcall ?Send_Constant_String
-12A7 D0E0      1139            pop acc
-12A9 D082      1139            pop dpl
-12AB D083      1139            pop dph
-12AD           1140   
-12AD C0E0      1141            push acc
-12AF 7401      1141            mov a, #1
-12B1 14        1141            dec a
-12B2 1203A7    1141            lcall ?Set_Cursor_1 ; Select column and row
-12B5 D0E0      1141            pop acc
-12B7 C083      1142            push dph
-12B9 C082      1142            push dpl
-12BB C0E0      1142            push acc
-12BD 901305    1142            mov dptr, #PARAMS_L1_TXT
-12C0 12039A    1142            lcall ?Send_Constant_String
-12C3 D0E0      1142            pop acc
-12C5 D082      1142            pop dpl
-12C7 D083      1142            pop dph
-12C9 C0E0      1143            push acc
-12CB 7401      1143            mov a, #1
-12CD 14        1143            dec a
-12CE 1203A5    1143            lcall ?Set_Cursor_2 ; Select column and row
-12D1 D0E0      1143            pop acc
-12D3 C083      1144            push dph
-12D5 C082      1144            push dpl
-12D7 C0E0      1144            push acc
-12D9 901313    1144            mov dptr, #PARAMS_L2_TXT
-12DC 12039A    1144            lcall ?Send_Constant_String
-12DF D0E0      1144            pop acc
-12E1 D082      1144            pop dpl
-12E3 D083      1144            pop dph
-12E5 22        1145       ret
-12E6           1146   
-12E6           1147   ; --- Bottom of your file ---
-12E6 20202020  1148   CLEAR_TXT: db '                ', 0 ; 16 spaces
+1152 12047E    1062                    lcall Wait25ms
+1155 C205      1063                    clr SpeakerFlag
+1157           1064   
+1157           1065            FSM_done:
+1157           1066   
+1157 020CA3    1067            ljmp loop ;
+115A           1068   
+115A           1069   ; --- Put this right before S0_TXT ---
+115A           1070   Update_LCD_State:
+115A           1071       ; --- Step A: Clear Row 1 only ---
+115A C0E0      1072            push acc
+115C 7401      1072            mov a, #1
+115E 14        1072            dec a
+115F 1203A7    1072            lcall ?Set_Cursor_1 ; Select column and row
+1162 D0E0      1072            pop acc
+1164 C083      1073            push dph
+1166 C082      1073            push dpl
+1168 C0E0      1073            push acc
+116A 9012E9    1073            mov dptr, #CLEAR_TXT
+116D 12039A    1073            lcall ?Send_Constant_String
+1170 D0E0      1073            pop acc
+1172 D082      1073            pop dpl
+1174 D083      1073            pop dph ; Write 16 spaces to "erase" the line
+1176           1074       
+1176 C0E0      1075            push acc
+1178 7401      1075            mov a, #1
+117A 14        1075            dec a
+117B 1203A7    1075            lcall ?Set_Cursor_1 ; Select column and row
+117E D0E0      1075            pop acc ; Move back to start
+1180 E56A      1076       mov a, FSM_state
+1182           1077   
+1182 B40013    1078       cjne a, #0, lc_s1
+1185 C083      1079            push dph
+1187 C082      1079            push dpl
+1189 C0E0      1079            push acc
+118B 901324    1079            mov dptr, #S0_TXT
+118E 12039A    1079            lcall ?Send_Constant_String
+1191 D0E0      1079            pop acc
+1193 D082      1079            pop dpl
+1195 D083      1079            pop dph
+1197 22        1080       ret
+1198           1081   lc_s1:
+1198 B40113    1082       cjne a, #1, lc_s2
+119B C083      1083            push dph
+119D C082      1083            push dpl
+119F C0E0      1083            push acc
+11A1 901329    1083            mov dptr, #S1_TXT
+11A4 12039A    1083            lcall ?Send_Constant_String
+11A7 D0E0      1083            pop acc
+11A9 D082      1083            pop dpl
+11AB D083      1083            pop dph
+11AD 22        1084       ret
+11AE           1085   lc_s2:
+11AE B40213    1086       cjne a, #2, lc_s3
+11B1 C083      1087            push dph
+11B3 C082      1087            push dpl
+11B5 C0E0      1087            push acc
+11B7 90132F    1087            mov dptr, #S2_TXT
+11BA 12039A    1087            lcall ?Send_Constant_String
+11BD D0E0      1087            pop acc
+11BF D082      1087            pop dpl
+11C1 D083      1087            pop dph
+11C3 22        1088       ret
+11C4           1089   lc_s3:
+11C4 B40313    1090       cjne a, #3, lc_s4
+11C7 C083      1091            push dph
+11C9 C082      1091            push dpl
+11CB C0E0      1091            push acc
+11CD 901334    1091            mov dptr, #S3_TXT
+11D0 12039A    1091            lcall ?Send_Constant_String
+11D3 D0E0      1091            pop acc
+11D5 D082      1091            pop dpl
+11D7 D083      1091            pop dph
+11D9 22        1092       ret
+11DA           1093   lc_s4:
+11DA B40413    1094       cjne a, #4, lc_s5
+11DD C083      1095            push dph
+11DF C082      1095            push dpl
+11E1 C0E0      1095            push acc
+11E3 90133A    1095            mov dptr, #S4_TXT
+11E6 12039A    1095            lcall ?Send_Constant_String
+11E9 D0E0      1095            pop acc
+11EB D082      1095            pop dpl
+11ED D083      1095            pop dph
+11EF 22        1096       ret
+11F0           1097   lc_s5:
+11F0 C083      1098            push dph
+11F2 C082      1098            push dpl
+11F4 C0E0      1098            push acc
+11F6 901341    1098            mov dptr, #S5_TXT
+11F9 12039A    1098            lcall ?Send_Constant_String
+11FC D0E0      1098            pop acc
+11FE D082      1098            pop dpl
+1200 D083      1098            pop dph
+1202 22        1099       ret
+1203           1100       
+1203           1101    ;========================
+1203           1102   ; [BLOCK 6] LCD ROUTINES (put near the bottom with your other LCD functions)
+1203           1103   ;========================
+1203           1104   LCD_Render:
+1203 200604    1105       jb  screen_flag, LCD_Render_Status
+1206 121272    1106       lcall LCD_Render_Params
+1209 22        1107       ret
+120A           1108   
+120A           1109   LCD_Render_Status:
+120A 200701    1110       jb  lcd_redraw_flag, LCD_Status_Full
+120D           1111       ; later: update numbers in-place here (tempFinal, SecondsCounter)
+120D 22        1112       ret
+120E           1113   
+120E           1114   LCD_Status_Full:
+120E C207      1115       clr lcd_redraw_flag
+1210 C0E0      1116            push acc
+1212 7401      1116            mov a, #1
+1214 14        1116            dec a
+1215 1203A7    1116            lcall ?Set_Cursor_1 ; Select column and row
+1218 D0E0      1116            pop acc
+121A C083      1117            push dph
+121C C082      1117            push dpl
+121E C0E0      1117            push acc
+1220 9012E9    1117            mov dptr, #CLEAR_TXT
+1223 12039A    1117            lcall ?Send_Constant_String
+1226 D0E0      1117            pop acc
+1228 D082      1117            pop dpl
+122A D083      1117            pop dph
+122C C0E0      1118            push acc
+122E 7401      1118            mov a, #1
+1230 14        1118            dec a
+1231 1203A5    1118            lcall ?Set_Cursor_2 ; Select column and row
+1234 D0E0      1118            pop acc
+1236 C083      1119            push dph
+1238 C082      1119            push dpl
+123A C0E0      1119            push acc
+123C 9012E9    1119            mov dptr, #CLEAR_TXT
+123F 12039A    1119            lcall ?Send_Constant_String
+1242 D0E0      1119            pop acc
+1244 D082      1119            pop dpl
+1246 D083      1119            pop dph
+1248           1120   
+1248           1121       ; Row 1: state label
+1248 C0E0      1122            push acc
+124A 7401      1122            mov a, #1
+124C 14        1122            dec a
+124D 1203A7    1122            lcall ?Set_Cursor_1 ; Select column and row
+1250 D0E0      1122            pop acc
+1252 12115A    1123       lcall Update_LCD_State
+1255           1124   
+1255           1125       ; Row 2: placeholders for now
+1255 C0E0      1126            push acc
+1257 7401      1126            mov a, #1
+1259 14        1126            dec a
+125A 1203A5    1126            lcall ?Set_Cursor_2 ; Select column and row
+125D D0E0      1126            pop acc
+125F C083      1127            push dph
+1261 C082      1127            push dpl
+1263 C0E0      1127            push acc
+1265 9012FA    1127            mov dptr, #STATUS_L2_TXT
+1268 12039A    1127            lcall ?Send_Constant_String
+126B D0E0      1127            pop acc
+126D D082      1127            pop dpl
+126F D083      1127            pop dph
+1271 22        1128       ret
+1272           1129   
+1272           1130   LCD_Render_Params:
+1272 200701    1131       jb  lcd_redraw_flag, LCD_Params_Full
+1275           1132       ; later: update numbers in-place here (soak_temp/time, reflow_temp/time)
+1275 22        1133       ret
+1276           1134   
+1276           1135   LCD_Params_Full:
+1276 C207      1136       clr lcd_redraw_flag
+1278 C0E0      1137            push acc
+127A 7401      1137            mov a, #1
+127C 14        1137            dec a
+127D 1203A7    1137            lcall ?Set_Cursor_1 ; Select column and row
+1280 D0E0      1137            pop acc
+1282 C083      1138            push dph
+1284 C082      1138            push dpl
+1286 C0E0      1138            push acc
+1288 9012E9    1138            mov dptr, #CLEAR_TXT
+128B 12039A    1138            lcall ?Send_Constant_String
+128E D0E0      1138            pop acc
+1290 D082      1138            pop dpl
+1292 D083      1138            pop dph
+1294 C0E0      1139            push acc
+1296 7401      1139            mov a, #1
+1298 14        1139            dec a
+1299 1203A5    1139            lcall ?Set_Cursor_2 ; Select column and row
+129C D0E0      1139            pop acc
+129E C083      1140            push dph
+12A0 C082      1140            push dpl
+12A2 C0E0      1140            push acc
+12A4 9012E9    1140            mov dptr, #CLEAR_TXT
+12A7 12039A    1140            lcall ?Send_Constant_String
+12AA D0E0      1140            pop acc
+12AC D082      1140            pop dpl
+12AE D083      1140            pop dph
+12B0           1141   
+12B0 C0E0      1142            push acc
+12B2 7401      1142            mov a, #1
+12B4 14        1142            dec a
+12B5 1203A7    1142            lcall ?Set_Cursor_1 ; Select column and row
+12B8 D0E0      1142            pop acc
+12BA C083      1143            push dph
+12BC C082      1143            push dpl
+12BE C0E0      1143            push acc
+12C0 901308    1143            mov dptr, #PARAMS_L1_TXT
+12C3 12039A    1143            lcall ?Send_Constant_String
+12C6 D0E0      1143            pop acc
+12C8 D082      1143            pop dpl
+12CA D083      1143            pop dph
+12CC C0E0      1144            push acc
+12CE 7401      1144            mov a, #1
+12D0 14        1144            dec a
+12D1 1203A5    1144            lcall ?Set_Cursor_2 ; Select column and row
+12D4 D0E0      1144            pop acc
+12D6 C083      1145            push dph
+12D8 C082      1145            push dpl
+12DA C0E0      1145            push acc
+12DC 901316    1145            mov dptr, #PARAMS_L2_TXT
+12DF 12039A    1145            lcall ?Send_Constant_String
+12E2 D0E0      1145            pop acc
+12E4 D082      1145            pop dpl
+12E6 D083      1145            pop dph
+12E8 22        1146       ret
+12E9           1147   
+12E9           1148   ; --- Bottom of your file ---
+12E9 20202020  1149   CLEAR_TXT: db '                ', 0 ; 16 spaces
      20202020
      20202020
      20202020
      00
-12F7           1149   ;========================
-12F7           1150   ; [BLOCK 7] STRINGS (put with your other db strings near CLEAR_TXT / S0_TXT etc.)
-12F7           1151   ;========================
-12F7 543D2D2D  1152   STATUS_L2_TXT:  db 'T=----  t=---', 0
+12FA           1150   ;========================
+12FA           1151   ; [BLOCK 7] STRINGS (put with your other db strings near CLEAR_TXT / S0_TXT etc.)
+12FA           1152   ;========================
+12FA 543D2D2D  1153   STATUS_L2_TXT:  db 'T=----  t=---', 0
      2D2D2020
      743D2D2D
      2D00
-1305 53543D2D  1153   PARAMS_L1_TXT:  db 'ST=---  t=---', 0
+1308 53543D2D  1154   PARAMS_L1_TXT:  db 'ST=---  t=---', 0
      2D2D2020
      743D2D2D
      2D00
-1313 52543D2D  1154   PARAMS_L2_TXT:  db 'RT=---  t=---', 0
+1316 52543D2D  1155   PARAMS_L2_TXT:  db 'RT=---  t=---', 0
      2D2D2020
      743D2D2D
      2D00
-1321           1155   
-1321 494E4954  1156   S0_TXT: db 'INIT', 0
+1324           1156   
+1324 494E4954  1157   S0_TXT: db 'INIT', 0
      00
-1326 52414D50  1157   S1_TXT: db 'RAMP1', 0
+1329 52414D50  1158   S1_TXT: db 'RAMP1', 0
      3100
-132C 534F414B  1158   S2_TXT: db 'SOAK', 0
+132F 534F414B  1159   S2_TXT: db 'SOAK', 0
      00
-1331 52414D50  1159   S3_TXT: db 'RAMP2', 0
+1334 52414D50  1160   S3_TXT: db 'RAMP2', 0
      3200
-1337 5245464C  1160   S4_TXT: db 'REFLOW', 0
+133A 5245464C  1161   S4_TXT: db 'REFLOW', 0
      4F5700
-133E 434F4F4C  1161   S5_TXT: db 'COOLING', 0
+1341 434F4F4C  1162   S5_TXT: db 'COOLING', 0
      494E4700
-1346           1162   
-1346           1163   END
+1349           1163   
+1349           1164   END
