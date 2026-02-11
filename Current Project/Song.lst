@@ -1,251 +1,126 @@
                   2   $LIST
 0000              4   
-0000              5   ; ============================================================
-0000              6   ; 8052 / CV_8052 (DE10-Lite) - "Done Song" Full Example
-0000              7   ; Clock: 33.333333 MHz
-0000              8   ; Timer2: 1ms tick
-0000              9   ; Timer0: tone generator (toggle SPEAKER each overflow)
-0000             10   ; ============================================================
-0000             11   
-0000             12   CLK            EQU 33333333
-0000             13   TIMER2_RATE    EQU 1000
-0000             14   TIMER2_RELOAD  EQU (65536-(CLK/(12*TIMER2_RATE)))  ; 1ms tick
-0000             15   
-0000             16   ; -------------------------
-0000             17   ; Pick your speaker pin here
-0000             18   ; -------------------------
-0000             19   SPEAKER        BIT P1.0      ; <<< CHANGE THIS to your actual speaker GPIO bit
-0000             20   
-0000             21   ; ============================================================
-0000             22   ; Interrupt vectors
-0000             23   ; ============================================================
-0000             24   CSEG at 0x0000
-0000 020109      25       ljmp main
-0003             26   
-000B             27   CSEG at 0x000B               ; Timer0 overflow vector
-000B 020066      28       ljmp Timer0_ISR
-000E             29   
-002B             30   CSEG at 0x002B               ; Timer2 overflow vector (8052)
-002B 020057      31       ljmp Timer2_ISR
-002E             32   
-002E             33   ; ============================================================
-002E             34   ; RAM variables
-002E             35   ; ============================================================
-0040             36   DSEG at 0x40
-0040             37   ms_ticks:   ds 2             ; 16-bit millisecond counter
-0042             38   tone_rl:    ds 1             ; Timer0 reload low byte
-0043             39   tone_rh:    ds 1             ; Timer0 reload high byte
-0044             40   tone_on:    ds 1             ; 0=silent, 1=toggle SPEAKER
-0045             41   
-0045             42   ; ============================================================
-0045             43   ; Code
-0045             44   ; ============================================================
-002E             45   CSEG
-002E             46   
-002E             47   ; ------------------------------------------------------------
-002E             48   ; InitTimers: sets up Timer0 (tone) + Timer2 (1ms tick)
-002E             49   ; ------------------------------------------------------------
-002E             50   InitTimers:
-002E             51       ; Timer0: Mode 1 (16-bit)
-002E 5389F0      52       anl TMOD, #0F0h
-0031 438901      53       orl TMOD, #01h
-0034             54   
-0034             55       ; Timer2: auto-reload 1ms tick
-0034 75C800      56       mov T2CON, #00h           ; Timer2 as timer, auto-reload
-0037 75CBF5      57       mov RCAP2H, #HIGH(TIMER2_RELOAD)
-003A 75CA27      58       mov RCAP2L, #LOW(TIMER2_RELOAD)
-003D 75CDF5      59       mov TH2,    #HIGH(TIMER2_RELOAD)
-0040 75CC27      60       mov TL2,    #LOW(TIMER2_RELOAD)
-0043             61   
-0043             62       ; Clear counters / flags
-0043 754000      63       mov ms_ticks,   #00h
-0046 754100      64       mov ms_ticks+1, #00h
-0049 754400      65       mov tone_on,    #00h
-004C C290        66       clr SPEAKER
-004E             67   
-004E             68       ; Enable interrupts
-004E D2A9        69       setb ET0                  ; Timer0 interrupt enable
-0050 D2AD        70       setb ET2                  ; Timer2 interrupt enable
-0052 D2AF        71       setb EA                   ; global enable
-0054             72   
-0054             73       ; Start Timer2 (1ms tick). Timer0 starts only when playing.
-0054 D2CA        74       setb TR2
-0056             75   
-0056 22          76       ret
-0057             77   
-0057             78   ; ------------------------------------------------------------
-0057             79   ; Timer2 ISR: runs every 1ms -> increments ms_ticks
-0057             80   ; ------------------------------------------------------------
-0057             81   Timer2_ISR:
-0057 C0E0        82       push acc
-0059             83   
-0059             84       ; Clear Timer2 overflow flag
-0059 C2CF        85       clr TF2
-005B             86   
-005B 0540        87       inc ms_ticks
-005D E540        88       mov a, ms_ticks
-005F 7002        89       jnz T2_done
-0061 0541        90       inc ms_ticks+1
-0063             91   
-0063             92   T2_done:
-0063 D0E0        93       pop acc
-0065 32          94       reti
-0066             95   
-0066             96   ; ------------------------------------------------------------
-0066             97   ; Timer0 ISR: reload TH0/TL0 and toggle SPEAKER if tone_on=1
-0066             98   ; ------------------------------------------------------------
-0066             99   Timer0_ISR:
-0066 C0E0       100       push acc
-0068            101   
-0068            102       ; Reload timer
-0068 85438C     103       mov TH0, tone_rh
-006B 85428A     104       mov TL0, tone_rl
-006E            105   
-006E E544       106       mov a, tone_on
-0070 6004       107       jz  T0_silent
-0072 B290       108       cpl SPEAKER               ; toggle pin -> square wave
-0074 8002       109       sjmp T0_done
-0076            110   
-0076            111   T0_silent:
-0076 C290       112       clr SPEAKER               ; keep low when silent (optional)
-0078            113   
-0078            114   T0_done:
-0078 D0E0       115       pop acc
-007A 32         116       reti
-007B            117   
-007B            118   ; ------------------------------------------------------------
-007B            119   ; WaitMs: wait R7 milliseconds using ms_ticks
-007B            120   ; (Safe 16-bit compare, works across wrap)
-007B            121   ; ------------------------------------------------------------
-007B            122   WaitMs:
-007B C0E0       123       push acc
-007D C0F0       124       push b
-007F C082       125       push dpl
-0081 C083       126       push dph
-0083            127   
-0083            128       ; start = ms_ticks
-0083 854082     129       mov dpl, ms_ticks
-0086 854183     130       mov dph, ms_ticks+1
-0089            131   
-0089            132   WaitMs_loop:
-0089            133       ; elapsed = current - start (16-bit)
-0089 E540       134       mov a, ms_ticks
-008B C3         135       clr c
-008C 9582       136       subb a, dpl
-008E F5F0       137       mov b, a                  ; elapsed low
-0090 E541       138       mov a, ms_ticks+1
-0092 9583       139       subb a, dph               ; elapsed high in A
-0094            140   
-0094            141       ; if elapsed >= R7 (and R7 <= 255), just check high==0 and low>=R7,
-0094            142       ; OR if high != 0, elapsed is definitely >= R7.
-0094 E541       143       mov a, ms_ticks+1
-0096 C3         144       clr c
-0097 9583       145       subb a, dph               ; recompute elapsed high quickly
-0099 7006       146       jnz WaitMs_done           ; if elapsed high != 0 => elapsed >= 256 >= R7
-009B            147   
-009B E5F0       148       mov a, b
-009D C3         149       clr c
-009E 9F         150       subb a, r7
-009F 40E8       151       jc  WaitMs_loop           ; elapsed < R7 -> keep waiting
-00A1            152   
-00A1            153   WaitMs_done:
-00A1 D083       154       pop dph
-00A3 D082       155       pop dpl
-00A5 D0F0       156       pop b
-00A7 D0E0       157       pop acc
-00A9 22         158       ret
-00AA            159   
-00AA            160   ; ------------------------------------------------------------
-00AA            161   ; PlayTone:
-00AA            162   ; Inputs:
-00AA            163   ;   R5 = reload high (TH0)
-00AA            164   ;   R6 = reload low  (TL0)
-00AA            165   ;   R7 = duration (ms)
-00AA            166   ; ------------------------------------------------------------
-00AA            167   PlayTone:
-00AA 8D43       168       mov tone_rh, r5
-00AC 8E42       169       mov tone_rl, r6
-00AE            170   
-00AE 85438C     171       mov TH0, tone_rh
-00B1 85428A     172       mov TL0, tone_rl
-00B4            173   
-00B4 754401     174       mov tone_on, #01h
-00B7 D28C       175       setb TR0
-00B9            176   
-00B9 12007B     177       lcall WaitMs         ; duration in R7
-00BC            178   
-00BC C28C       179       clr TR0
-00BE 754400     180       mov tone_on, #00h
-00C1 C290       181       clr SPEAKER
-00C3            182   
-00C3            183       ; --- staccato gap ---
-00C3 7F14       184       mov r7, #20          ; 20ms silence
-00C5 12007B     185       lcall WaitMs
-00C8            186   
-00C8 22         187       ret
-00C9            188   
-00C9            189   ; ------------------------------------------------------------
-00C9            190   ; Done Song (converted from your Windows Beep list)
-00C9            191   ; 261,261,392,392,440,440,392 with 250ms each
-00C9            192   ; Using reload = 65536 - CLK/(24*f)
-00C9            193   ; Precomputed for CLK=33.333333MHz:
-00C9            194   ;   261 Hz -> 0xF9D1
-00C9            195   ;   392 Hz -> 0xFB8A
-00C9            196   ;   440 Hz -> 0xFBF5
-00C9            197   ; ------------------------------------------------------------
-00C9            198   PlayDoneSong:
-00C9            199       ; 261
-00C9 7DF9       200       mov r5, #0F9h
-00CB 7ED1       201       mov r6, #0D1h
-00CD 7FFA       202       mov r7, #250
-00CF 1200AA     203       lcall PlayTone
-00D2            204   
-00D2 7DF9       205       mov r5, #0F9h
-00D4 7ED1       206       mov r6, #0D1h
-00D6 7FFA       207       mov r7, #250
-00D8 1200AA     208       lcall PlayTone
-00DB            209   
-00DB            210       ; 392
-00DB 7DFB       211       mov r5, #0FBh
-00DD 7E8A       212       mov r6, #08Ah
-00DF 7FFA       213       mov r7, #250
-00E1 1200AA     214       lcall PlayTone
-00E4            215   
-00E4 7DFB       216       mov r5, #0FBh
-00E6 7E8A       217       mov r6, #08Ah
-00E8 7FFA       218       mov r7, #250
-00EA 1200AA     219       lcall PlayTone
-00ED            220   
-00ED            221       ; 440
-00ED 7DFB       222       mov r5, #0FBh
-00EF 7EF5       223       mov r6, #0F5h
-00F1 7FFA       224       mov r7, #250
-00F3 1200AA     225       lcall PlayTone
-00F6            226   
-00F6 7DFB       227       mov r5, #0FBh
-00F8 7EF5       228       mov r6, #0F5h
-00FA 7FFA       229       mov r7, #250
-00FC 1200AA     230       lcall PlayTone
-00FF            231   
-00FF            232       ; 392 (final)
-00FF 7DFB       233       mov r5, #0FBh
-0101 7E8A       234       mov r6, #08Ah
-0103 7FFA       235       mov r7, #250
-0105 1200AA     236       lcall PlayTone
-0108            237   
-0108 22         238       ret
-0109            239   
-0109            240   ; ------------------------------------------------------------
-0109            241   ; MAIN (demo): init, play song once, then loop forever
-0109            242   ; In your project: call PlayDoneSong in DONE state instead.
-0109            243   ; ------------------------------------------------------------
-0109            244   main:
-0109 12002E     245       lcall InitTimers
-010C            246   
-010C            247       ; demo play once:
-010C 1200C9     248       lcall PlayDoneSong
-010F            249   
-010F            250   Forever:
-010F 80FE       251       sjmp Forever
-0111            252   
-0111            253   END
+0000              5   CLK            EQU 33333333
+0000              6   TIMER2_RATE    EQU 1000
+0000              7   TIMER2_RELOAD  EQU (65536-(CLK/(12*TIMER2_RATE))) ; 1ms tick
+0000              8   
+0000              9   ; 2 kHz tone
+0000             10   TONE_RATE      EQU 4000
+0000             11   TIMER0_RELOAD  EQU (65536-(CLK/(12*TONE_RATE)))
+0000             12   
+0000             13   SPEAKER        BIT P1.0
+0000             14   
+0000             15   ; --------------------------
+0000             16   ; VECTORS
+0000             17   ; --------------------------
+0000             18   CSEG at 0x0000
+0000 02007F      19       ljmp main
+0003             20   
+000B             21   CSEG at 0x000B
+000B 02003D      22       ljmp Timer0_ISR
+000E             23   
+002B             24   CSEG at 0x002B
+002B 020060      25       ljmp Timer2_ISR
+002E             26   
+002E             27   ; --------------------------
+002E             28   ; RAM
+002E             29   ; --------------------------
+0040             30   DSEG at 0x40
+0040             31   ms_lo: ds 1
+0041             32   ms_hi: ds 1
+0042             33   
+002E             34   CSEG
+002E             35   
+002E             36   ; --------------------------
+002E             37   ; Timer0: tone
+002E             38   ; --------------------------
+002E             39   Timer0_Init:
+002E 5389F0      40       anl TMOD, #0F0h
+0031 438901      41       orl TMOD, #01h
+0034 758CFD      42       mov TH0, #HIGH(TIMER0_RELOAD)
+0037 758A4A      43       mov TL0, #LOW(TIMER0_RELOAD)
+003A D2A9        44       setb ET0
+003C 22          45       ret
+003D             46   
+003D             47   Timer0_ISR:
+003D 758CFD      48       mov TH0, #HIGH(TIMER0_RELOAD)
+0040 758A4A      49       mov TL0, #LOW(TIMER0_RELOAD)
+0043 B290        50       cpl SPEAKER
+0045 32          51       reti
+0046             52   
+0046             53   ; --------------------------
+0046             54   ; Timer2: 1 ms counter
+0046             55   ; --------------------------
+0046             56   Timer2_Init:
+0046 75C800      57       mov T2CON, #00h
+0049 75CBF5      58       mov RCAP2H,#HIGH(TIMER2_RELOAD)
+004C 75CA27      59       mov RCAP2L,#LOW(TIMER2_RELOAD)
+004F 75CDF5      60       mov TH2,#HIGH(TIMER2_RELOAD)
+0052 75CC27      61       mov TL2,#LOW(TIMER2_RELOAD)
+0055             62   
+0055 754000      63       mov ms_lo,#0
+0058 754100      64       mov ms_hi,#0
+005B             65   
+005B D2AD        66       setb IE.5        ; ET2
+005D D2CA        67       setb TR2
+005F 22          68       ret
+0060             69   
+0060             70   Timer2_ISR:
+0060 0540        71       inc ms_lo
+0062 E540        72       mov a, ms_lo
+0064 7002        73       jnz t2_done
+0066 0541        74       inc ms_hi
+0068             75   t2_done:
+0068 32          76       reti
+0069             77   
+0069             78   ; --------------------------
+0069             79   ; Wait R7 ms
+0069             80   ; --------------------------
+0069             81   WaitMs:
+0069 AE40        82       mov r6, ms_lo
+006B AD41        83       mov r5, ms_hi
+006D             84   
+006D             85   wait_loop:
+006D E540        86       mov a, ms_lo
+006F C3          87       clr c
+0070 9E          88       subb a, r6
+0071 F5F0        89       mov b, a
+0073             90   
+0073 E541        91       mov a, ms_hi
+0075 9D          92       subb a, r5
+0076 7006        93       jnz done
+0078             94   
+0078 E5F0        95       mov a, b
+007A C3          96       clr c
+007B 9F          97       subb a, r7
+007C 40EF        98       jc wait_loop
+007E             99   done:
+007E 22         100       ret
+007F            101   
+007F            102   ; --------------------------
+007F            103   ; MAIN
+007F            104   ; --------------------------
+007F            105   main:
+007F 75817F     106       mov SP,#7Fh
+0082            107   
+0082 12002E     108       lcall Timer0_Init
+0085 120046     109       lcall Timer2_Init
+0088 D2AF       110       setb EA
+008A            111   
+008A            112   forever:
+008A D28C       113       setb TR0        ; sound ON
+008C 7FFA       114       mov r7,#250
+008E 120069     115       lcall WaitMs
+0091 7FFA       116       mov r7,#250
+0093 120069     117       lcall WaitMs
+0096            118   
+0096 C28C       119       clr TR0         ; sound OFF
+0098 C290       120       clr SPEAKER
+009A 7FFA       121       mov r7,#250
+009C 120069     122       lcall WaitMs
+009F 7FFA       123       mov r7,#250
+00A1 120069     124       lcall WaitMs
+00A4            125   
+00A4 80E4       126       sjmp forever
+00A6            127   
+00A6            128   END
