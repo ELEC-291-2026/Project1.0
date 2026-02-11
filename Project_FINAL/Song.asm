@@ -1,25 +1,11 @@
-; Simple_Rhythm_DE10Lite.asm:
-; Plays C D E F G A B C once (no loop)
-; Press KEY.1 to play again
-;
-$NOLIST
-$MODMAX10
-$LIST
-
-CLK           EQU 33333333 ; Microcontroller system crystal frequency in Hz
-TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
-TIMER2_RELOAD EQU ((65536-(CLK/(12*TIMER2_RATE))))
 
 
 ; Variables
 dseg at 0x30
-Count1ms:     ds 2   ; 1ms counter for Timer2
-song_idx:     ds 1   ; which note we're on (0-7)
-note_ms:      ds 2   ; how long current note has played (ms)
 tone_rh:      ds 1   ; Timer0 reload high byte for current note
 tone_rl:      ds 1   ; Timer0 reload low byte for current note
-note_dur_l:   ds 1   ; Current note duration low byte
-note_dur_h:   ds 1   ; Current note duration high byte
+songCounter:  ds 1
+secondsWait:  ds 1
 
 bseg
 song_playing: dbit 1 ; Flag: is song currently playing?
@@ -57,189 +43,76 @@ R_C7  EQU 0FD68h   ; 2093.00 Hz
 No_Note  EQU 0000h   ; 000 Hz
 
 
+; Simple rhythm: C D E F G A B C
+; Each note plays for 400ms
 SIMPLE_RHYTHM:
 
-    DW R_C5, 250    
-    DW R_Cs5, 250   
-    DW R_D5, 250   
-    DW R_Ds5, 250  
-    DW R_E5, 250  
-    DW R_F5, 250    
-    DW R_Fs5, 250  
-    DW R_G5, 250     
-    DW R_Gs5,  250   
-    DW R_A5, 250    
-    DW R_As5, 250 
-    DW R_B5, 250 
-    DW No_Note, 250
-    DW No_Note, 250
-    DW R_C6, 250  
-    DW R_Cs6, 250  
-    DW R_D6, 250    
-    DW R_Ds6, 250     
-    DW R_E6, 250   
-    DW R_F6, 250    
-    DW R_Fs6, 250 
-    DW R_G6, 250    
-    DW R_Gs6,250  
-    DW R_A6, 250    
-    DW R_As6, 250 
-    DW R_B6, 250 
+    DB low(R_C5),  high(R_C5),  250    
+    DB low(R_Cs5), high(R_Cs5), 250   
+    DB low(R_D5),  high(R_D5),  250   
+    DB low(R_Ds5), high(R_Ds5), 250  
+    DB low(R_E5),  high(R_E5),  250  
+    DB low(R_F5),  high(R_F5),  250    
+    DB low(R_Fs5), high(R_Fs5), 250  
+    DB low(R_G5),  high(R_G5),  250     
+    DB low(R_Gs5), high(R_Gs5), 250   
+    DB low(R_A5),  high(R_A5),  250    
+    DB low(R_As5), high(R_As5), 250 
+    DB low(R_B5),  high(R_B5),  250 
+    DB low(No_Note), high(No_Note), 250
+    DB low(No_Note), high(No_Note), 250
+    DB low(R_C6),  high(R_C6),  250  
+    DB low(R_Cs6), high(R_Cs6), 250  
+    DB low(R_D6),  high(R_D6),  250    
+    DB low(R_Ds6), high(R_Ds6), 250     
+    DB low(R_E6),  high(R_E6),  250   
+    DB low(R_F6),  high(R_F6),  250    
+    DB low(R_Fs6), high(R_Fs6), 250 
+    DB low(R_G6),  high(R_G6),  250    
+    DB low(R_Gs6), high(R_Gs6), 250  
+    DB low(R_A6),  high(R_A6),  250    
+    DB low(R_As6), high(R_As6), 250 
+    DB low(R_B6),  high(R_B6),  250 
+
     
 
-SONG_LEN EQU 24    ; number of notes
+SONG_LEN EQU 26    ; number of notes
+	
+	
+	
+Play_song:
 
-;---------------------------------;
-; Load current note from song     ;
-; Input: song_idx (0-7)          ;
-;---------------------------------;
-Load_Song_Note:
-    push acc
-    push dph
-    push dpl
-    
-    ; Each note is 4 bytes: 2 for reload, 2 for duration
-    ; Offset = song_idx * 4
-    mov a, song_idx
-    rl a              ; *2
-    rl a              ; *4
-    anl a, #0FCh      ; Ensure it's a multiple of 4
-    
-    mov dptr, #SIMPLE_RHYTHM
-    
-    ; Get reload high byte
-    movc a, @a+dptr
-    mov tone_rh, a
-    
-    ; Get reload low byte
-    mov a, song_idx
-    rl a
-    rl a
-    anl a, #0FCh
-    inc a
-    movc a, @a+dptr
-    mov tone_rl, a
-    
-    ; Get duration low byte
-    mov a, song_idx
-    rl a
-    rl a
-    anl a, #0FCh
-    add a, #2
-    movc a, @a+dptr
-    mov note_dur_h, a
-    
-    ; Get duration high byte
-    mov a, song_idx
-    rl a
-    rl a
-    anl a, #0FCh
-    add a, #3
-    movc a, @a+dptr
-    mov note_dur_l, a
-    
-    ; Reset note timing counter
-    clr a
-    mov note_ms+0, a
-    mov note_ms+1, a
-    
-    ; Load timer and start
-    mov TH0, tone_rh
-    mov TL0, tone_rl
-    setb TR0              ; Start Timer0
-    
-    pop dpl
-    pop dph
-    pop acc
-    ret
 
-;---------------------------------;
-; ISR for timer 2 (1ms tick)      ;
-; Handles note timing             ;
-;---------------------------------;
-Timer2_ISR:
-	clr TF2  ; Timer 2 doesn't clear TF2 automatically
-	cpl P1.1 ; Debug: Check interrupt rate with oscilloscope
+	setb SpeakerFlag
+	setb SongFlag
+	mov songCounter, #0x00
+	mov DPTR, #SIMPLE_RHYTHM
+	mov secondsWait, #0x00
 	
-	push acc
-	push psw
-	
-	; Only process if song is playing
-	jnb song_playing, Timer2_ISR_done
-	
-	; Increment note duration counter
-	inc note_ms+0
-	mov a, note_ms+0
-	jnz Check_Note_Duration
-	inc note_ms+1
-	
-Check_Note_Duration:
-	; Check if note duration has elapsed
-	mov a, note_ms+0
-	cjne a, note_dur_l, Timer2_ISR_done
-	mov a, note_ms+1
-	cjne a, note_dur_h, Timer2_ISR_done
-	
-	; Note duration elapsed - advance to next note
-	mov a, song_idx
-	inc a
-	
-	; Check if song is finished
-	cjne a, #SONG_LEN, Next_Note_OK
-	
-	; *** SONG FINISHED - STOP PLAYING ***
-	clr song_playing
-	clr TR0               ; Stop Timer0
-	clr SOUND_OUT         ; Turn off speaker
-	setb LEDRA.0          ; Turn on LED to show song finished
-	ljmp Timer2_ISR_done
-	
-Next_Note_OK:
-	mov song_idx, a
-	lcall Load_Song_Note
-	
-;---------------------------------;
-; Main program. Includes hardware ;
-; initialization and 'forever'    ;
-; loop.                           ;
-;---------------------------------;
-main:
-	; Initialization
-    mov SP, #0x7F
-    
-    ; Configure I/O pins
-    mov P0MOD, #00010000b ; P0.4 (SOUND_OUT) is output
-    mov P1MOD, #00000010b ; P1.1 is output (debug)
-    
-    ; Turn off all the LEDs
-    mov LEDRA, #0
-    mov LEDRB, #0
-    
-    ; Initialize timers
-    lcall Timer0_Init
-    lcall Timer2_Init
-    
-    ; Initialize song (but don't play yet)
-    mov song_idx, #0
-    clr song_playing      ; Wait for button press
-    
-    setb EA   ; Enable Global interrupts
-	
-	; Main loop - wait for button to play
-loop:
-	; Press KEY.1 to play the rhythm
-	jb KEY.1, loop
-	jnb KEY.1, $          ; Wait for release
-	
-	; Only play if not already playing
-	jb song_playing, loop
-	
-	; Start playing from beginning
-	clr LEDRA.0           ; Turn off LED
-	mov song_idx, #0
-	lcall Load_Song_Note
-	setb song_playing
-	
-	sjmp loop
+	forever_song:
+		
+		movc a,@a+DPTR
+		mov tone_rl, a
+		inc DPTR
+		
+		movc a,@a+DPTR
+		mov tone_rh, a
+		inc DPTR
+		
+		movc a,@a+DPTR
+		mov secondsWait, a
+		inc DPTR
 
+		
+		Wait_Milli_Seconds(secondsWait)
+		
+		inc songCounter
+		
+		mov a, songCounter
+		
+	cjne a, #SONG_LEN, forever_song
+	
+	clr SpeakerFlag
+	clr SongFlag
+	ret
 END
