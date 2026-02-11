@@ -13,3 +13,6 @@
   - Add a progress indicator and progress bar(1~2%)<mark>-> code in progress_bar.txt waiting for implementation<mark>.
   - Short song, once done, instead of 5 beeps(3~5%)
 
+## Extra stuff for Python
+  - temp change (fahrenheit, kelvins, Cel)
+  - Notification on phone
