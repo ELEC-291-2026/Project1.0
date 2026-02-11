@@ -1,114 +1,187 @@
-;==================================================
-; lcd_lib.asm  -  High level LCD helper functions
-;==================================================
-; Assumes:
-;   - Included AFTER LCD_4bit_DE10Lite_no_RW.inc
-;   - Global variables exist in main:
-;       soak_temp, soak_time, reflow_temp, reflow_time (2-byte BCD)
-;       tempFinal (32-bit), bcd (5 bytes) if used by future functions
-;   - Macros available:
-;       Set_Cursor(row, col)
-;       Display_char #imm
-;       Display_BCD(R0)
-;==================================================
+;===========================================================
+; lcd_lib.inc  - High-level LCD helper routines
+;===========================================================
+; Provides:
+;   LCD_ShowParameter  - Show current active parameter on row 1
+;   LCD_ShowTotalTime  - Show "Tot MM:SS" on row 1
+;   LCD_ShowStateTime  - Show "St  MM:SS" on row 2
+;
+; Relies on:
+;   - Macros: Set_Cursor, Send_Constant_String, Display_char
+;   - Subroutines: ?Display_BCD, Hex_to_bcd_8bit
+;   - Global vars (defined in main dseg):
+;       soak_temp (2 bytes BCD)
+;       soak_time (2 bytes BCD)
+;       reflow_temp (2 bytes BCD)
+;       reflow_time (2 bytes BCD)
+;       active_param (0=A,1=B,2=C,3=D)
+;       SecondsCounterTotal, MinutesCounterTotal, SecondsCounter
+;===========================================================
 
-CSEG
+cseg
 
-;--------------------------------------------------
-; 1) LCD_Clear
-;    - Clears the LCD and waits for the command to complete
-;    - Convenience wrapper so main doesn't have to remember 0x01 + delay
-;--------------------------------------------------
-LCD_Clear:
-    WriteCommand(#01h)         ; Clear display command
-    Wait_Milli_Seconds(#2)     ; Let LCD finish
+;-----------------------------------------------------------
+; LCD_ShowParameter
+;   Uses active_param:
+;     0 -> A: soak_temp
+;     1 -> B: soak_time
+;     2 -> C: reflow_temp
+;     3 -> D: reflow_time
+;
+;   Displays on row 1, col 1:
+;     "<Label> XXXX"
+;   e.g.: "A: 0150"
+;-----------------------------------------------------------
+LCD_ShowParameter:
+    ; Save registers we use
+    push acc
+    push ar0
+    push ar1
+
+    mov a, active_param
+    jz  LSP_A           ; 0 -> A
+    cjne a, #1, LSP_NotB
+    sjmp LSP_B
+LSP_NotB:
+    cjne a, #2, LSP_NotC
+    sjmp LSP_C
+LSP_NotC:
+    ; anything else -> D
+    sjmp LSP_D
+
+;----- A: soak_temp -----
+LSP_A:
+    Set_Cursor(1,1)
+    Send_Constant_String(#ParamA_Label)
+    mov r0, soak_temp+1
+    lcall ?Display_BCD
+    mov r0, soak_temp+0
+    lcall ?Display_BCD
+    sjmp LSP_Done
+
+;----- B: soak_time -----
+LSP_B:
+    Set_Cursor(1,1)
+    Send_Constant_String(#ParamB_Label)
+    mov r0, soak_time+1
+    lcall ?Display_BCD
+    mov r0, soak_time+0
+    lcall ?Display_BCD
+    sjmp LSP_Done
+
+;----- C: reflow_temp -----
+LSP_C:
+    Set_Cursor(1,1)
+    Send_Constant_String(#ParamC_Label)
+    mov r0, reflow_temp+1
+    lcall ?Display_BCD
+    mov r0, reflow_temp+0
+    lcall ?Display_BCD
+    sjmp LSP_Done
+
+;----- D: reflow_time -----
+LSP_D:
+    Set_Cursor(1,1)
+    Send_Constant_String(#ParamD_Label)
+    mov r0, reflow_time+1
+    lcall ?Display_BCD
+    mov r0, reflow_time+0
+    lcall ?Display_BCD
+
+LSP_Done:
+    pop ar1
+    pop ar0
+    pop acc
     ret
 
-;--------------------------------------------------
-; 2) LCD_Show_Params
-;    - Shows all four parameters (A/B/C/D) on 2 lines.
-;    - Uses 2-byte BCD for each param (soak_*, reflow_*).
-;    - Does NOT do any math; assumes values in BCD are valid.
-;--------------------------------------------------
-LCD_Show_Params:
-    ; ----- Line 1: A:XXXX B:XXXX -----
-    Set_Cursor(1, 1)
 
-    ; "A:"
-    Display_char #'A'
-    Display_char #':'
+;-----------------------------------------------------------
+; LCD_ShowTotalTime
+;   Displays total elapsed time in MM:SS format:
+;     Row 1: "Tot MM:SS"
+;-----------------------------------------------------------
+LCD_ShowTotalTime:
+    push acc
+    push b
+    push ar0
 
-    ; soak_temp (2 bytes BCD -> 4 digits)
-    mov R0, soak_temp+1        ; high 2 digits
-    Display_BCD(R0)
-    mov R0, soak_temp+0        ; low 2 digits
-    Display_BCD(R0)
+    ; Row 1, col 1: "Tot "
+    Set_Cursor(1,1)
+    Send_Constant_String(#TotalLbl)
 
-    ; space
-    Display_char #' '
+    ; Minutes
+    mov a, MinutesCounterTotal
+    lcall Hex_to_bcd_8bit      ; result in R0
+    lcall ?Display_BCD       ; prints 2 digits
 
-    ; "B:"
-    Display_char #'B'
-    Display_char #':'
+    ; Colon
+    Display_char(#':')
 
-    ; soak_time
-    mov R0, soak_time+1
-    Display_BCD(R0)
-    mov R0, soak_time+0
-    Display_BCD(R0)
+    ; Seconds
+    mov a, SecondsCounterTotal
+    lcall Hex_to_bcd_8bit
+    lcall ?Display_BCD
 
-    ; ----- Line 2: C:XXXX D:XXXX -----
-    Set_Cursor(2, 1)
-
-    ; "C:"
-    Display_char #'C'
-    Display_char #':'
-
-    ; reflow_temp
-    mov R0, reflow_temp+1
-    Display_BCD(R0)
-    mov R0, reflow_temp+0
-    Display_BCD(R0)
-
-    ; space
-    Display_char #' '
-
-    ; "D:"
-    Display_char #'D'
-    Display_char #':'
-
-    ; reflow_time
-    mov R0, reflow_time+1
-    Display_BCD(R0)
-    mov R0, reflow_time+0
-    Display_BCD(R0)
-
+    pop ar0
+    pop b
+    pop acc
     ret
 
 
-;--------------------------------------------------
-; 3) LCD_Show_StateSimple
-;    - Very lightweight state display: "State: X"
-;    - Assumes FSM_state is a small integer (0..5 etc.)
-;    - Purely cosmetic helper; not wired to main yet.
-;--------------------------------------------------
-LCD_Show_StateSimple:
-    ; You can change cursor position if you want
-    Set_Cursor(1, 1)
+;-----------------------------------------------------------
+; LCD_ShowStateTime
+;   Displays per-state timer, based on SecondsCounter.
+;   DOES NOT MODIFY SecondsCounter.
+;   Converts:
+;       minutes = SecondsCounter / 60
+;       seconds = SecondsCounter % 60
+;
+;   Displays on row 2:
+;       "St  MM:SS"
+;-----------------------------------------------------------
+LCD_ShowStateTime:
+    push acc
+    push b
+    push ar0
+    push ar1
+    push ar7
 
-    ; "State:"
-    Display_char #'S'
-    Display_char #'t'
-    Display_char #'a'
-    Display_char #'t'
-    Display_char #'e'
-    Display_char #':'
-    Display_char #' '
+    ; Row 2, col 1: "St  "
+    Set_Cursor(2,1)
+    Send_Constant_String(#StateLbl)
 
-    ; For now just show FSM_state low nibble as one hex digit (0–F)
-    mov A, FSM_state
-    anl A, #0Fh
-    orl A, #30h             ; crude 0–9 only, good enough if state <= 9
-    lcall ?WriteData        ; use underlying LCD write-data routine
+    ; A = total seconds in this state
+    mov a, SecondsCounter
+    mov b, #60
+    div ab              ; A = minutes, B = seconds
+    mov r7, b           ; save seconds
 
+    ; Minutes
+    lcall Hex_to_bcd_8bit   ; A->R0 (packed BCD)
+    lcall ?Display_BCD
+
+    ; Colon
+    Display_char(#':')
+
+    ; Seconds
+    mov a, r7
+    lcall Hex_to_bcd_8bit
+    lcall ?Display_BCD
+
+    pop ar7
+    pop ar1
+    pop ar0
+    pop b
+    pop acc
     ret
+
+
+;-----------------------------------------------------------
+; Label strings
+;-----------------------------------------------------------
+ParamA_Label: db  'A: ', 0        ; soak_temp
+ParamB_Label: db  'B: ', 0        ; soak_time
+ParamC_Label: db  'C: ', 0        ; reflow_temp
+ParamD_Label: db  'D: ', 0        ; reflow_time
+TotalLbl: db  'Tot ', 0
+StateLbl: db  'St  ', 0
