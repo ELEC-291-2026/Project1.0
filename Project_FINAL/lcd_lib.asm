@@ -1,109 +1,114 @@
-///higher level library for LCD display
+;==================================================
+; lcd_lib.asm  -  High level LCD helper functions
+;==================================================
+; Assumes:
+;   - Included AFTER LCD_4bit_DE10Lite_no_RW.inc
+;   - Global variables exist in main:
+;       soak_temp, soak_time, reflow_temp, reflow_time (2-byte BCD)
+;       tempFinal (32-bit), bcd (5 bytes) if used by future functions
+;   - Macros available:
+;       Set_Cursor(row, col)
+;       Display_char #imm
+;       Display_BCD(R0)
+;==================================================
 
 CSEG
 
 ;--------------------------------------------------
-; Macro: LCD_PrintConst
-; %0 = row, %1 = col, %2 = address of 0-terminated string
-; Example: LCD_PrintConst(1, 1, #Initial_Message)
+; 1) LCD_Clear
+;    - Clears the LCD and waits for the command to complete
+;    - Convenience wrapper so main doesn't have to remember 0x01 + delay
 ;--------------------------------------------------
-LCD_PrintConst MAC
-    Set_Cursor(%0, %1)
-    Send_Constant_String(%2)
-ENDMAC
+LCD_Clear:
+    WriteCommand(#01h)         ; Clear display command
+    Wait_Milli_Seconds(#2)     ; Let LCD finish
+    ret
 
 ;--------------------------------------------------
-; Function: Display_Active_Param_LCD
-; Shows the currently selected parameter (A/B/C/D)
-; and its value from bcd[0..1] on line 2:
-;   e.g. "A: 0150"
-; Assumes:
-;   - active_param: 0=A, 1=B, 2=C, 3=D
-;   - packed BCD in bcd+1/bcd+0
+; 2) LCD_Show_Params
+;    - Shows all four parameters (A/B/C/D) on 2 lines.
+;    - Uses 2-byte BCD for each param (soak_*, reflow_*).
+;    - Does NOT do any math; assumes values in BCD are valid.
 ;--------------------------------------------------
+LCD_Show_Params:
+    ; ----- Line 1: A:XXXX B:XXXX -----
+    Set_Cursor(1, 1)
 
-Display_Active_Param_LCD:
-    ; Go to line 2, column 1
+    ; "A:"
+    Display_char #'A'
+    Display_char #':'
+
+    ; soak_temp (2 bytes BCD -> 4 digits)
+    mov R0, soak_temp+1        ; high 2 digits
+    Display_BCD(R0)
+    mov R0, soak_temp+0        ; low 2 digits
+    Display_BCD(R0)
+
+    ; space
+    Display_char #' '
+
+    ; "B:"
+    Display_char #'B'
+    Display_char #':'
+
+    ; soak_time
+    mov R0, soak_time+1
+    Display_BCD(R0)
+    mov R0, soak_time+0
+    Display_BCD(R0)
+
+    ; ----- Line 2: C:XXXX D:XXXX -----
     Set_Cursor(2, 1)
 
-    ; Decide label based on active_param
-    mov A, active_param
-    cjne A, #0, DAPL_notA
-    ; Label "A: "
-    mov A, #'A'
-    lcall ?WriteData
-    mov A, #':'
-    lcall ?WriteData
-    mov A, #' '
-    lcall ?WriteData
-    sjmp DAPL_show_digits
+    ; "C:"
+    Display_char #'C'
+    Display_char #':'
 
-DAPL_notA:
-    cjne A, #1, DAPL_notB
-    ; Label "B: "
-    mov A, #'B'
-    lcall ?WriteData
-    mov A, #':'
-    lcall ?WriteData
-    mov A, #' '
-    lcall ?WriteData
-    sjmp DAPL_show_digits
+    ; reflow_temp
+    mov R0, reflow_temp+1
+    Display_BCD(R0)
+    mov R0, reflow_temp+0
+    Display_BCD(R0)
 
-DAPL_notB:
-    cjne A, #2, DAPL_notC
-    ; Label "C: "
-    mov A, #'C'
-    lcall ?WriteData
-    mov A, #':'
-    lcall ?WriteData
-    mov A, #' '
-    lcall ?WriteData
-    sjmp DAPL_show_digits
+    ; space
+    Display_char #' '
 
-DAPL_notC:
-    ; Default: D
-    mov A, #'D'
-    lcall ?WriteData
-    mov A, #':'
-    lcall ?WriteData
-    mov A, #' '
-    lcall ?WriteData
+    ; "D:"
+    Display_char #'D'
+    Display_char #':'
 
-DAPL_show_digits:
-    ; We assume:
-    ;   bcd+1 = [thousands | hundreds]
-    ;   bcd+0 = [tens      | ones]
-    ; and each nibble is a BCD digit 0–9.
+    ; reflow_time
+    mov R0, reflow_time+1
+    Display_BCD(R0)
+    mov R0, reflow_time+0
+    Display_BCD(R0)
 
-    ; Thousands digit (upper nibble of bcd+1)
-    mov A, bcd+1
-    swap A
-    anl  A, #0Fh
-    add A, #'0'
-    lcall ?WriteData
+    ret
 
-    ; Hundreds digit (lower nibble of bcd+1)
-    mov A, bcd+1
-    anl  A, #0Fh
-    add A, #'0'
-    lcall ?WriteData
 
-    ; Tens digit (upper nibble of bcd+0)
-    mov A, bcd+0
-    swap A
-    anl  A, #0Fh
-    add A, #'0'
-    lcall ?WriteData
+;--------------------------------------------------
+; 3) LCD_Show_StateSimple
+;    - Very lightweight state display: "State: X"
+;    - Assumes FSM_state is a small integer (0..5 etc.)
+;    - Purely cosmetic helper; not wired to main yet.
+;--------------------------------------------------
+LCD_Show_StateSimple:
+    ; You can change cursor position if you want
+    Set_Cursor(1, 1)
 
-    ; Ones digit (lower nibble of bcd+0)
-    mov A, bcd+0
-    anl  A, #0Fh
-    add A, #'0'
-    lcall ?WriteData
+    ; "State:"
+    Display_char #'S'
+    Display_char #'t'
+    Display_char #'a'
+    Display_char #'t'
+    Display_char #'e'
+    Display_char #':'
+    Display_char #' '
 
-    ; Optional padding
-    mov A, #' '
-    lcall ?WriteData
-    lcall ?WriteData
+    ; For now just show FSM_state low nibble as one hex digit (0–F)
+    mov A, FSM_state
+    anl A, #0Fh
+    orl A, #30h             ; crude 0–9 only, good enough if state <= 9
+    lcall ?WriteData        ; use underlying LCD write-data routine
 
     ret

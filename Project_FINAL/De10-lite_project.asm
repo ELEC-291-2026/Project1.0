@@ -80,6 +80,7 @@ $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
 $include(keypad_lib_3.asm)
 $include(temperature_lib.asm)
+$include(lcd_lib.asm)
 
 cseg
 ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
