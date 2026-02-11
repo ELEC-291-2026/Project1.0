@@ -24,9 +24,46 @@ mf: dbit 1
 
 FREQ   EQU 33333333
 BAUD   EQU 19200
+TIMER1_RATE   EQU 1000; Whatever frequency you need
+TIMER1_RELOAD EQU ((65536-(CLK/(12*TIMER1_RATE))))
 
+
+; Timer/Counter 1 overflow interrupt vector
+org 0x001B
+	ljmp Timer1_ISR
 
 CSEG
+
+;---------------------------------;
+; Routine to initialize the ISR   ;
+; for timer 1                     ;
+;---------------------------------;
+Timer1_Init:
+	mov a, TMOD
+	anl a, #0x0f ; 00001111 Clear the bits for timer 1
+	orl a, #0x10 ; 00010000 Configure timer 1 as 16-bit timer
+	mov TMOD, a
+	
+	mov TH1, #high(TIMER1_RELOAD)
+	mov TL1, #low(TIMER1_RELOAD)
+	
+	; Enable the timer and interrupts
+    setb ET1  ; Enable timer 1 interrupt
+    setb TR1  ; Start timer 1
+	ret
+
+;---------------------------------;
+; ISR for timer 1                 ;
+;---------------------------------;
+Timer1_ISR:
+	clr TR1
+	mov TH1, #high(TIMER1_RELOAD)
+	mov TL1, #low(TIMER1_RELOAD)
+	setb TR1
+	
+	; Your timer 1 code here
+	
+	reti
 
 InitSerialPort:
     clr TR1                   
