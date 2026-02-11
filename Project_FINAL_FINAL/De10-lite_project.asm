@@ -29,7 +29,22 @@ org 0x000B
 	ljmp Timer0_ISR
 
 Profile:  db 'PROFILE,', 0
+Comma:    db ',', 0
+Clear_Message:  db '                ', 0
 DONE:    db 'DONE', 0
+
+S0_TXT: db 'INIT   ', 0
+S1_TXT: db 'RAMP1  ', 0
+S2_TXT: db 'SOAK   ', 0
+S3_TXT: db 'RAMP2  ', 0
+S4_TXT: db 'REFLOW ', 0
+S5_TXT: db 'COOLS  ', 0
+
+
+COOK_MICROWAVE: db 'COOKING', 0
+DONE_MICROWAVE: db 'DONE   ', 0
+CLEAR_MICROWAVE: db '       ', 0
+
 
 dseg at 0x30
 ; For math 
@@ -40,9 +55,6 @@ bcd:		ds 5
 
 
 math_space: ds 5
-
-tempHot:	ds 4
-tempCold:	ds 4
 
 V_tc: ds 4
 V_cj: ds 4
@@ -64,11 +76,15 @@ SecondsCounter: ds 1
 SecondsCounterTotal: ds 1
 MinutesCounterTotal: ds 1
 
-SecondsCounterState: ds 1
-MinutesCounterState: ds 1
+; microwave FSM
+changeStateButton: ds 1
+microwave_temp: ds 2
+microwave_time: ds 2
+temp_counter: ds 1
+
 ; Each FSM has its own state counter
 FSM_state:  ds 1
-Timer0Reload:   ds 2
+FSM_state_2: ds 1
 
 bseg
 ; For each pushbutton we have a flag.  The corresponding FSM will set this
@@ -80,13 +96,20 @@ QuarterSecondsFlag : dbit 1
 State0Flag : dbit 1
 SpeakerFlag : dbit 1
 SongFlag : dbit 1
+screen_flag     : dbit 1  ; 0=PARAMS screen, 1=STATUS screen
+print_flag     : dbit 1
+QuarterSecondsFlag2 : dbit 1
+
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
 $include(keypad_lib_3.asm)
 $include(temperature_lib.asm)
-;$include(lcd_lib.asm)
-$include(Song.asm)
+$include(lcd_lib.asm)
+$include(song.asm)
+$include(microwave_fsm.asm)
+$include(macros_lib.asm)
+$include(keyboard.asm)
 
 
 cseg
@@ -100,11 +123,8 @@ ELCD_D7 equ P0.1
 SSR_PIN equ P0.0
 START_BUTTON equ P0.2
 SOUND_OUT equ P0.4
-
-
-Initial_Message:  db 'Tmperature Test', 0
-
-
+CHANGE_BUTTON equ P0.6
+TOGGLE_BUTTON  equ P1.5   ; active-low pushbutton on P1.5 (pressed = 0)
 
 cseg
 ;----------------------FUNCTIONS----------------
@@ -130,7 +150,6 @@ Timer0_Init:
 ; ISR for timer 0.  Runs every ms ;
 ;---------------------------------;
 Timer0_ISR:
-
 
 	jb SongFlag, play_song_timers
 	
@@ -158,12 +177,14 @@ Timer0_ISR:
 	skip_speaker:
 	
 	; Increment the timers for each FSM. That is all we do here!
+	
 	inc FSM_timer 
 	
 	mov a, FSM_timer
 	cjne a, #250, FSM_timer_done
 	
 	setb QuarterSecondsFlag
+	setb QuarterSecondsFlag2
 	
 	inc QuarterSecondsCounter
 	mov FSM_timer, #0x00
@@ -171,20 +192,20 @@ Timer0_ISR:
 	mov a, QuarterSecondsCounter
 	cjne a, #4, FSM_timer_done
 	
+	setb print_flag
+	
 	mov QuarterSecondsCounter, #0x00
+	
+	jb State0Flag, FSM_timer_done
+	
 	inc SecondsCounter
-	inc SecondsCounterState
 	inc SecondsCounterTotal ; USE THIS FOR THE TOTAL TIMER. IT NEVER RESETS SO DONT WORRY
 	
 	mov a, SecondsCounterTotal
-	cjne a, #60, second_state_check
+	cjne a, #60, FSM_timer_done
 	inc MinutesCounterTotal
 	mov SecondsCounterTotal, #0x00
 	
-	second_state_check:
-	cjne a, #60, FSM_timer_done
-	inc MinutesCounterState
-	mov SecondsCounterState, #0x00
 	
 FSM_timer_done:
 	reti
@@ -265,6 +286,14 @@ Hex_to_bcd_8bit:
 	mov R0, a
 	ret
 	
+Clear_Display:
+    mov HEX0, #0FFh
+    mov HEX1, #0FFh
+    mov HEX2, #0FFh
+    mov HEX3, #0FFh
+    mov HEX4, #0FFh
+    mov HEX5, #0FFh
+    ret
 	
 ;We should probably start using this from now on oh well live laugh love
 Mov_A_to_B MAC
@@ -384,65 +413,6 @@ Over_Under_Check_Rewrite:
 	ret
 
 
-
-;-------MACROS--------------------;
-Load_X_Var32 MAC
-	mov x+0, %0+0
-	mov x+1, %0+1
-	mov x+2, %0+2
-	mov x+3, %0+3
-ENDMAC
-
-Load_Y_Var32 MAC
-	mov y+0, %0+0
-	mov y+1, %0+1
-	mov y+2, %0+2
-	mov y+3, %0+3
-ENDMAC
-
-Load_X_Var16 MAC
-	mov x+0, %0+0
-	mov x+1, %0+1
-	mov x+2, #0
-	mov x+3, #0
-ENDMAC
-
-Load_Y_Var16 MAC
-	mov y+0, %0+0
-	mov y+1, %0+1
-	mov y+2, #0
-	mov y+3, #0
-ENDMAC
-
-Load_X_Var8 MAC
-	mov x+0, %0+0
-	mov x+1, #0
-	mov x+2, #0
-	mov x+3, #0
-ENDMAC
-
-Load_Y_Var8 MAC
-	mov y+0, %0+0
-	mov y+1, #0
-	mov y+2, #0
-	mov y+3, #0
-ENDMAC
-
-powerPercent MAC
-	mov x+0, %0
-	mov x+1, #0
-	mov x+2, #0
-	mov x+3, #0
-	Load_Y_Var16(%1)
-	lcall mul32
-	
-	load_y(100)
-	lcall div32
-	
-	mov %2+0, x+0
-	mov %2+1, x+1
-ENDMAC
-
 ;---------------------------------;
 ; Main program. Includes hardware ;
 ; initialization and 'forever'    ;
@@ -453,7 +423,7 @@ Initial_ALL:
 
    	clr EA ;disables global interupts
    	
-   	; Initialization of hardware
+    ; Initialization of hardware
     lcall Timer0_Init    ; Changed from Timer2_Init to Timer0_Init
     lcall InitSerialPort ; Initialize serial port on Timer 1
     lcall ELCD_4BIT ; Configure LCD in four bit mode
@@ -468,17 +438,17 @@ Initial_ALL:
 	clr mf
 	clr ssr_f
 	setb state_flag
-	clr QuarterSecondsFlag
+	setb QuarterSecondsFlag
+	setb QuarterSecondsFlag2
 	setb State0Flag
 	clr SpeakerFlag
 	clr SongFlag
+	setb screen_flag
+	clr print_flag
 	
 	mov MinutesCounterTotal, #0x00
 	mov SecondsCounterTotal, #0x00
     mov QuarterSecondsCounter, #0x00
-    
-    mov  Timer0Reload+1, #high(TONE_4096)
-    mov  Timer0Reload+0, #low(TONE_4096)
     
     mov soak_temp+0, 	#0
     mov soak_temp+1, 	#0
@@ -497,17 +467,17 @@ Initial_ALL:
 	mov tempFinal+2, #0
 	mov tempFinal+3, #0
 	
-	mov tempCold+0, #0
-	mov tempCold+1, #0
-	mov tempCold+2, #0
-	mov tempCold+3, #0
-	
-	mov tempHot+0, #0
-	mov tempHot+1, #0
-	mov tempHot+2, #0
-	mov tempHot+3, #0
-	
 	mov active_param, #0
+	
+	mov microwave_temp+0,  #0
+	mov microwave_temp+1,  #0
+	
+	
+	mov microwave_time+0,  #0x00
+	mov microwave_time+1,  #0x00
+	mov temp_counter, #0x00
+	mov FSM_state_2, #0x00
+
 		
 	clr EA
     lcall Load_Param_Into_BCD
@@ -522,151 +492,339 @@ Initial_ALL:
 main:
 	mov P0MOD, #10111011b
     mov P1MOD, #10000010b
+    
 	lcall Initial_ALL
 	
-	mov P0MOD, #10101010b
-    mov P1MOD, #10000010b
-
-    lcall ELCD_4BIT
-	
-	Set_Cursor(1, 1)
-    Send_Constant_String(#Initial_Message)
-	
-	mov dptr, #Initial_Message
-	lcall SendString
-	mov a, #'\r'
-	lcall putchar
-	mov a, #'\n'
-	lcall putchar
+	mov changeStateButton, #0x00
 	
 	mov ADC_C, #0x80
 	lcall Wait25ms
 	
+	WriteCommand(#0x40)
+	; music note char(#0)
+	WriteData(#00000B)
+	WriteData(#00100B)
+	WriteData(#00110B)
+	WriteData(#00100B)
+	WriteData(#00100B)
+	WriteData(#01100B)
+	WriteData(#01100B)
+	WriteData(#00000B)
+
+	; music note char(#1)
+	WriteData(#00000B)
+	WriteData(#00000B)
+	WriteData(#01111B)
+	WriteData(#01001B)
+	WriteData(#01001B)
+	WriteData(#11011B)
+	WriteData(#11011B)
+	WriteData(#00000B)
+	
+	Set_Cursor(1, 1)
+    Send_Constant_String(#Clear_Message)
+	Set_Cursor(2, 1)
+    Send_Constant_String(#Clear_Message)
+	
+	
 	
 loop:
+
+
+	;------------------------------------------------------------
+	; ADC READING
+	;------------------------------------------------------------
 	
-	ljmp skip_debug_stuff 
-		
+	jnb QuarterSecondsFlag, skip_ADC_reading
+	sjmp continue_ADC_reading
+	skip_ADC_reading:
+	
+	ljmp skip_ADC_reading1
+	continue_ADC_reading:
+	
+		clr QuarterSecondsFlag
 		clr EA
-		Load_X_Var8(SecondsCounter)
-		lcall hex2bcd
-		mov R0, bcd+0
-		lcall Display_BCD_7_Seg_HEX10
 		
-		Load_X_Var8(SecondsCounterTotal)
-		lcall hex2bcd
-		mov R0, bcd+0
-		lcall Display_BCD_7_Seg_HEX32
+		; We are already in the QuarterSecondsFlag-triggered block,
+	    ; so just render once right here:
 		
-		Load_X_Var8(MinutesCounterTotal)
-		lcall hex2bcd
-		mov R0, bcd+0
-		lcall Display_BCD_7_Seg_HEX54
+	    mov ADC_C, #LM335_ADC
+	
+	    mov x+3, #0
+	    mov x+2, #0
+	    mov x+1, ADC_H
+	    mov x+0, ADC_L
+	
+	    Load_y(5000)
+	    lcall mul32
+	    Load_y(4096)
+	    lcall div32
+	    
+	    mov V_tc+0, x+0
+	    mov V_tc+1, x+1
+	    mov V_tc+2, x+2
+	    mov V_tc+3, x+3
+	
+	    mov ADC_C, #OP07_ADC
+	
+	    mov x+3, #0
+	    mov x+2, #0
+	    mov x+1, ADC_H
+	    mov x+0, ADC_L
+	
+	    Load_y(5000)
+	    lcall mul32
+	    Load_y(4096)
+	    lcall div32
+	
+	    Load_y(10)
+	    lcall div32
+	    Load_y(273)
+	    lcall sub32
+	    
+	    mov V_cj+0, x+0
+	    mov V_cj+1, x+1
+	    mov V_cj+2, x+2
+	    mov V_cj+3, x+3
+	
+	    mov x+0, V_tc+0
+	    mov x+1, V_tc+1
+	    mov x+2, V_tc+2
+	    mov x+3, V_tc+3
+	
+	    Load_y(10000)
+	    lcall mul32
+	    Load_y(12300)
+	    lcall div32
+	
+	    mov y+0, x+0
+	    mov y+1, x+1
+	    mov y+2, x+2
+	    mov y+3, x+3
+	
+	    mov x+0, V_cj+0
+	    mov x+1, V_cj+1
+	    mov x+2, V_cj+2
+	    mov x+3, V_cj+3
+	    
+	    push y+0
+	    push y+1
+	    push y+2
+	    push y+3
+	    
+	    Load_y(10)
+	    lcall mul32
+	    
+	    pop y+3
+	    pop y+2
+	    pop y+1
+	    pop y+0
+	    
+	    lcall add32
+	    
+	    mov tempFinal+0, x+0
+	    mov tempFinal+1, x+1
+	    mov tempFinal+2, x+2
+	    mov tempFinal+3, x+3
+	
+	
+		push bcd+0
+		push bcd+1
+		push bcd+2
+		push bcd+3
+		push bcd+4
+	    lcall hex2bcd
+	    
+	    jb State0Flag, skip_7seg_volt_display
+	    lcall Display_Voltage_7seg
+	    skip_7seg_volt_display:
+	    
+		jnb screen_flag, skip_lcd_temp   ; if params screen, don't touch LCD here
+		Set_Cursor(2,1)
+		lcall Display_Voltage_LCD
+		skip_lcd_temp:
 		
+	    lcall Display_Voltage_Serial
+	    
+	    pop bcd+4
+		pop bcd+3
+		pop bcd+2
+		pop bcd+1
+		pop bcd+0
+	    
 		setb EA
 	
-	skip_debug_stuff:
-
-
-	jb State0Flag, skiptemptemptemp
-	jnb QuarterSecondsFlag, skiptemptemptemp
-	sjmp skiptemoteteipj
-	skiptemptemptemp:
+	skip_ADC_reading1:
 	
-	ljmp skiptemptemptemptemp
-	skiptemoteteipj:
+	;------------------------------------------------------------
+	; BUTTON TOGGLE 
+	;------------------------------------------------------------
 	
-	clr QuarterSecondsFlag
-	clr EA
 	
-    mov ADC_C, #LM335_ADC
-
-    mov x+3, #0
-    mov x+2, #0
-    mov x+1, ADC_H
-    mov x+0, ADC_L
-
-    Load_y(5000)
-    lcall mul32
-    Load_y(4096)
-    lcall div32
-    
-    mov V_tc+0, x+0
-    mov V_tc+1, x+1
-    mov V_tc+2, x+2
-    mov V_tc+3, x+3
-
-    mov ADC_C, #OP07_ADC
-
-    mov x+3, #0
-    mov x+2, #0
-    mov x+1, ADC_H
-    mov x+0, ADC_L
-
-    Load_y(5000)
-    lcall mul32
-    Load_y(4096)
-    lcall div32
-
-    Load_y(10)
-    lcall div32
-    Load_y(273)
-    lcall sub32
-    
-    mov V_cj+0, x+0
-    mov V_cj+1, x+1
-    mov V_cj+2, x+2
-    mov V_cj+3, x+3
-
-    mov x+0, V_tc+0
-    mov x+1, V_tc+1
-    mov x+2, V_tc+2
-    mov x+3, V_tc+3
-
-    Load_y(10000)
-    lcall mul32
-    Load_y(12300)
-    lcall div32
-
-    mov y+0, x+0
-    mov y+1, x+1
-    mov y+2, x+2
-    mov y+3, x+3
-
-    mov x+0, V_cj+0
-    mov x+1, V_cj+1
-    mov x+2, V_cj+2
-    mov x+3, V_cj+3
-    
-    push y+0
-    push y+1
-    push y+2
-    push y+3
-    
-    Load_y(10)
-    lcall mul32
-    
-    pop y+3
-    pop y+2
-    pop y+1
-    pop y+0
-    
-    lcall add32
-    
-    mov tempFinal+0, x+0
-    mov tempFinal+1, x+1
-    mov tempFinal+2, x+2
-    mov tempFinal+3, x+3
-
-    lcall hex2bcd
-    lcall Display_Voltage_7seg
-    lcall Display_Voltage_LCD
-    lcall Display_Voltage_Serial
-    
-	setb EA
+	jnb State0Flag, skip_change_button
 	
-	skiptemptemptemptemp:
+	jb  CHANGE_BUTTON, change_button_done
+    lcall Wait25ms
+    lcall Wait25ms
+    jb  CHANGE_BUTTON, change_button_done
+    jnb  CHANGE_BUTTON, $
     
+    	inc changeStateButton
+    	lcall Clear_Display
+    	mov LEDRA, #0x00
+    	
+    	lcall Initial_ALL
+    	
+    	mov a, changeStateButton
+    	cjne a, #0x03, change_button_done
+    	mov changeStateButton, #0x00
+    	
+    	lcall Wait25ms
+    	lcall Wait25ms
+    
+    change_button_done:
+    
+    skip_change_button:
+    
+    mov a, changeStateButton
+    cjne a, #0x01, keyboard_skip
+    sjmp keyboard_skip3
+    
+    keyboard_skip:
+    ljmp keyboard_skip2
+    
+    keyboard_skip3:
+    
+		lcall Keyboard_Begin
+		
+		clr EA	
+		Set_Cursor(1, 1)
+	    Send_Constant_String(#Clear_Message)
+		Set_Cursor(2, 1)
+	    Send_Constant_String(#Clear_Message)
+	    
+	    Set_Cursor(1, 6)
+	    Display_char(#0)
+	    Set_Cursor(2, 8)
+	    Display_char(#0)
+	    
+	    Set_Cursor(1, 9)
+	    Display_char(#1)
+	    Set_Cursor(2, 3)
+	    Display_char(#1)
+	    setb EA
+	    
+		ljmp loop
+	
+	keyboard_skip2:
+	
+	    
+    mov a, changeStateButton
+    cjne a, #0x02, Microwave_skip
+    sjmp Microwave_skip2
+    Microwave_skip:
+    ljmp Microwave_skip1
+    Microwave_skip2:
+    
+		lcall Run_Microwave_Mode
+		
+		jb START_BUTTON, skip_button2
+		lcall Wait25ms
+		jb START_BUTTON, skip_button2
+		jnb START_BUTTON, $
+		
+			setb SpeakerFlag
+			lcall Wait25ms
+			lcall Wait25ms
+			clr SpeakerFlag
+			
+			mov microwave_time+0,  #0x00
+			mov microwave_time+1,  #0x00
+			clr EA
+			Set_Cursor(1,3)
+			Display_char(#'0')
+			Display_char(#' ')
+			Display_char(#' ')
+			Display_char(#' ')
+			setb EA
+			
+			mov temp_counter, #0x00
+		
+			mov FSM_state_2, #0x00
+		skip_button2:
+		
+		jnb print_flag, skip_printing2
+		
+		mov x+0, microwave_temp+0
+		mov x+1, microwave_temp+1
+		mov x+2, #0
+		mov x+3, #0
+		
+		clr EA
+		lcall hex2bcd
+		Set_Cursor(1,1)
+		lcall Display_Voltage_LCD
+		
+		mov x+0, microwave_time+0
+		mov x+1, microwave_time+1
+		mov x+2, #0
+		mov x+3, #0
+
+		lcall hex2bcd
+		Set_Cursor(2,10)
+		Display_char(#'t')
+		Display_char(#'=')
+		Write_3digits(bcd)
+		setb EA
+		
+		skip_printing2:
+		
+		ljmp loop
+	
+	Microwave_skip1:
+	
+    jb  TOGGLE_BUTTON, ScreenToggle_Done
+    lcall Wait25ms
+    jb  TOGGLE_BUTTON, ScreenToggle_Done
+    jnb  TOGGLE_BUTTON, $
+	    
+	    Set_Cursor(1, 1)
+	    Send_Constant_String(#Clear_Message)
+		Set_Cursor(2, 1)
+	    Send_Constant_String(#Clear_Message)
+	
+	    cpl  screen_flag
+	    setb print_flag
+	    
+	    setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
+	
+	ScreenToggle_Done:
+	
+	
+	jnb print_flag, skip_printing
+	
+		clr print_flag
+		jnb screen_flag, skip_show_temp
+		clr EA
+			lcall LCD_ShowTotalTime
+			lcall LCD_ShowStateTime
+			lcall Update_LCD_State
+		setb EA
+		skip_show_temp:
+		
+		jb screen_flag, skip_show_para
+		clr EA
+			lcall LCD_ShowParamsLine1
+			lcall LCD_ShowParamsLine2
+		setb EA
+		skip_show_para:
+	
+	skip_printing:
+	
+	; Reset button check
 
 	jb State0Flag, skip_button
 	jb START_BUTTON, skip_button
@@ -674,9 +832,15 @@ loop:
 	jb START_BUTTON, skip_button
 	jnb START_BUTTON, $
 	
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
+	
 		mov FSM_state, #0x00
 	skip_button:
-
+	
+	
     
 ;-------------------------------------------------------------------------------
 ;FSM
@@ -687,12 +851,14 @@ loop:
 		clr state_flag
 		clr EA
 		mov SecondsCounter, #0x00
+		lcall Update_LCD_State
 		setb EA
 		
 		setb SpeakerFlag
 		lcall Wait25ms
 		lcall Wait25ms
 		clr SpeakerFlag
+		
 	no_new_state:
 
 	mov LEDRA, #0
@@ -701,24 +867,17 @@ FSM_state0:
 	mov a, FSM_state
 	cjne a, #0, FSM_state1_continue_move
 	sjmp FSM_state1_skip_move
-	
 	FSM_state1_continue_move:
 	ljmp FSM_state1
-	
 	FSM_state1_skip_move:
+	
+	mov MinutesCounterTotal, #0x00
+	mov SecondsCounterTotal, #0x00
+	
+	
 	setb LEDRA.0
 	clr SSR_PIN
 	setb State0Flag
-	
-		
-	Set_Cursor(1,1)
-	Display_BCD(MinutesCounterState)
-	
-	Display_char(#'.')
-	
-	Display_BCD(SecondsCounterState)
-	
-	
 	
 	clr EA
 	lcall Keypad
@@ -741,6 +900,8 @@ FSM_state0:
 		ljmp FSM_done
 		
 	FSM_done_state_0_Skip:
+	
+	    lcall Clear_Display
 		
 		clr EA
 		lcall Over_Under_Check_Rewrite
@@ -758,10 +919,8 @@ FSM_state1:
 	mov a, FSM_state
 	cjne a, #1, FSM_state2_continue_move
 	sjmp FSM_state2_skip_move
-	
 	FSM_state2_continue_move:
 	ljmp FSM_state2
-	
 	FSM_state2_skip_move:
 	
 	setb LEDRA.1
@@ -843,7 +1002,7 @@ FSM_state2:
     mov soak_time_hex+0, x+0
     mov soak_time_hex+1, x+1
     
-	powerPercent(#20, soak_time, timeOn)
+	powerPercent(#12, soak_time, timeOn)
 	
 	Load_X_Var8(SecondsCounter)	
 	Load_Y_Var16(timeOn)
@@ -996,16 +1155,31 @@ FSM_state5:
 		setb state_flag
 		mov FSM_state, #0x00
 		
-				
-		lcall Play_song
-
 		;Just added this to fix discrod integration
 		mov dptr, #DONE
     	lcall SendString
 
-	FSM_done:
+		mov a, #'\r'
+  		lcall putchar
+    	mov a, #'\n'
+   		lcall putchar
+		
+		jnb screen_flag, skip_song_1
+			lcall Play_song1
+		skip_song_1:
+		
+		jb screen_flag, skip_song_2
+			lcall Play_song2
+		skip_song_2:
 
+		
+
+
+	FSM_done:
 	ljmp loop
+	
 
 END
+
+
 

@@ -12,11 +12,11 @@ import xlsxwriter  # Required for professional Excel reports with charts
 import serial
 # configure the serial port
 ser = serial.Serial(
-    port='COM5',
+    port='COM8',
     baudrate=115200,
     parity=serial.PARITY_NONE,
     stopbits=serial.STOPBITS_TWO,
-   bytesize=serial.EIGHTBITS
+    bytesize=serial.EIGHTBITS
 )
 ser.isOpen()
 
@@ -56,7 +56,7 @@ def generate_excel_report(file_path):
     data_format = workbook.add_format({'border': 1})
     
     # Write Headers
-    headers = ["Time (s)", "Multimeter Temp (C°)", "Microcontroller Temp (C°)", "Difference (C°)", "Status"]
+    headers = ["Time (s)", "Multimeter Temp (C)", "Microcontroller Temp (C)", "Difference (C)", "Status"]
     for col, header in enumerate(headers):
         worksheet.write(0, col, header, header_format)
         
@@ -86,14 +86,14 @@ def generate_excel_report(file_path):
     # Add chart title and labels
     chart.set_title({'name': 'Multimeter vs Microcontroller Correlation'})
     chart.set_x_axis({'name': 'Time (Seconds)'})
-    chart.set_y_axis({'name': 'Temperature (°C)'})
+    chart.set_y_axis({'name': 'Temperature (C)'})
     chart.set_style(10) # Clean modern style
     
     # Insert the chart into the worksheet
     worksheet.insert_chart('G2', chart, {'x_scale': 1.5, 'y_scale': 2.0})
     
     workbook.close()
-    print("✅ Excel report created successfully!")
+    print("Excel report created successfully!")
 
 # --- Smart Notification Settings ---
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1471005567177986182/jn6fy27IzxZ0d9MfQwmBaPWUp83ynQLdEiD4y9NGUPayPYACDkOPIJjouZMTopHHVq_R"
@@ -134,23 +134,23 @@ def send_notification(message, file_paths=None):
                 
             # HTTP 204 or 200 means "Success" in the web world
             if response.status_code in [200, 204]:
-                print("✅ Successfully sent notification to Discord!")
+                print("Successfully sent notification to Discord!")
             else:
-                print(f"❌ Failed to send notification. Error: {response.status_code}")
+                print(f"Failed to send notification. Error: {response.status_code}")
         except Exception as e:
             print(f"Error sending notification: {e}")
 
 # Default reflow profile parameters (will be updated from serial)
 profile_params = {
-    'preheat_temp': 150,      # °C
-    'preheat_time': 20,       # seconds
-    'soak_temp': 140,         # °C
+    'preheat_temp': 150,      # C
+    'preheat_time': 30,       # seconds
+    'soak_temp': 140,         # C
     'soak_time': 150,          # seconds (total time at end of soak)
-    'reflow_temp': 235,       # °C
+    'reflow_temp': 235,       # C
     'reflow_time': 30,        # seconds above reflow
-    'peak_temp': 240,         # °C
-    'heating_rate': 2,      # °C/s - maximum heating rate
-    'cooling_rate': 1         # °C/s - cooling rate
+    'peak_temp': 240,         # C
+    'heating_rate': 1.5,      # C/s - maximum heating rate
+    'cooling_rate': 1         # C/s - cooling rate
 }
 
 profile_updated = False
@@ -181,7 +181,7 @@ def generate_reflow_profile():
     # Calculate time points based on temperature deltas and heating rates
     t0 = 0
     
-    # Preheat: 25°C → preheat_temp
+    # Preheat: 25C → preheat_temp
     preheat_duration = (profile_params['preheat_temp'] - 21) / profile_params['heating_rate']
     t1 = t0 + preheat_duration
     
@@ -205,7 +205,7 @@ def generate_reflow_profile():
     reflow_hold_duration = max(0, profile_params['reflow_time'] - ramp_to_peak_duration)
     t5 = t4 + reflow_hold_duration
     
-    # Cooling: peak_temp → 25°C
+    # Cooling: peak_temp → 25C
     cooling_duration = (profile_params['peak_temp'] - 25) / profile_params['cooling_rate']
     t6 = t5 + cooling_duration
     
@@ -270,6 +270,7 @@ def data_gen():
     while True:
         strin = ser.readline()
         text = strin.decode('ascii').strip()
+        print(text)
         # --- Checks tos see if done was sent-----#
         if text == "DONE":
             plt.savefig(GRAPH_FILENAME)
@@ -278,7 +279,7 @@ def data_gen():
             generate_excel_report(EXCEL_FILENAME)
         
             send_notification(
-                "@here 📊 **Process Complete!** Final Lab Report and Correlation Chart generated.", 
+                "@here **Process Complete!** Final Lab Report and Correlation Chart generated.", 
                 file_paths=[EXCEL_FILENAME, GRAPH_FILENAME]
             )
         
@@ -309,25 +310,6 @@ def data_gen():
                 multi_val = profile_params.get('soak_temp', 0) # Use target as reference if only 1 value
                 diff_val = multi_val - micro_val
 
-            # --- The "Secret Handshake" (Sentinel Value Detection) ---
-            # The 8051 sends 999.9 degrees when the timer hits zero.
-            if micro_val == 999.9:
-                # 1. Capture the current Matplotlib live chart as a backup image
-                plt.savefig(GRAPH_FILENAME)
-                print(f"Live graph snapshot saved: {GRAPH_FILENAME}")
-                
-                # 2. Build the high-tier professional Excel report
-                generate_excel_report(EXCEL_FILENAME)
-
-                # 3. Send BOTH the professional Excel file and the live graph PNG to Discord
-                send_notification(
-                    "@here 📊 **Process Complete!** Final Lab Report and Correlation Chart generated.", 
-                    file_paths=[EXCEL_FILENAME, GRAPH_FILENAME]
-                )
-                
-                # Skip plotting the secret code
-                continue 
-            
             # --- Real-Time Data Storage ---
             t_seconds = (t + 1) * 0.25
             _, current_state = get_target_temp(t + 1)
@@ -368,7 +350,7 @@ def run(data):
         ax1.set_title(f"Reflow Soldering  |  Time: {t_seconds:.1f}s  |  State: {current_state}  |  Samples: {t}")
         
         delta = y - target_temp
-        text.set_text(f"Temp: {y:.2f}°C  Target: {target_temp:.2f}C  Δ: {delta:+.2f}°C")
+        text.set_text(f"Temp: {y:.2f}C  Target: {target_temp:.2f}C  Δ: {delta:+.2f}C")
 
         window = 10
         if len(ydata) >= window:
@@ -405,7 +387,7 @@ def update_full_profile_view():
     
     for i in range(len(temp_profile)):
         t_sec, temp, _ = temp_profile[i]
-        t_samples = t_sec / 0.2
+        t_samples = t_sec / 0.25
         profile_x.append(t_samples)
         profile_y.append(temp)
     
@@ -426,8 +408,8 @@ def draw_state_regions(ax, current_t):
         t1_sec, _, state = temp_profile[i]
         t2_sec, _, _ = temp_profile[i + 1]
         
-        t1_samples = t1_sec / 0.2
-        t2_samples = t2_sec / 0.2
+        t1_samples = t1_sec / 0.25
+        t2_samples = t2_sec / 0.25
         
         color = get_state_color(state)
         ax.axvspan(t1_samples, t2_samples, alpha=0.2, color=color)
@@ -501,8 +483,8 @@ print("-" * 60)
 print("Send profile via serial in format:")
 print("PROFILE,soak_temp,soak_time,reflow_temp,reflow_time[,peak_temp][,heating_rate][,cooling_rate]")
 print("\nExample: PROFILE,180,90,235,30")
-print("  - Soak: 180°C for 90s total")
-print("  - Reflow: 235°C for 30s")
+print("  - Soak: 180C for 90s total")
+print("  - Reflow: 235C for 30s")
 print("-" * 60)
 
 # Important: Although blit=True makes graphing faster, we need blit=False to prevent
