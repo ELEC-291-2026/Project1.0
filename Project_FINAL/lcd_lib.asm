@@ -106,13 +106,13 @@ LCD_ShowTotalTime:
     push ar0
 
     ; Row 1, col 1: "Tot "
-    Set_Cursor(2,1)
+    Set_Cursor(1,1)
     Send_Constant_String(#TotalLbl)
 
     ; Minutes
     mov a, MinutesCounterTotal
     lcall Hex_to_bcd_8bit      ; result in R0
-    lcall ?Display_BCD         ; prints 2 digits
+    lcall ?Display_BCD       ; prints 2 digits
 
     ; Colon
     Display_char(#':')
