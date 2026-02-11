@@ -2276,11 +2276,11 @@
 0EB5 120136     891            lcall x_gt_y
 0EB8 D2AF       892            setb EA
 0EBA 300004     893            jnb mf, ssr_off
-0EBD D280       894            setb SSR_PIN
+0EBD C280       894            clr SSR_PIN
 0EBF 8002       895            sjmp ssr_on
 0EC1            896   
 0EC1            897            ssr_off:
-0EC1 C280       898                    clr SSR_PIN
+0EC1 D280       898                    setb SSR_PIN
 0EC3            899            ssr_on:
 0EC3            900            
 0EC3            901            ;If time in this state > soak time then we move on

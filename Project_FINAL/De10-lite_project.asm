@@ -891,11 +891,11 @@ FSM_state2:
 	lcall x_gt_y
 	setb EA
 	jnb mf, ssr_off
-	setb SSR_PIN
+	clr SSR_PIN
 	sjmp ssr_on
 
 	ssr_off:
-		clr SSR_PIN
+		setb SSR_PIN
 	ssr_on:
 	
 	;If time in this state > soak time then we move on
@@ -995,11 +995,11 @@ FSM_state4:
 	
 	setb EA
 	jnb mf, ssr_off1
-	setb SSR_PIN
+	clr SSR_PIN
 	sjmp ssr_on1
 
 	ssr_off1:
-		clr SSR_PIN
+		setb SSR_PIN
 	ssr_on1:
 
 	;If time in this state > soak time then we move on
