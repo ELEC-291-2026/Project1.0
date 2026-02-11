@@ -1,0 +1,600 @@
+                 -1   $MODMAX10
+0000              1   ;--------------------------------------------------------
+0000              2   ; Special Function Registers
+0000              3   ;--------------------------------------------------------
+0000              4   P0             DATA 0x80
+0000              5   SP             DATA 0x81
+0000              6   DPL            DATA 0x82
+0000              7   DPH            DATA 0x83
+0000              8   PCON           DATA 0x87
+0000              9   TCON           DATA 0x88
+0000             10   TMOD           DATA 0x89
+0000             11   TL0            DATA 0x8a
+0000             12   TL1            DATA 0x8b
+0000             13   TH0            DATA 0x8c
+0000             14   TH1            DATA 0x8d
+0000             15   P1             DATA 0x90
+0000             16   SCON           DATA 0x98
+0000             17   SBUF           DATA 0x99
+0000             18   P2             DATA 0xa0
+0000             19   IE             DATA 0xa8
+0000             20   P3             DATA 0xb0
+0000             21   IP             DATA 0xb8
+0000             22   PSW            DATA 0xd0
+0000             23   ACC            DATA 0xe0
+0000             24   B              DATA 0xf0
+0000             25   T2CON          DATA 0xc8
+0000             26   RCAP2L         DATA 0xca
+0000             27   RCAP2H         DATA 0xcb
+0000             28   TL2            DATA 0xcc
+0000             29   TH2            DATA 0xcd
+0000             30   DPS            DATA 0x86
+0000             31   DPH1           DATA 0x85
+0000             32   DPL1           DATA 0x84
+0000             33   HEX0           DATA 0x91
+0000             34   HEX1           DATA 0x92
+0000             35   HEX2           DATA 0x93
+0000             36   HEX3           DATA 0x94
+0000             37   HEX4           DATA 0x8e
+0000             38   HEX5           DATA 0x8f
+0000             39   LEDRA          DATA 0xe8
+0000             40   LEDRB          DATA 0x95
+0000             41   SWA            DATA 0xe8
+0000             42   SWB            DATA 0x95
+0000             43   KEY            DATA 0xf8
+0000             44   P0MOD          DATA 0x9a
+0000             45   P1MOD          DATA 0x9b
+0000             46   P2MOD          DATA 0x9c
+0000             47   P3MOD          DATA 0x9d
+0000             48   REP_ADD_L      DATA 0xf1
+0000             49   REP_ADD_H      DATA 0xf2
+0000             50   REP_VALUE      DATA 0xf3
+0000             51   DEBUG_CALL_L   DATA 0xfa
+0000             52   DEBUG_CALL_H   DATA 0xfb
+0000             53   BPC            DATA 0xfc
+0000             54   BPS            DATA 0xfd
+0000             55   BPAL           DATA 0xfe
+0000             56   BPAH           DATA 0xff
+0000             57   LBPAL          DATA 0xfa
+0000             58   LBPAH          DATA 0xfb
+0000             59   P4             DATA 0xc0
+0000             60   P4MOD          DATA 0xc1
+0000             61   XRAMUSEDAS     DATA 0xc3
+0000             62   UFM_ADD0       DATA 0xe1
+0000             63   UFM_ADD1       DATA 0xe2
+0000             64   UFM_ADD2       DATA 0xe3
+0000             65   UFM_DATA0      DATA 0xe4
+0000             66   UFM_DATA1      DATA 0xe5
+0000             67   UFM_DATA2      DATA 0xe6
+0000             68   UFM_DATA3      DATA 0xe7
+0000             69   UFM_CONTROL0   DATA 0xe9
+0000             70   UFM_CONTROL1   DATA 0xea
+0000             71   UFM_CONTROL2   DATA 0xeb
+0000             72   UFM_CONTROL3   DATA 0xec
+0000             73   UFM_DATA_CMD   DATA 0xed
+0000             74   UFM_DATA_STATUS DATA 0xee
+0000             75   UFM_CONTROL_CMD DATA 0xef
+0000             76   ADC_C          DATA 0xa1
+0000             77   ADC_L          DATA 0xa2
+0000             78   ADC_H          DATA 0xa3
+0000             79   
+0000             80   ;--------------------------------------------------------
+0000             81   ; special function bits
+0000             82   ;--------------------------------------------------------
+0000             83   P0_0           BIT 0x80
+0000             84   P0_1           BIT 0x81
+0000             85   P0_2           BIT 0x82
+0000             86   P0_3           BIT 0x83
+0000             87   P0_4           BIT 0x84
+0000             88   P0_5           BIT 0x85
+0000             89   P0_6           BIT 0x86
+0000             90   P0_7           BIT 0x87
+0000             91   IT0            BIT 0x88
+0000             92   IE0            BIT 0x89
+0000             93   IT1            BIT 0x8a
+0000             94   IE1            BIT 0x8b
+0000             95   TR0            BIT 0x8c
+0000             96   TF0            BIT 0x8d
+0000             97   TR1            BIT 0x8e
+0000             98   TF1            BIT 0x8f
+0000             99   P1_0           BIT 0x90
+0000            100   P1_1           BIT 0x91
+0000            101   P1_2           BIT 0x92
+0000            102   P1_3           BIT 0x93
+0000            103   P1_4           BIT 0x94
+0000            104   P1_5           BIT 0x95
+0000            105   P1_6           BIT 0x96
+0000            106   P1_7           BIT 0x97
+0000            107   RI             BIT 0x98
+0000            108   TI             BIT 0x99
+0000            109   RB8            BIT 0x9a
+0000            110   TB8            BIT 0x9b
+0000            111   REN            BIT 0x9c
+0000            112   SM2            BIT 0x9d
+0000            113   SM1            BIT 0x9e
+0000            114   SM0            BIT 0x9f
+0000            115   P2_0           BIT 0xa0
+0000            116   P2_1           BIT 0xa1
+0000            117   P2_2           BIT 0xa2
+0000            118   P2_3           BIT 0xa3
+0000            119   P2_4           BIT 0xa4
+0000            120   P2_5           BIT 0xa5
+0000            121   P2_6           BIT 0xa6
+0000            122   P2_7           BIT 0xa7
+0000            123   EX0            BIT 0xa8
+0000            124   ET0            BIT 0xa9
+0000            125   EX1            BIT 0xaa
+0000            126   ET1            BIT 0xab
+0000            127   ES             BIT 0xac
+0000            128   ET2            BIT 0xad
+0000            129   EA             BIT 0xaf
+0000            130   P3_0           BIT 0xb0
+0000            131   P3_1           BIT 0xb1
+0000            132   P3_2           BIT 0xb2
+0000            133   P3_3           BIT 0xb3
+0000            134   P3_4           BIT 0xb4
+0000            135   P3_5           BIT 0xb5
+0000            136   P3_6           BIT 0xb6
+0000            137   P3_7           BIT 0xb7
+0000            138   RXD            BIT 0xb0
+0000            139   TXD            BIT 0xb1
+0000            140   INT0           BIT 0xb2
+0000            141   INT1           BIT 0xb3
+0000            142   T0             BIT 0xb4
+0000            143   T1             BIT 0xb5
+0000            144   WR             BIT 0xb6
+0000            145   RD             BIT 0xb7
+0000            146   PX0            BIT 0xb8
+0000            147   PT0            BIT 0xb9
+0000            148   PX1            BIT 0xba
+0000            149   PT1            BIT 0xbb
+0000            150   PS             BIT 0xbc
+0000            151   PT2            BIT 0xbd
+0000            152   P              BIT 0xd0
+0000            153   F1             BIT 0xd1
+0000            154   OV             BIT 0xd2
+0000            155   RS0            BIT 0xd3
+0000            156   RS1            BIT 0xd4
+0000            157   F0             BIT 0xd5
+0000            158   AC             BIT 0xd6
+0000            159   CY             BIT 0xd7
+0000            160   T2CON_0        BIT 0xc8
+0000            161   T2CON_1        BIT 0xc9
+0000            162   T2CON_2        BIT 0xca
+0000            163   T2CON_3        BIT 0xcb
+0000            164   T2CON_4        BIT 0xcc
+0000            165   T2CON_5        BIT 0xcd
+0000            166   T2CON_6        BIT 0xce
+0000            167   T2CON_7        BIT 0xcf
+0000            168   CP_RL2         BIT 0xc8
+0000            169   C_T2           BIT 0xc9
+0000            170   TR2            BIT 0xca
+0000            171   EXEN2          BIT 0xcb
+0000            172   TCLK           BIT 0xcc
+0000            173   RCLK           BIT 0xcd
+0000            174   EXF2           BIT 0xce
+0000            175   TF2            BIT 0xcf
+0000            176   LEDRA_0        BIT 0xe8
+0000            177   LEDRA_1        BIT 0xe9
+0000            178   LEDRA_2        BIT 0xea
+0000            179   LEDRA_3        BIT 0xeb
+0000            180   LEDRA_4        BIT 0xec
+0000            181   LEDRA_5        BIT 0xed
+0000            182   LEDRA_6        BIT 0xee
+0000            183   LEDRA_7        BIT 0xef
+0000            184   SWA_0          BIT 0xe8
+0000            185   SWA_1          BIT 0xe9
+0000            186   SWA_2          BIT 0xea
+0000            187   SWA_3          BIT 0xeb
+0000            188   SWA_4          BIT 0xec
+0000            189   SWA_5          BIT 0xed
+0000            190   SWA_6          BIT 0xee
+0000            191   SWA_7          BIT 0xef
+0000            192   KEY_0          BIT 0xf8
+0000            193   KEY_1          BIT 0xf9
+0000            194   KEY_2          BIT 0xfa
+0000            195   KEY_3          BIT 0xfb
+0000            196   P4_0           BIT 0xc0
+0000            197   P4_1           BIT 0xc1
+0000            198   P4_2           BIT 0xc2
+0000            199   P4_3           BIT 0xc3
+0000            200   P4_4           BIT 0xc4
+0000            201   P4_5           BIT 0xc5
+0000            202   P4_6           BIT 0xc6
+0000            203   P4_7           BIT 0xc7
+0000              2   
+0000              3   ; The Special Function Registers below were added to 'MODMAX10' recently.
+0000              4   ; If you are getting an error, uncomment the three lines below.
+0000              5   
+0000              6   ; ADC_C DATA 0xa1
+0000              7   ; ADC_L DATA 0xa2
+0000              8   ; ADC_H DATA 0xa3
+0000              9   
+0000             10   CSEG at 0
+0000 0204AD      11   ljmp mycode
+0003             12   
+0003             13   ; Timer/Counter 1 overflow interrupt vector
+0003             14   
+0030             15   dseg at 30h
+0030             16   x: ds 4
+0034             17   y: ds 4
+0038             18   bcd: ds 5
+003D             19   V_tc: ds 4   ; Add this - to store the thermocouple mV
+0041             20   V_cj: ds 4   ; Add this - to store the cold junction temp
+0045             21   
+0045             22   
+0000             23   bseg
+0000             24   
+0000             25   mf: dbit 1
+0001             26   
+0001             27   CLK   EQU 33333333
+0001             28   BAUD   EQU 19200
+0001             29   TIMER1_RATE   EQU 1000; Whatever frequency you need
+0001             30   TIMER1_RELOAD EQU ((65536-(CLK/(12*TIMER1_RATE))))
+0001             31   
+0001             32   
+0001             33   
+0003             34   CSEG
+0003             35   
+0003             36   InitSerialPort:
+0003 C28E        37       clr TR1                   
+0005 53890F      38       anl TMOD, #0x0F           
+0008 438920      39       orl TMOD, #0x20           
+000B 758DFB      40       mov TH1, #0xFB            ; 256-(33333333/(32*12*19200)) = 251
+000E 758BFB      41       mov TL1, #0xFB            
+0011 759852      42       mov SCON, #0x52           
+0014 D28E        43       setb TR1                  
+0016 22          44       ret
+0017             45       
+0017             46    InitSerialPort2:
+0017 758920      47       mov TMOD, #0x20       ; Timer1, mode2 (8-bit auto-reload)
+001A 758DFD      48       mov TH1, #-3          ; 9600 bps (11.0592 MHz crystal)
+001D D28E        49       setb TR1              ; Start Timer1
+001F D29F        50       setb SM0              ; UART mode1
+0021 D29E        51       setb SM1
+0023 D29C        52       setb REN              ; Enable receive
+0025 C299        53       clr TI                ; Clear transmit flag
+0027 C298        54       clr RI
+0029 22          55       ret
+002A             56   
+002A             57   putchar:
+002A 3099FD      58       JNB TI, putchar
+002D C299        59       CLR TI
+002F F599        60       MOV SBUF, a
+0031 22          61       RET
+0032             62   
+0032             63   SendString:
+0032 E4          64       CLR A
+0033 93          65       MOVC A, @A+DPTR
+0034 6006        66       JZ SSDone
+0036 12002A      67       LCALL putchar
+0039 A3          68       INC DPTR
+003A 80F6        69       SJMP SendString
+003C             70   SSDone:
+003C 22          71       ret
+003D             72   
+                 -1   $include(math32.asm)
+                614   $LIST
+032F             74   
+032F             75   cseg
+032F             76   ; These 'equ' must match the wiring between the DE10Lite board and the LCD!
+032F             77   ; P0 is in connector JPIO.  Check "CV-8052 Soft Processor in the DE10Lite Board: Getting
+032F             78   ; Started Guide" for the details.
+032F             79   ELCD_RS equ P1.7
+032F             80   ; ELCD_RW equ Px.x ; Not used.  Connected to ground
+032F             81   ELCD_E  equ P1.1
+032F             82   ELCD_D4 equ P0.7
+032F             83   ELCD_D5 equ P0.5
+032F             84   ELCD_D6 equ P0.3
+032F             85   ELCD_D7 equ P0.1
+                 87   	$LIST
+03E6             89   
+03E6             90   ; Look-up table for 7-seg displays
+03E6             91   myLUT:
+03E6 C0F9A4B0    92       DB 0xC0, 0xF9, 0xA4, 0xB0, 0x99        ; 0 TO 4
+     99
+03EB 9282F880    93       DB 0x92, 0x82, 0xF8, 0x80, 0x90        ; 4 TO 9
+     90
+03F0 8883C6A1    94       DB 0x88, 0x83, 0xC6, 0xA1, 0x86, 0x8E  ; A to F
+     868E
+03F6             95   
+03F6             96   Wait50ms:
+03F6             97   ;33.33MHz, 1 clk per cycle: 0.03us
+03F6 781E        98   mov R0, #30
+03F8             99   Wait50ms_L3:
+03F8 794A       100   mov R1, #74
+03FA            101   Wait50ms_L2:
+03FA 7AFA       102   mov R2, #250
+03FC            103   Wait50ms_L1:
+03FC DAFE       104   djnz R2, Wait50ms_L1 ;3*250*0.03us=22.5us
+03FE D9FA       105       djnz R1, Wait50ms_L2 ;74*22.5us=1.665ms
+0400 D8F6       106       djnz R0, Wait50ms_L3 ;1.665ms*30=50ms
+0402 22         107       ret
+0403            108   
+0403            109   Display_Voltage_7seg:
+0403 9003E6     110       mov dptr, #myLUT
+0406            111       
+0406            112       ; Display Hundreds digit on HEX3
+0406 E539       113       mov a, bcd+1
+0408 C4         114       swap a
+0409 540F       115       anl a, #0FH
+040B 93         116       movc a, @a+dptr
+040C F594       117       mov HEX3, a
+040E            118       
+040E            119       ; Display Tens digit on HEX2
+040E E539       120       mov a, bcd+1
+0410 540F       121       anl a, #0FH
+0412 93         122       movc a, @a+dptr
+0413 F593       123       mov HEX2, a
+0415            124   
+0415            125       ; Display Ones digit on HEX1 and turn on the DOT
+0415 E538       126       mov a, bcd+0
+0417 C4         127       swap a
+0418 540F       128       anl a, #0FH
+041A 93         129       movc a, @a+dptr
+041B 547F       130       anl a, #0x7f          ; Clears bit 7 to turn on the decimal point
+041D F592       131       mov HEX1, a
+041F            132   
+041F            133       ; Display Tenths digit on HEX0
+041F E538       134       mov a, bcd+0
+0421 540F       135       anl a, #0FH
+0423 93         136       movc a, @a+dptr
+0424 F591       137       mov HEX0, a
+0426 22         138       ret
+0427            139   
+0427            140   Display_Voltage_LCD:
+0427 C0E0       141            push acc
+0429 7401       141            mov a, #1
+042B 14         141            dec a
+042C 1203C9     141            lcall ?Set_Cursor_2 ; Select column and row
+042F D0E0       141            pop acc
+0431 7454       142       mov a, #'T'
+0433 120381     143       lcall ?WriteData
+0436 743D       144       mov a, #'='
+0438 120381     145       lcall ?WriteData
+043B            146   
+043B            147       ; Hundreds
+043B E539       148       mov a, bcd+1
+043D C4         149       swap a
+043E 540F       150       anl a, #0FH
+0440 4430       151       orl a, #'0'
+0442 120381     152       lcall ?WriteData
+0445            153   
+0445            154       ; Tens
+0445 E539       155       mov a, bcd+1
+0447 540F       156       anl a, #0FH
+0449 4430       157       orl a, #'0'
+044B 120381     158       lcall ?WriteData
+044E            159   
+044E            160       ; Ones
+044E E538       161       mov a, bcd+0
+0450 C4         162       swap a
+0451 540F       163       anl a, #0FH
+0453 4430       164       orl a, #'0'
+0455 120381     165       lcall ?WriteData
+0458            166   
+0458 742E       167       mov a, #'.'           ; Insert the dot
+045A 120381     168       lcall ?WriteData
+045D            169   
+045D            170       ; Tenths
+045D E538       171       mov a, bcd+0
+045F 540F       172       anl a, #0FH
+0461 4430       173       orl a, #'0'
+0463 120381     174       lcall ?WriteData
+0466 22         175       ret
+0467            176       
+0467            177   Display_Voltage_Serial:
+0467            178   
+0467            179       ; 1. Display Hundreds Digit (from bcd+1 high nibble)
+0467 E539       180       mov a, bcd+1
+0469 C4         181       swap a
+046A 540F       182       anl a, #0FH
+046C 4430       183       orl a, #'0'
+046E 12002A     184       lcall putchar
+0471            185   
+0471            186       ; 2. Display Tens Digit (from bcd+1 low nibble)
+0471 E539       187       mov a, bcd+1
+0473 540F       188       anl a, #0FH
+0475 4430       189       orl a, #'0'
+0477 12002A     190       lcall putchar
+047A            191   
+047A            192       ; 3. Display Ones Digit (from bcd+0 high nibble)
+047A E538       193       mov a, bcd+0
+047C C4         194       swap a
+047D 540F       195       anl a, #0FH
+047F 4430       196       orl a, #'0'
+0481 12002A     197       lcall putchar
+0484            198   
+0484            199       ; 4. Display the actual Decimal Point
+0484 742E       200       mov a, #'.'
+0486 12002A     201       lcall putchar
+0489            202   
+0489            203       ; 5. Display Tenths Digit (from bcd+0 low nibble)
+0489 E538       204       mov a, bcd+0
+048B 540F       205       anl a, #0FH
+048D 4430       206       orl a, #'0'
+048F 12002A     207       lcall putchar
+0492            208   
+0492            209       ; 6. New line formatting
+0492 740D       210       mov a, #'\r'
+0494 12002A     211       lcall putchar
+0497 740A       212       mov a, #'\n'
+0499 12002A     213       lcall putchar
+049C 22         214       ret
+049D 546D7065   215   Initial_Message:  db 'Tmperature Test', 0
+     72617475
+     72652054
+     65737400
+04AD            216   
+04AD            217   mycode:
+04AD 75817F     218   mov SP, #7FH
+04B0 E4         219   clr a
+04B1 F5E8       220   mov LEDRA, a
+04B3 F595       221   mov LEDRB, a
+04B5            222   
+04B5 120003     223   lcall InitSerialPort
+04B8            224   
+04B8            225   ; COnfigure the pins connected to the LCD as outputs
+04B8 759AAA     226   mov P0MOD, #10101010b ; P0.1, P0.3, P0.5, P0.7 are outputs.  ('1' makes the pin output)
+04BB 759B82     227       mov P1MOD, #10000010b ; P1.7 and P1.1 are outputs
+04BE            228   
+04BE 12038B     229       lcall ELCD_4BIT ; Configure LCD in four bit mode
+04C1            230       ; For convenience a few handy macros are included in 'LCD_4bit_DE1Lite.inc':
+04C1 C0E0       231            push acc
+04C3 7401       231            mov a, #1
+04C5 14         231            dec a
+04C6 1203CB     231            lcall ?Set_Cursor_1 ; Select column and row
+04C9 D0E0       231            pop acc
+04CB C083       232            push dph
+04CD C082       232            push dpl
+04CF C0E0       232            push acc
+04D1 90049D     232            mov dptr, #Initial_Message
+04D4 1203BE     232            lcall ?Send_Constant_String
+04D7 D0E0       232            pop acc
+04D9 D082       232            pop dpl
+04DB D083       232            pop dph
+04DD            233   
+04DD 90049D     234   mov dptr, #Initial_Message
+04E0 120032     235   lcall SendString
+04E3 740D       236   mov a, #'\r'
+04E5 12002A     237   lcall putchar
+04E8 740A       238   mov a, #'\n'
+04EA 12002A     239   lcall putchar
+04ED            240   
+04ED 75A180     241   mov ADC_C, #0x80 ; Reset ADC
+04F0 1203F6     242   lcall Wait50ms
+04F3            243   forever:
+04F3            244       ; ---------------------------------------------------------
+04F3            245       ; 1) Read thermocouple channel and convert to mV
+04F3            246       ; ---------------------------------------------------------
+04F3 E5E8       247       mov a, SWA
+04F5 5407       248       anl a, #0x07
+04F7 FF         249       mov R7, a             ; Save channel number
+04F8 F5A1       250       mov ADC_C, a
+04FA            251   
+04FA 753300     252       mov x+3, #0
+04FD 753200     253       mov x+2, #0
+0500 85A331     254       mov x+1, ADC_H
+0503 85A230     255       mov x+0, ADC_L
+0506            256   
+0506 753488     257            mov y+0, #low (5000 % 0x10000) 
+0509 753513     257            mov y+1, #high(5000 % 0x10000) 
+050C 753600     257            mov y+2, #low (5000 / 0x10000) 
+050F 753700     257            mov y+3, #high(5000 / 0x10000) 
+0512 12019B     258       lcall mul32
+0515 753400     259            mov y+0, #low (4096 % 0x10000) 
+0518 753510     259            mov y+1, #high(4096 % 0x10000) 
+051B 753600     259            mov y+2, #low (4096 / 0x10000) 
+051E 753700     259            mov y+3, #high(4096 / 0x10000) 
+0521 12028F     260       lcall div32           ; x now holds Vtc in mV
+0524            261       
+0524            262       ; Save it
+0524 85303D     263       mov V_tc+0, x+0
+0527 85313E     264       mov V_tc+1, x+1
+052A 85323F     265       mov V_tc+2, x+2
+052D 853340     266       mov V_tc+3, x+3
+0530            267   
+0530            268       ; ---------------------------------------------------------
+0530            269       ; 2) Read LM335 (next channel) and convert to Celsius
+0530            270       ; ---------------------------------------------------------
+0530 EF         271       mov a, R7
+0531 04         272       inc a
+0532 5407       273       anl a, #0x07
+0534 F5A1       274       mov ADC_C, a
+0536            275   
+0536 753300     276       mov x+3, #0
+0539 753200     277       mov x+2, #0
+053C 85A331     278       mov x+1, ADC_H
+053F 85A230     279       mov x+0, ADC_L
+0542            280   
+0542 753488     281            mov y+0, #low (5000 % 0x10000) 
+0545 753513     281            mov y+1, #high(5000 % 0x10000) 
+0548 753600     281            mov y+2, #low (5000 / 0x10000) 
+054B 753700     281            mov y+3, #high(5000 / 0x10000) 
+054E 12019B     282       lcall mul32
+0551 753400     283            mov y+0, #low (4096 % 0x10000) 
+0554 753510     283            mov y+1, #high(4096 % 0x10000) 
+0557 753600     283            mov y+2, #low (4096 / 0x10000) 
+055A 753700     283            mov y+3, #high(4096 / 0x10000) 
+055D 12028F     284       lcall div32           ; x = Vlm in mV
+0560            285   
+0560 75340A     286            mov y+0, #low (10 % 0x10000) 
+0563 753500     286            mov y+1, #high(10 % 0x10000) 
+0566 753600     286            mov y+2, #low (10 / 0x10000) 
+0569 753700     286            mov y+3, #high(10 / 0x10000) 
+056C 12028F     287       lcall div32           ; x = Kelvin
+056F 753411     288            mov y+0, #low (273 % 0x10000) 
+0572 753501     288            mov y+1, #high(273 % 0x10000) 
+0575 753600     288            mov y+2, #low (273 / 0x10000) 
+0578 753700     288            mov y+3, #high(273 / 0x10000) 
+057B 120105     289       lcall sub32           ; x = Celsius
+057E            290       
+057E            291       ; Save cold junction temp
+057E 853041     292       mov V_cj+0, x+0
+0581 853142     293       mov V_cj+1, x+1
+0584 853243     294       mov V_cj+2, x+2
+0587 853344     295       mov V_cj+3, x+3
+058A            296   
+058A            297   ; ---------------------------------------------------------
+058A            298       ; 3) Calculate: Temp_x10 = (V_tc * 10000 / 12300) + (V_cj * 10)
+058A            299       ; ---------------------------------------------------------
+058A 853D30     300       mov x+0, V_tc+0
+058D 853E31     301       mov x+1, V_tc+1
+0590 853F32     302       mov x+2, V_tc+2
+0593 854033     303       mov x+3, V_tc+3
+0596            304   
+0596 753410     305            mov y+0, #low (10000 % 0x10000) 
+0599 753527     305            mov y+1, #high(10000 % 0x10000) 
+059C 753600     305            mov y+2, #low (10000 / 0x10000) 
+059F 753700     305            mov y+3, #high(10000 / 0x10000)          ; Was 1000, now 10000 to keep one decimal place
+05A2 12019B     306       lcall mul32
+05A5 75340C     307            mov y+0, #low (12300 % 0x10000) 
+05A8 753530     307            mov y+1, #high(12300 % 0x10000) 
+05AB 753600     307            mov y+2, #low (12300 / 0x10000) 
+05AE 753700     307            mov y+3, #high(12300 / 0x10000) 
+05B1 12028F     308       lcall div32           ; x = scaled TC temperature (e.g., 123 for 12.3C)
+05B4            309   
+05B4            310       ; Save this intermediate result in y to free up x for CJ scaling
+05B4 853034     311       mov y+0, x+0
+05B7 853135     312       mov y+1, x+1
+05BA 853236     313       mov y+2, x+2
+05BD 853337     314       mov y+3, x+3
+05C0            315   
+05C0            316       ; Load Cold Junction and scale it by 10 to match units
+05C0 854130     317       mov x+0, V_cj+0
+05C3 854231     318       mov x+1, V_cj+1
+05C6 854332     319       mov x+2, V_cj+2
+05C9 854433     320       mov x+3, V_cj+3
+05CC            321       
+05CC C034       322       push y+0              ; Save our TC result safely
+05CE C035       323       push y+1
+05D0 C036       324       push y+2
+05D2 C037       325       push y+3
+05D4            326       
+05D4 75340A     327            mov y+0, #low (10 % 0x10000) 
+05D7 753500     327            mov y+1, #high(10 % 0x10000) 
+05DA 753600     327            mov y+2, #low (10 / 0x10000) 
+05DD 753700     327            mov y+3, #high(10 / 0x10000) 
+05E0 12019B     328       lcall mul32           ; x = CJ * 10
+05E3            329       
+05E3 D037       330       pop y+3               ; Restore TC result into y
+05E5 D036       331       pop y+2
+05E7 D035       332       pop y+1
+05E9 D034       333       pop y+0
+05EB            334       
+05EB 1200E2     335       lcall add32           ; Final result: (TC_temp*10) + (CJ_temp*10)
+05EE            336   
+05EE            337       ; ---------------------------------------------------------
+05EE            338       ; 4) Display
+05EE            339       ; ---------------------------------------------------------
+05EE 12003D     340       lcall hex2bcd
+05F1 120403     341       lcall Display_Voltage_7seg
+05F4 120427     342       lcall Display_Voltage_LCD
+05F7 120467     343       lcall Display_Voltage_Serial
+05FA            344       
+05FA 7F14       345       mov R7, #20 
+05FC            346   delay_loop:     
+05FC 1203F6     347       lcall Wait50ms     
+05FF DFFB       348       djnz R7, delay_loop
+0601 0204F3     349       ljmp forever
+0604            350   end
