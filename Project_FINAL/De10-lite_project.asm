@@ -5,7 +5,7 @@ $LIST
 
 
 CLK           	EQU 33333333 ; Microcontroller system crystal frequency in Hz
-TIMER0_RATE   	EQU 1000     ; 1000Hz, for a timer tick of 1ms
+TIMER0_RATE   	EQU 1024     ; 1000Hz, for a timer tick of 1ms
 TIMER0_RELOAD 	EQU ((65536-(CLK/(12*TIMER0_RATE))))
 FREQ   			EQU 33333333
 BAUD   			EQU 115200
@@ -89,6 +89,8 @@ SOUND_OUT equ P0.4
 
 
 Initial_Message:  db 'Tmperature Test', 0
+
+
 
 cseg
 ;----------------------FUNCTIONS----------------

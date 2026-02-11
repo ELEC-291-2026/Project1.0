@@ -1291,1069 +1291,1068 @@
      72652054
      65737400
 088C             89   
-088C             90   cseg
-088C             91   ;----------------------FUNCTIONS----------------
-088C             92   ;---------------------------------;
-088C             93   ; Routine to initialize the ISR   ;
-088C             94   ; for timer 0                     ;
-088C             95   ;---------------------------------;
-088C             96   Timer0_Init:
-088C E589        97            mov a, TMOD
-088E 54F0        98            anl a, #0xf0 ; 11110000 Clear the bits for timer 0
-0890 4401        99            orl a, #0x01 ; 00000001 Configure timer 0 as 16-timer
-0892 F589       100            mov TMOD, a
-0894            101            
-0894 758CF5     102            mov TH0, #high(TIMER0_RELOAD)
-0897 758A27     103            mov TL0, #low(TIMER0_RELOAD)
-089A            104            
-089A            105            ; Enable the timer and interrupts
-089A D2A9       106       setb ET0  ; Enable timer 0 interrupt
-089C D28C       107       setb TR0  ; Start timer 0
-089E 22         108            ret
-089F            109   
-089F            110   ;---------------------------------;
-089F            111   ; ISR for timer 0.  Runs every ms ;
+088C             90   
+088C             91   
+088C             92   cseg
+088C             93   ;----------------------FUNCTIONS----------------
+088C             94   ;---------------------------------;
+088C             95   ; Routine to initialize the ISR   ;
+088C             96   ; for timer 0                     ;
+088C             97   ;---------------------------------;
+088C             98   Timer0_Init:
+088C E589        99            mov a, TMOD
+088E 54F0       100            anl a, #0xf0 ; 11110000 Clear the bits for timer 0
+0890 4401       101            orl a, #0x01 ; 00000001 Configure timer 0 as 16-timer
+0892 F589       102            mov TMOD, a
+0894            103            
+0894 758CF5     104            mov TH0, #high(TIMER0_RELOAD)
+0897 758A27     105            mov TL0, #low(TIMER0_RELOAD)
+089A            106            
+089A            107            ; Enable the timer and interrupts
+089A D2A9       108       setb ET0  ; Enable timer 0 interrupt
+089C D28C       109       setb TR0  ; Start timer 0
+089E 22         110            ret
+089F            111   
 089F            112   ;---------------------------------;
-089F            113   Timer0_ISR:
-089F C28C       114            clr TR0
-08A1 758CF5     115            mov TH0, #high(TIMER0_RELOAD)
-08A4 758A27     116            mov TL0, #low(TIMER0_RELOAD)
-08A7 D28C       117            setb TR0
-08A9            118            
-08A9            119            ; Increment the timers for each FSM. That is all we do here!
-08A9 0565       120            inc FSM_timer 
-08AB            121            
-08AB E565       122            mov a, FSM_timer
-08AD B4FA1D     123            cjne a, #250, FSM_timer_done
-08B0            124            
-08B0 D203       125            setb QuarterSecondsFlag
-08B2            126            
-08B2 0566       127            inc QuarterSecondsCounter
-08B4 756500     128            mov FSM_timer, #0x00
-08B7            129            
-08B7 E566       130            mov a, QuarterSecondsCounter
-08B9 B40411     131            cjne a, #4, FSM_timer_done
-08BC            132            
-08BC 756600     133            mov QuarterSecondsCounter, #0x00
-08BF 0567       134            inc SecondsCounter
-08C1 0568       135            inc SecondsCounterTotal ; USE THIS FOR THE TOTAL TIMER. IT NEVER RESETS SO DONT WORRY
-08C3            136            
-08C3 E568       137            mov a, SecondsCounterTotal
-08C5 B43C05     138            cjne a, #60, FSM_timer_done
-08C8 0569       139            inc MinutesCounterTotal
-08CA 756800     140            mov SecondsCounterTotal, #0x00
-08CD            141            
-08CD            142   FSM_timer_done:
-08CD 32         143            reti
-08CE            144   
-08CE            145   ;---------------------------------;
-08CE            146   ; Initialize Serial Port          ;
+089F            113   ; ISR for timer 0.  Runs every ms ;
+089F            114   ;---------------------------------;
+089F            115   Timer0_ISR:
+089F C28C       116            clr TR0
+08A1 758CF5     117            mov TH0, #high(TIMER0_RELOAD)
+08A4 758A27     118            mov TL0, #low(TIMER0_RELOAD)
+08A7 D28C       119            setb TR0
+08A9            120            
+08A9            121            ; Increment the timers for each FSM. That is all we do here!
+08A9 0565       122            inc FSM_timer 
+08AB            123            
+08AB E565       124            mov a, FSM_timer
+08AD B4FA1D     125            cjne a, #250, FSM_timer_done
+08B0            126            
+08B0 D203       127            setb QuarterSecondsFlag
+08B2            128            
+08B2 0566       129            inc QuarterSecondsCounter
+08B4 756500     130            mov FSM_timer, #0x00
+08B7            131            
+08B7 E566       132            mov a, QuarterSecondsCounter
+08B9 B40411     133            cjne a, #4, FSM_timer_done
+08BC            134            
+08BC 756600     135            mov QuarterSecondsCounter, #0x00
+08BF 0567       136            inc SecondsCounter
+08C1 0568       137            inc SecondsCounterTotal ; USE THIS FOR THE TOTAL TIMER. IT NEVER RESETS SO DONT WORRY
+08C3            138            
+08C3 E568       139            mov a, SecondsCounterTotal
+08C5 B43C05     140            cjne a, #60, FSM_timer_done
+08C8 0569       141            inc MinutesCounterTotal
+08CA 756800     142            mov SecondsCounterTotal, #0x00
+08CD            143            
+08CD            144   FSM_timer_done:
+08CD 32         145            reti
+08CE            146   
 08CE            147   ;---------------------------------;
-08CE            148   ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
-08CE            149   T_7seg:
-08CE C0F9A4B0   150       DB 0C0H, 0F9H, 0A4H, 0B0H, 099H, 092H, 082H, 0F8H, 080H, 090H
+08CE            148   ; Initialize Serial Port          ;
+08CE            149   ;---------------------------------;
+08CE            150   ; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
+08CE            151   T_7seg:
+08CE C0F9A4B0   152       DB 0C0H, 0F9H, 0A4H, 0B0H, 099H, 092H, 082H, 0F8H, 080H, 090H
      999282F8
      8090
-08D8            151   
-08D8            152   ; Displays a BCD number pased in R0 in HEX1-HEX0
-08D8            153   Display_BCD_7_Seg_HEX10:
-08D8 9008CE     154            mov dptr, #T_7seg
-08DB            155   
-08DB E8         156            mov a, R0
-08DC C4         157            swap a
-08DD 540F       158            anl a, #0FH
-08DF 93         159            movc a, @a+dptr
-08E0 F592       160            mov HEX1, a
-08E2            161            
-08E2 E8         162            mov a, R0
-08E3 540F       163            anl a, #0FH
-08E5 93         164            movc a, @a+dptr
-08E6 F591       165            mov HEX0, a
-08E8            166            
-08E8 22         167            ret
-08E9            168   
-08E9            169   ; Displays a BCD number pased in R0 in HEX3-HEX2
-08E9            170   Display_BCD_7_Seg_HEX32:
-08E9 9008CE     171            mov dptr, #T_7seg
-08EC            172   
-08EC E8         173            mov a, R0
-08ED C4         174            swap a
-08EE 540F       175            anl a, #0FH
-08F0 93         176            movc a, @a+dptr
-08F1 F594       177            mov HEX3, a
-08F3            178            
-08F3 E8         179            mov a, R0
-08F4 540F       180            anl a, #0FH
-08F6 93         181            movc a, @a+dptr
-08F7 F593       182            mov HEX2, a
-08F9            183            
-08F9 22         184            ret
-08FA            185   
-08FA            186   ; Displays a BCD number pased in R0 in HEX5-HEX4
-08FA            187   Display_BCD_7_Seg_HEX54:
-08FA 9008CE     188            mov dptr, #T_7seg
-08FD            189   
-08FD E8         190            mov a, R0
-08FE C4         191            swap a
-08FF 540F       192            anl a, #0FH
-0901 93         193            movc a, @a+dptr
-0902 F58F       194            mov HEX5, a
-0904            195            
-0904 E8         196            mov a, R0
-0905 540F       197            anl a, #0FH
-0907 93         198            movc a, @a+dptr
-0908 F58E       199            mov HEX4, a
-090A            200            
-090A 22         201            ret
-090B            202   
-090B            203   ; The 8-bit hex number passed in the accumulator is converted to
-090B            204   ; BCD and stored in [R1, R0]
-090B            205   Hex_to_bcd_8bit:
-090B 75F064     206            mov b, #100
-090E 84         207            div ab
-090F F9         208            mov R1, a   ; After dividing, a has the 100s
-0910 E5F0       209            mov a, b    ; Remainder is in register b
-0912 75F00A     210            mov b, #10
-0915 84         211            div ab ; The tens are stored in a, the units are stored in b 
-0916 C4         212            swap a
-0917 54F0       213            anl a, #0xf0
-0919 45F0       214            orl a, b
-091B F8         215            mov R0, a
-091C 22         216            ret
-091D            217            
-091D            218            
-091D            219   ;We should probably start using this from now on oh well live laugh love
-                220   Mov_A_to_B MAC
-                221   ;%0 is A, %1 is B
-                222   	mov %1+0, %0+0
-                223   	mov %1+1, %0+1
-                224   	mov %1+2, #0
-                225   	mov %1+3, #0
-                226   ENDMAC
-091D            227            
-091D            228   Over_Under_Check_Rewrite:
-091D            229   
-091D            230            underflow_soaktemp:
-091D            231   ;soak_temp is A, bcd is B
-091D 855838     231            mov bcd+0, soak_temp+0
-0920 855939     231            mov bcd+1, soak_temp+1
-0923 753A00     231            mov bcd+2, #0
-0926 753B00     231            mov bcd+3, #0
-0929 12005B     232                    lcall bcd2hex
-092C 753482     233            mov y+0, #low (130 % 0x10000) 
-092F 753500     233            mov y+1, #high(130 % 0x10000) 
-0932 753600     233            mov y+2, #low (130 / 0x10000) 
-0935 753700     233            mov y+3, #high(130 / 0x10000)  ; Our min temp
-0938 1200FA     234                    lcall x_lt_y ;mf 1 if true
-093B 300015     235                    jnb mf, underflow_soaktemp_check
-093E 753082     236            mov x+0, #low (130 % 0x10000) 
-0941 753100     236            mov x+1, #high(130 % 0x10000) 
-0944 753200     236            mov x+2, #low (130 / 0x10000) 
-0947 753300     236            mov x+3, #high(130 / 0x10000) 
-094A 12000E     237                lcall hex2bcd
-094D 853858     238                mov soak_temp+0,    bcd+0    ; mode A 150 +-20
-0950 853959     239                mov soak_temp+1,    bcd+1
-0953            240            underflow_soaktemp_check:
-0953            241   
-0953            242            overflow_soaktemp:
-0953            243                    ;Max temp check for 
-0953            244   ;soak_temp is A, bcd is B
-0953 855838     244            mov bcd+0, soak_temp+0
-0956 855939     244            mov bcd+1, soak_temp+1
-0959 753A00     244            mov bcd+2, #0
-095C 753B00     244            mov bcd+3, #0
-095F 12005B     245                    lcall bcd2hex
-0962 7534AA     246            mov y+0, #low (170 % 0x10000) 
-0965 753500     246            mov y+1, #high(170 % 0x10000) 
-0968 753600     246            mov y+2, #low (170 / 0x10000) 
-096B 753700     246            mov y+3, #high(170 / 0x10000)  ; Our max temp
-096E 120116     247                    lcall x_gt_y ;mf 1 if true
-0971 300015     248                    jnb mf, overflow_soaktemp_check
-0974 7530AA     249            mov x+0, #low (170 % 0x10000) 
-0977 753100     249            mov x+1, #high(170 % 0x10000) 
-097A 753200     249            mov x+2, #low (170 / 0x10000) 
-097D 753300     249            mov x+3, #high(170 / 0x10000) 
-0980 12000E     250                lcall hex2bcd
-0983 853858     251                mov soak_temp+0,    bcd+0    ; mode A 150 +-20
-0986 853959     252                mov soak_temp+1,    bcd+1
-0989            253            overflow_soaktemp_check:
-0989            254   
-0989            255            underflow_soaktime:
-0989            256                    ;Max temp check for 
-0989            257   ;soak_time is A, bcd is B
-0989 855A38     257            mov bcd+0, soak_time+0
-098C 855B39     257            mov bcd+1, soak_time+1
-098F 753A00     257            mov bcd+2, #0
-0992 753B00     257            mov bcd+3, #0
-0995 12005B     258                    lcall bcd2hex
-0998 75343C     259            mov y+0, #low (60 % 0x10000) 
-099B 753500     259            mov y+1, #high(60 % 0x10000) 
-099E 753600     259            mov y+2, #low (60 / 0x10000) 
-09A1 753700     259            mov y+3, #high(60 / 0x10000)  ; Our min time
-09A4 1200FA     260                    lcall x_lt_y ;mf 1 if true
-09A7 300015     261                    jnb mf, underflow_soaktime_check
-09AA 75303C     262            mov x+0, #low (60 % 0x10000) 
-09AD 753100     262            mov x+1, #high(60 % 0x10000) 
-09B0 753200     262            mov x+2, #low (60 / 0x10000) 
-09B3 753300     262            mov x+3, #high(60 / 0x10000) 
-09B6 12000E     263                    lcall hex2bcd
-09B9 85385A     264                mov soak_time+0,    bcd+0    ;mode B 60 < t < 120
-09BC 85395B     265                mov soak_time+1,    bcd+1
-09BF            266            underflow_soaktime_check:
-09BF            267   
-09BF            268            overflow_soaktime:
-09BF            269                    ;Max temp check for 
-09BF            270   ;soak_time is A, bcd is B
-09BF 855A38     270            mov bcd+0, soak_time+0
-09C2 855B39     270            mov bcd+1, soak_time+1
-09C5 753A00     270            mov bcd+2, #0
-09C8 753B00     270            mov bcd+3, #0
-09CB 12005B     271                    lcall bcd2hex
-09CE 753478     272            mov y+0, #low (120 % 0x10000) 
-09D1 753500     272            mov y+1, #high(120 % 0x10000) 
-09D4 753600     272            mov y+2, #low (120 / 0x10000) 
-09D7 753700     272            mov y+3, #high(120 / 0x10000)  ; Our max time
-09DA 120116     273                    lcall x_gt_y ;mf 1 if true
-09DD 300015     274                    jnb mf, overflow_soaktime_check
-09E0 753078     275            mov x+0, #low (120 % 0x10000) 
-09E3 753100     275            mov x+1, #high(120 % 0x10000) 
-09E6 753200     275            mov x+2, #low (120 / 0x10000) 
-09E9 753300     275            mov x+3, #high(120 / 0x10000) 
-09EC 12000E     276                    lcall hex2bcd
-09EF 85385A     277                mov soak_time+0,    bcd+0    ;mode B 60 < t < 120
-09F2 85395B     278                mov soak_time+1,    bcd+1
-09F5            279            overflow_soaktime_check:
-09F5            280   
-09F5            281            ;----Reflux Checks-----------------------
-09F5            282            underflow_reflowtemp:
-09F5            283                    ;Min temp check for 
-09F5            284   ;reflow_temp is A, bcd is B
-09F5 855E38     284            mov bcd+0, reflow_temp+0
-09F8 855F39     284            mov bcd+1, reflow_temp+1
-09FB 753A00     284            mov bcd+2, #0
-09FE 753B00     284            mov bcd+3, #0
-0A01 12005B     285                    lcall bcd2hex
-0A04 7534E6     286            mov y+0, #low (230 % 0x10000) 
-0A07 753500     286            mov y+1, #high(230 % 0x10000) 
-0A0A 753600     286            mov y+2, #low (230 / 0x10000) 
-0A0D 753700     286            mov y+3, #high(230 / 0x10000)  ; Our min temp for reflux
-0A10 1200FA     287                    lcall x_lt_y ;mf 1 if true
-0A13 300015     288                    jnb mf, underflow_reflowtemp_check
-0A16 7530E6     289            mov x+0, #low (230 % 0x10000) 
-0A19 753100     289            mov x+1, #high(230 % 0x10000) 
-0A1C 753200     289            mov x+2, #low (230 / 0x10000) 
-0A1F 753300     289            mov x+3, #high(230 / 0x10000) 
-0A22 12000E     290                lcall hex2bcd
-0A25 85385E     291                mov reflow_temp+0,          bcd+0    ;  mode C 230 < t < 240
-0A28 85395F     292                mov reflow_temp+1,          bcd+1
-0A2B            293            underflow_reflowtemp_check:
-0A2B            294   
-0A2B            295            overflow_reflowtemp:
-0A2B            296                    ;Max temp check for 
-0A2B            297   ;reflow_temp is A, bcd is B
-0A2B 855E38     297            mov bcd+0, reflow_temp+0
-0A2E 855F39     297            mov bcd+1, reflow_temp+1
-0A31 753A00     297            mov bcd+2, #0
-0A34 753B00     297            mov bcd+3, #0
-0A37 12005B     298                    lcall bcd2hex
-0A3A 7534F0     299            mov y+0, #low (240 % 0x10000) 
-0A3D 753500     299            mov y+1, #high(240 % 0x10000) 
-0A40 753600     299            mov y+2, #low (240 / 0x10000) 
-0A43 753700     299            mov y+3, #high(240 / 0x10000)  ; Our max temp
-0A46 120116     300                    lcall x_gt_y ;mf 1 if true
-0A49 300015     301                    jnb mf, overflow_reflowtemp_check
-0A4C 7530F0     302            mov x+0, #low (240 % 0x10000) 
-0A4F 753100     302            mov x+1, #high(240 % 0x10000) 
-0A52 753200     302            mov x+2, #low (240 / 0x10000) 
-0A55 753300     302            mov x+3, #high(240 / 0x10000) 
-0A58 12000E     303                lcall hex2bcd
-0A5B 85385E     304                mov reflow_temp+0,          bcd+0    ; mode C 230 < t < 240
-0A5E 85395F     305                mov reflow_temp+1,          bcd+1
-0A61            306            overflow_reflowtemp_check:
-0A61            307   
-0A61            308            underflow_reflowtime:
-0A61            309                    ;Max temp check for 
-0A61            310   ;reflow_time is A, bcd is B
-0A61 856038     310            mov bcd+0, reflow_time+0
-0A64 856139     310            mov bcd+1, reflow_time+1
-0A67 753A00     310            mov bcd+2, #0
-0A6A 753B00     310            mov bcd+3, #0
-0A6D 12005B     311                    lcall bcd2hex
-0A70 75341E     312            mov y+0, #low (30 % 0x10000) 
-0A73 753500     312            mov y+1, #high(30 % 0x10000) 
-0A76 753600     312            mov y+2, #low (30 / 0x10000) 
-0A79 753700     312            mov y+3, #high(30 / 0x10000)  ; Our max temp
-0A7C 1200FA     313                    lcall x_lt_y ;mf 1 if true
-0A7F 300015     314                    jnb mf, underflow_reflowtime_check
-0A82 75301E     315            mov x+0, #low (30 % 0x10000) 
-0A85 753100     315            mov x+1, #high(30 % 0x10000) 
-0A88 753200     315            mov x+2, #low (30 / 0x10000) 
-0A8B 753300     315            mov x+3, #high(30 / 0x10000) 
-0A8E 12000E     316                    lcall hex2bcd
-0A91 853860     317                mov reflow_time+0,          bcd+0    ; mode D  30 < 45
-0A94 853961     318                mov reflow_time+1,          bcd+1
-0A97            319            underflow_reflowtime_check:
-0A97            320   
-0A97            321            overflow_reflowtime:
-0A97            322                    ;Max temp check for 
-0A97            323   ;reflow_time is A, bcd is B
-0A97 856038     323            mov bcd+0, reflow_time+0
-0A9A 856139     323            mov bcd+1, reflow_time+1
-0A9D 753A00     323            mov bcd+2, #0
-0AA0 753B00     323            mov bcd+3, #0
-0AA3 12005B     324                    lcall bcd2hex
-0AA6 75342D     325            mov y+0, #low (45 % 0x10000) 
-0AA9 753500     325            mov y+1, #high(45 % 0x10000) 
-0AAC 753600     325            mov y+2, #low (45 / 0x10000) 
-0AAF 753700     325            mov y+3, #high(45 / 0x10000)  ; Our max temp
-0AB2 120116     326                    lcall x_gt_y ;mf 1 if true
-0AB5 300015     327                    jnb mf, overflow_reflowtime_check
-0AB8 75302D     328            mov x+0, #low (45 % 0x10000) 
-0ABB 753100     328            mov x+1, #high(45 % 0x10000) 
-0ABE 753200     328            mov x+2, #low (45 / 0x10000) 
-0AC1 753300     328            mov x+3, #high(45 / 0x10000) 
-0AC4 12000E     329                    lcall hex2bcd
-0AC7 853860     330                mov reflow_time+0,          bcd+0    ; mode D  30 < 45
-0ACA 853961     331                mov reflow_time+1,          bcd+1
-0ACD            332            overflow_reflowtime_check:
-0ACD            333   
-0ACD 22         334            ret
-0ACE            335   
-0ACE            336   
+08D8            153   
+08D8            154   ; Displays a BCD number pased in R0 in HEX1-HEX0
+08D8            155   Display_BCD_7_Seg_HEX10:
+08D8 9008CE     156            mov dptr, #T_7seg
+08DB            157   
+08DB E8         158            mov a, R0
+08DC C4         159            swap a
+08DD 540F       160            anl a, #0FH
+08DF 93         161            movc a, @a+dptr
+08E0 F592       162            mov HEX1, a
+08E2            163            
+08E2 E8         164            mov a, R0
+08E3 540F       165            anl a, #0FH
+08E5 93         166            movc a, @a+dptr
+08E6 F591       167            mov HEX0, a
+08E8            168            
+08E8 22         169            ret
+08E9            170   
+08E9            171   ; Displays a BCD number pased in R0 in HEX3-HEX2
+08E9            172   Display_BCD_7_Seg_HEX32:
+08E9 9008CE     173            mov dptr, #T_7seg
+08EC            174   
+08EC E8         175            mov a, R0
+08ED C4         176            swap a
+08EE 540F       177            anl a, #0FH
+08F0 93         178            movc a, @a+dptr
+08F1 F594       179            mov HEX3, a
+08F3            180            
+08F3 E8         181            mov a, R0
+08F4 540F       182            anl a, #0FH
+08F6 93         183            movc a, @a+dptr
+08F7 F593       184            mov HEX2, a
+08F9            185            
+08F9 22         186            ret
+08FA            187   
+08FA            188   ; Displays a BCD number pased in R0 in HEX5-HEX4
+08FA            189   Display_BCD_7_Seg_HEX54:
+08FA 9008CE     190            mov dptr, #T_7seg
+08FD            191   
+08FD E8         192            mov a, R0
+08FE C4         193            swap a
+08FF 540F       194            anl a, #0FH
+0901 93         195            movc a, @a+dptr
+0902 F58F       196            mov HEX5, a
+0904            197            
+0904 E8         198            mov a, R0
+0905 540F       199            anl a, #0FH
+0907 93         200            movc a, @a+dptr
+0908 F58E       201            mov HEX4, a
+090A            202            
+090A 22         203            ret
+090B            204   
+090B            205   ; The 8-bit hex number passed in the accumulator is converted to
+090B            206   ; BCD and stored in [R1, R0]
+090B            207   Hex_to_bcd_8bit:
+090B 75F064     208            mov b, #100
+090E 84         209            div ab
+090F F9         210            mov R1, a   ; After dividing, a has the 100s
+0910 E5F0       211            mov a, b    ; Remainder is in register b
+0912 75F00A     212            mov b, #10
+0915 84         213            div ab ; The tens are stored in a, the units are stored in b 
+0916 C4         214            swap a
+0917 54F0       215            anl a, #0xf0
+0919 45F0       216            orl a, b
+091B F8         217            mov R0, a
+091C 22         218            ret
+091D            219            
+091D            220            
+091D            221   ;We should probably start using this from now on oh well live laugh love
+                222   Mov_A_to_B MAC
+                223   ;%0 is A, %1 is B
+                224   	mov %1+0, %0+0
+                225   	mov %1+1, %0+1
+                226   	mov %1+2, #0
+                227   	mov %1+3, #0
+                228   ENDMAC
+091D            229            
+091D            230   Over_Under_Check_Rewrite:
+091D            231   
+091D            232            underflow_soaktemp:
+091D            233   ;soak_temp is A, bcd is B
+091D 855838     233            mov bcd+0, soak_temp+0
+0920 855939     233            mov bcd+1, soak_temp+1
+0923 753A00     233            mov bcd+2, #0
+0926 753B00     233            mov bcd+3, #0
+0929 12005B     234                    lcall bcd2hex
+092C 753482     235            mov y+0, #low (130 % 0x10000) 
+092F 753500     235            mov y+1, #high(130 % 0x10000) 
+0932 753600     235            mov y+2, #low (130 / 0x10000) 
+0935 753700     235            mov y+3, #high(130 / 0x10000)  ; Our min temp
+0938 1200FA     236                    lcall x_lt_y ;mf 1 if true
+093B 300015     237                    jnb mf, underflow_soaktemp_check
+093E 753082     238            mov x+0, #low (130 % 0x10000) 
+0941 753100     238            mov x+1, #high(130 % 0x10000) 
+0944 753200     238            mov x+2, #low (130 / 0x10000) 
+0947 753300     238            mov x+3, #high(130 / 0x10000) 
+094A 12000E     239                lcall hex2bcd
+094D 853858     240                mov soak_temp+0,    bcd+0    ; mode A 150 +-20
+0950 853959     241                mov soak_temp+1,    bcd+1
+0953            242            underflow_soaktemp_check:
+0953            243   
+0953            244            overflow_soaktemp:
+0953            245                    ;Max temp check for 
+0953            246   ;soak_temp is A, bcd is B
+0953 855838     246            mov bcd+0, soak_temp+0
+0956 855939     246            mov bcd+1, soak_temp+1
+0959 753A00     246            mov bcd+2, #0
+095C 753B00     246            mov bcd+3, #0
+095F 12005B     247                    lcall bcd2hex
+0962 7534AA     248            mov y+0, #low (170 % 0x10000) 
+0965 753500     248            mov y+1, #high(170 % 0x10000) 
+0968 753600     248            mov y+2, #low (170 / 0x10000) 
+096B 753700     248            mov y+3, #high(170 / 0x10000)  ; Our max temp
+096E 120116     249                    lcall x_gt_y ;mf 1 if true
+0971 300015     250                    jnb mf, overflow_soaktemp_check
+0974 7530AA     251            mov x+0, #low (170 % 0x10000) 
+0977 753100     251            mov x+1, #high(170 % 0x10000) 
+097A 753200     251            mov x+2, #low (170 / 0x10000) 
+097D 753300     251            mov x+3, #high(170 / 0x10000) 
+0980 12000E     252                lcall hex2bcd
+0983 853858     253                mov soak_temp+0,    bcd+0    ; mode A 150 +-20
+0986 853959     254                mov soak_temp+1,    bcd+1
+0989            255            overflow_soaktemp_check:
+0989            256   
+0989            257            underflow_soaktime:
+0989            258                    ;Max temp check for 
+0989            259   ;soak_time is A, bcd is B
+0989 855A38     259            mov bcd+0, soak_time+0
+098C 855B39     259            mov bcd+1, soak_time+1
+098F 753A00     259            mov bcd+2, #0
+0992 753B00     259            mov bcd+3, #0
+0995 12005B     260                    lcall bcd2hex
+0998 75343C     261            mov y+0, #low (60 % 0x10000) 
+099B 753500     261            mov y+1, #high(60 % 0x10000) 
+099E 753600     261            mov y+2, #low (60 / 0x10000) 
+09A1 753700     261            mov y+3, #high(60 / 0x10000)  ; Our min time
+09A4 1200FA     262                    lcall x_lt_y ;mf 1 if true
+09A7 300015     263                    jnb mf, underflow_soaktime_check
+09AA 75303C     264            mov x+0, #low (60 % 0x10000) 
+09AD 753100     264            mov x+1, #high(60 % 0x10000) 
+09B0 753200     264            mov x+2, #low (60 / 0x10000) 
+09B3 753300     264            mov x+3, #high(60 / 0x10000) 
+09B6 12000E     265                    lcall hex2bcd
+09B9 85385A     266                mov soak_time+0,    bcd+0    ;mode B 60 < t < 120
+09BC 85395B     267                mov soak_time+1,    bcd+1
+09BF            268            underflow_soaktime_check:
+09BF            269   
+09BF            270            overflow_soaktime:
+09BF            271                    ;Max temp check for 
+09BF            272   ;soak_time is A, bcd is B
+09BF 855A38     272            mov bcd+0, soak_time+0
+09C2 855B39     272            mov bcd+1, soak_time+1
+09C5 753A00     272            mov bcd+2, #0
+09C8 753B00     272            mov bcd+3, #0
+09CB 12005B     273                    lcall bcd2hex
+09CE 753478     274            mov y+0, #low (120 % 0x10000) 
+09D1 753500     274            mov y+1, #high(120 % 0x10000) 
+09D4 753600     274            mov y+2, #low (120 / 0x10000) 
+09D7 753700     274            mov y+3, #high(120 / 0x10000)  ; Our max time
+09DA 120116     275                    lcall x_gt_y ;mf 1 if true
+09DD 300015     276                    jnb mf, overflow_soaktime_check
+09E0 753078     277            mov x+0, #low (120 % 0x10000) 
+09E3 753100     277            mov x+1, #high(120 % 0x10000) 
+09E6 753200     277            mov x+2, #low (120 / 0x10000) 
+09E9 753300     277            mov x+3, #high(120 / 0x10000) 
+09EC 12000E     278                    lcall hex2bcd
+09EF 85385A     279                mov soak_time+0,    bcd+0    ;mode B 60 < t < 120
+09F2 85395B     280                mov soak_time+1,    bcd+1
+09F5            281            overflow_soaktime_check:
+09F5            282   
+09F5            283            ;----Reflux Checks-----------------------
+09F5            284            underflow_reflowtemp:
+09F5            285                    ;Min temp check for 
+09F5            286   ;reflow_temp is A, bcd is B
+09F5 855E38     286            mov bcd+0, reflow_temp+0
+09F8 855F39     286            mov bcd+1, reflow_temp+1
+09FB 753A00     286            mov bcd+2, #0
+09FE 753B00     286            mov bcd+3, #0
+0A01 12005B     287                    lcall bcd2hex
+0A04 7534E6     288            mov y+0, #low (230 % 0x10000) 
+0A07 753500     288            mov y+1, #high(230 % 0x10000) 
+0A0A 753600     288            mov y+2, #low (230 / 0x10000) 
+0A0D 753700     288            mov y+3, #high(230 / 0x10000)  ; Our min temp for reflux
+0A10 1200FA     289                    lcall x_lt_y ;mf 1 if true
+0A13 300015     290                    jnb mf, underflow_reflowtemp_check
+0A16 7530E6     291            mov x+0, #low (230 % 0x10000) 
+0A19 753100     291            mov x+1, #high(230 % 0x10000) 
+0A1C 753200     291            mov x+2, #low (230 / 0x10000) 
+0A1F 753300     291            mov x+3, #high(230 / 0x10000) 
+0A22 12000E     292                lcall hex2bcd
+0A25 85385E     293                mov reflow_temp+0,          bcd+0    ;  mode C 230 < t < 240
+0A28 85395F     294                mov reflow_temp+1,          bcd+1
+0A2B            295            underflow_reflowtemp_check:
+0A2B            296   
+0A2B            297            overflow_reflowtemp:
+0A2B            298                    ;Max temp check for 
+0A2B            299   ;reflow_temp is A, bcd is B
+0A2B 855E38     299            mov bcd+0, reflow_temp+0
+0A2E 855F39     299            mov bcd+1, reflow_temp+1
+0A31 753A00     299            mov bcd+2, #0
+0A34 753B00     299            mov bcd+3, #0
+0A37 12005B     300                    lcall bcd2hex
+0A3A 7534F0     301            mov y+0, #low (240 % 0x10000) 
+0A3D 753500     301            mov y+1, #high(240 % 0x10000) 
+0A40 753600     301            mov y+2, #low (240 / 0x10000) 
+0A43 753700     301            mov y+3, #high(240 / 0x10000)  ; Our max temp
+0A46 120116     302                    lcall x_gt_y ;mf 1 if true
+0A49 300015     303                    jnb mf, overflow_reflowtemp_check
+0A4C 7530F0     304            mov x+0, #low (240 % 0x10000) 
+0A4F 753100     304            mov x+1, #high(240 % 0x10000) 
+0A52 753200     304            mov x+2, #low (240 / 0x10000) 
+0A55 753300     304            mov x+3, #high(240 / 0x10000) 
+0A58 12000E     305                lcall hex2bcd
+0A5B 85385E     306                mov reflow_temp+0,          bcd+0    ; mode C 230 < t < 240
+0A5E 85395F     307                mov reflow_temp+1,          bcd+1
+0A61            308            overflow_reflowtemp_check:
+0A61            309   
+0A61            310            underflow_reflowtime:
+0A61            311                    ;Max temp check for 
+0A61            312   ;reflow_time is A, bcd is B
+0A61 856038     312            mov bcd+0, reflow_time+0
+0A64 856139     312            mov bcd+1, reflow_time+1
+0A67 753A00     312            mov bcd+2, #0
+0A6A 753B00     312            mov bcd+3, #0
+0A6D 12005B     313                    lcall bcd2hex
+0A70 75341E     314            mov y+0, #low (30 % 0x10000) 
+0A73 753500     314            mov y+1, #high(30 % 0x10000) 
+0A76 753600     314            mov y+2, #low (30 / 0x10000) 
+0A79 753700     314            mov y+3, #high(30 / 0x10000)  ; Our max temp
+0A7C 1200FA     315                    lcall x_lt_y ;mf 1 if true
+0A7F 300015     316                    jnb mf, underflow_reflowtime_check
+0A82 75301E     317            mov x+0, #low (30 % 0x10000) 
+0A85 753100     317            mov x+1, #high(30 % 0x10000) 
+0A88 753200     317            mov x+2, #low (30 / 0x10000) 
+0A8B 753300     317            mov x+3, #high(30 / 0x10000) 
+0A8E 12000E     318                    lcall hex2bcd
+0A91 853860     319                mov reflow_time+0,          bcd+0    ; mode D  30 < 45
+0A94 853961     320                mov reflow_time+1,          bcd+1
+0A97            321            underflow_reflowtime_check:
+0A97            322   
+0A97            323            overflow_reflowtime:
+0A97            324                    ;Max temp check for 
+0A97            325   ;reflow_time is A, bcd is B
+0A97 856038     325            mov bcd+0, reflow_time+0
+0A9A 856139     325            mov bcd+1, reflow_time+1
+0A9D 753A00     325            mov bcd+2, #0
+0AA0 753B00     325            mov bcd+3, #0
+0AA3 12005B     326                    lcall bcd2hex
+0AA6 75342D     327            mov y+0, #low (45 % 0x10000) 
+0AA9 753500     327            mov y+1, #high(45 % 0x10000) 
+0AAC 753600     327            mov y+2, #low (45 / 0x10000) 
+0AAF 753700     327            mov y+3, #high(45 / 0x10000)  ; Our max temp
+0AB2 120116     328                    lcall x_gt_y ;mf 1 if true
+0AB5 300015     329                    jnb mf, overflow_reflowtime_check
+0AB8 75302D     330            mov x+0, #low (45 % 0x10000) 
+0ABB 753100     330            mov x+1, #high(45 % 0x10000) 
+0ABE 753200     330            mov x+2, #low (45 / 0x10000) 
+0AC1 753300     330            mov x+3, #high(45 / 0x10000) 
+0AC4 12000E     331                    lcall hex2bcd
+0AC7 853860     332                mov reflow_time+0,          bcd+0    ; mode D  30 < 45
+0ACA 853961     333                mov reflow_time+1,          bcd+1
+0ACD            334            overflow_reflowtime_check:
+0ACD            335   
+0ACD 22         336            ret
 0ACE            337   
-0ACE            338   ;-------MACROS--------------------;
-                339   Load_X_Var32 MAC
-                340   mov x+0, %0+0
-                341   mov x+1, %0+1
-                342   mov x+2, %0+2
-                343   mov x+3, %0+3
-                344   ENDMAC
-0ACE            345   
-                346   Load_Y_Var32 MAC
-                347   mov y+0, %0+0
-                348   mov y+1, %0+1
-                349   mov y+2, %0+2
-                350   mov y+3, %0+3
-                351   ENDMAC
-0ACE            352   
-                353   Load_X_Var16 MAC
-                354   mov x+0, %0+0
-                355   mov x+1, %0+1
-                356   mov x+2, #0
-                357   mov x+3, #0
-                358   ENDMAC
-0ACE            359   
-                360   Load_Y_Var16 MAC
-                361   mov y+0, %0+0
-                362   mov y+1, %0+1
-                363   mov y+2, #0
-                364   mov y+3, #0
-                365   ENDMAC
-0ACE            366   
-                367   Load_X_Var8 MAC
-                368   mov x+0, %0+0
-                369   mov x+1, #0
-                370   mov x+2, #0
-                371   mov x+3, #0
-                372   ENDMAC
-0ACE            373   
-                374   Load_Y_Var8 MAC
-                375   mov y+0, %0+0
-                376   mov y+1, #0
-                377   mov y+2, #0
-                378   mov y+3, #0
-                379   ENDMAC
-0ACE            380   
-                381   powerPercent MAC
-                382   	mov x+0, %0
-                383   	mov x+1, #0
-                384   	mov x+2, #0
-                385   	mov x+3, #0
-                386   	Load_Y_Var16(%1)
-                387   	lcall mul32
-                388   	
-                389   	load_y(100)
-                390   	lcall div32
-                391   	
-                392   	mov %2+0, x+0
-                393   	mov %2+1, x+1
-                394   ENDMAC
-0ACE            395   
-0ACE            396   ;---------------------------------;
-0ACE            397   ; Main program. Includes hardware ;
-0ACE            398   ; initialization and 'forever'    ;
-0ACE            399   ; loop.                           ;
-0ACE            400   ;---------------------------------;
-0ACE            401   
-0ACE            402   Initial_ALL:
+0ACE            338   
+0ACE            339   
+0ACE            340   ;-------MACROS--------------------;
+                341   Load_X_Var32 MAC
+                342   mov x+0, %0+0
+                343   mov x+1, %0+1
+                344   mov x+2, %0+2
+                345   mov x+3, %0+3
+                346   ENDMAC
+0ACE            347   
+                348   Load_Y_Var32 MAC
+                349   mov y+0, %0+0
+                350   mov y+1, %0+1
+                351   mov y+2, %0+2
+                352   mov y+3, %0+3
+                353   ENDMAC
+0ACE            354   
+                355   Load_X_Var16 MAC
+                356   mov x+0, %0+0
+                357   mov x+1, %0+1
+                358   mov x+2, #0
+                359   mov x+3, #0
+                360   ENDMAC
+0ACE            361   
+                362   Load_Y_Var16 MAC
+                363   mov y+0, %0+0
+                364   mov y+1, %0+1
+                365   mov y+2, #0
+                366   mov y+3, #0
+                367   ENDMAC
+0ACE            368   
+                369   Load_X_Var8 MAC
+                370   mov x+0, %0+0
+                371   mov x+1, #0
+                372   mov x+2, #0
+                373   mov x+3, #0
+                374   ENDMAC
+0ACE            375   
+                376   Load_Y_Var8 MAC
+                377   mov y+0, %0+0
+                378   mov y+1, #0
+                379   mov y+2, #0
+                380   mov y+3, #0
+                381   ENDMAC
+0ACE            382   
+                383   powerPercent MAC
+                384   	mov x+0, %0
+                385   	mov x+1, #0
+                386   	mov x+2, #0
+                387   	mov x+3, #0
+                388   	Load_Y_Var16(%1)
+                389   	lcall mul32
+                390   	
+                391   	load_y(100)
+                392   	lcall div32
+                393   	
+                394   	mov %2+0, x+0
+                395   	mov %2+1, x+1
+                396   ENDMAC
+0ACE            397   
+0ACE            398   ;---------------------------------;
+0ACE            399   ; Main program. Includes hardware ;
+0ACE            400   ; initialization and 'forever'    ;
+0ACE            401   ; loop.                           ;
+0ACE            402   ;---------------------------------;
 0ACE            403   
-0ACE C2AF       404            clr EA ;disables global interupts
-0AD0            405            
-0AD0            406            ; Initialization of hardware
-0AD0 12088C     407       lcall Timer0_Init    ; Changed from Timer2_Init to Timer0_Init
-0AD3 12071C     408       lcall InitSerialPort ; Initialize serial port on Timer 1
-0AD6 12035C     409       lcall ELCD_4BIT ; Configure LCD in four bit mode
-0AD9            410       
-0AD9 75817F     411            mov SP, #7FH
-0ADC 75E800     412            mov LEDRA, #0
-0ADF 759500     413            mov LEDRB, #0
-0AE2            414            
-0AE2            415            ; Initialize variables
-0AE2 756A00     416       mov FSM_state, #0x00
-0AE5 C280       417            clr SSR_PIN
-0AE7 C200       418            clr mf
-0AE9 C201       419            clr ssr_f
-0AEB D202       420            setb state_flag
-0AED C203       421            clr QuarterSecondsFlag
-0AEF D204       422            setb State0Flag
-0AF1            423            
-0AF1 756900     424            mov MinutesCounterTotal, #0x00
-0AF4 756800     425            mov SecondsCounterTotal, #0x00
-0AF7 756600     426       mov QuarterSecondsCounter, #0x00
-0AFA            427       
-0AFA 75302C     428            mov x+0, #low (300 % 0x10000) 
-0AFD 753101     428            mov x+1, #high(300 % 0x10000) 
-0B00 753200     428            mov x+2, #low (300 / 0x10000) 
-0B03 753300     428            mov x+3, #high(300 / 0x10000) 
-0B06 12000E     429       lcall hex2bcd
-0B09 853858     430       mov soak_temp+0,     bcd+0
-0B0C 853959     431       mov soak_temp+1,     bcd+1
-0B0F            432   
-0B0F 755A00     433            mov soak_time+0,        #0
-0B12 755B00     434            mov soak_time+1,        #0
-0B15            435            
-0B15 755E00     436            mov reflow_temp+0,  #0
-0B18 755F00     437            mov reflow_temp+1,  #0
-0B1B            438            
-0B1B 756000     439            mov reflow_time+0,  #0
-0B1E 756100     440            mov reflow_time+1,  #0
-0B21            441            
-0B21 755200     442            mov tempFinal+0, #0
-0B24 755300     443            mov tempFinal+1, #0
-0B27 755400     444            mov tempFinal+2, #0
-0B2A 755500     445            mov tempFinal+3, #0
-0B2D            446            
-0B2D 754600     447            mov tempCold+0, #0
-0B30 754700     448            mov tempCold+1, #0
-0B33 754800     449            mov tempCold+2, #0
-0B36 754900     450            mov tempCold+3, #0
-0B39            451            
-0B39 754200     452            mov tempHot+0, #0
-0B3C 754300     453            mov tempHot+1, #0
-0B3F 754400     454            mov tempHot+2, #0
-0B42 754500     455            mov tempHot+3, #0
-0B45            456            
-0B45 756400     457            mov active_param, #0
-0B48            458                    
-0B48 C2AF       459            clr EA
-0B4A 1204A7     460       lcall Load_Param_Into_BCD
-0B4D 1204D7     461       lcall Configure_Keypad_Pins
-0B50 D2AF       462       setb EA
-0B52            463   
-0B52 D2AF       464            setb EA ;enables global interupts
-0B54            465            
-0B54 22         466            ret
-0B55            467            
-0B55            468            
-0B55            469   main:
-0B55 759AAB     470            mov P0MOD, #10101011b
-0B58 759B82     471       mov P1MOD, #10000010b
-0B5B 120ACE     472            lcall Initial_ALL
-0B5E            473            
-0B5E 759AAA     474            mov P0MOD, #10101010b
-0B61 759B82     475       mov P1MOD, #10000010b
-0B64            476   
-0B64 12035C     477       lcall ELCD_4BIT
-0B67            478            
-0B67 C0E0       479            push acc
-0B69 7401       479            mov a, #1
-0B6B 14         479            dec a
-0B6C 12039C     479            lcall ?Set_Cursor_1 ; Select column and row
-0B6F D0E0       479            pop acc
-0B71 C083       480            push dph
-0B73 C082       480            push dpl
-0B75 C0E0       480            push acc
-0B77 90087C     480            mov dptr, #Initial_Message
-0B7A 12038F     480            lcall ?Send_Constant_String
-0B7D D0E0       480            pop acc
-0B7F D082       480            pop dpl
-0B81 D083       480            pop dph
-0B83            481            
-0B83 90087C     482            mov dptr, #Initial_Message
-0B86 120735     483            lcall SendString
-0B89 740D       484            mov a, #'\r'
-0B8B 12072D     485            lcall putchar
-0B8E 740A       486            mov a, #'\n'
-0B90 12072D     487            lcall putchar
-0B93            488            
-0B93 75A180     489            mov ADC_C, #0x80
-0B96 120473     490            lcall Wait25ms
-0B99            491            
-0B99            492   loop:
+0ACE            404   Initial_ALL:
+0ACE            405   
+0ACE C2AF       406            clr EA ;disables global interupts
+0AD0            407            
+0AD0            408            ; Initialization of hardware
+0AD0 12088C     409       lcall Timer0_Init    ; Changed from Timer2_Init to Timer0_Init
+0AD3 12071C     410       lcall InitSerialPort ; Initialize serial port on Timer 1
+0AD6 12035C     411       lcall ELCD_4BIT ; Configure LCD in four bit mode
+0AD9            412       
+0AD9 75817F     413            mov SP, #7FH
+0ADC 75E800     414            mov LEDRA, #0
+0ADF 759500     415            mov LEDRB, #0
+0AE2            416            
+0AE2            417            ; Initialize variables
+0AE2 756A00     418       mov FSM_state, #0x00
+0AE5 C280       419            clr SSR_PIN
+0AE7 C200       420            clr mf
+0AE9 C201       421            clr ssr_f
+0AEB D202       422            setb state_flag
+0AED C203       423            clr QuarterSecondsFlag
+0AEF D204       424            setb State0Flag
+0AF1            425            
+0AF1 756900     426            mov MinutesCounterTotal, #0x00
+0AF4 756800     427            mov SecondsCounterTotal, #0x00
+0AF7 756600     428       mov QuarterSecondsCounter, #0x00
+0AFA            429       
+0AFA 75302C     430            mov x+0, #low (300 % 0x10000) 
+0AFD 753101     430            mov x+1, #high(300 % 0x10000) 
+0B00 753200     430            mov x+2, #low (300 / 0x10000) 
+0B03 753300     430            mov x+3, #high(300 / 0x10000) 
+0B06 12000E     431       lcall hex2bcd
+0B09 853858     432       mov soak_temp+0,     bcd+0
+0B0C 853959     433       mov soak_temp+1,     bcd+1
+0B0F            434   
+0B0F 755A00     435            mov soak_time+0,        #0
+0B12 755B00     436            mov soak_time+1,        #0
+0B15            437            
+0B15 755E00     438            mov reflow_temp+0,  #0
+0B18 755F00     439            mov reflow_temp+1,  #0
+0B1B            440            
+0B1B 756000     441            mov reflow_time+0,  #0
+0B1E 756100     442            mov reflow_time+1,  #0
+0B21            443            
+0B21 755200     444            mov tempFinal+0, #0
+0B24 755300     445            mov tempFinal+1, #0
+0B27 755400     446            mov tempFinal+2, #0
+0B2A 755500     447            mov tempFinal+3, #0
+0B2D            448            
+0B2D 754600     449            mov tempCold+0, #0
+0B30 754700     450            mov tempCold+1, #0
+0B33 754800     451            mov tempCold+2, #0
+0B36 754900     452            mov tempCold+3, #0
+0B39            453            
+0B39 754200     454            mov tempHot+0, #0
+0B3C 754300     455            mov tempHot+1, #0
+0B3F 754400     456            mov tempHot+2, #0
+0B42 754500     457            mov tempHot+3, #0
+0B45            458            
+0B45 756400     459            mov active_param, #0
+0B48            460                    
+0B48 C2AF       461            clr EA
+0B4A 1204A7     462       lcall Load_Param_Into_BCD
+0B4D 1204D7     463       lcall Configure_Keypad_Pins
+0B50 D2AF       464       setb EA
+0B52            465   
+0B52 D2AF       466            setb EA ;enables global interupts
+0B54            467            
+0B54 22         468            ret
+0B55            469            
+0B55            470            
+0B55            471   main:
+0B55 759AAB     472            mov P0MOD, #10101011b
+0B58 759B82     473       mov P1MOD, #10000010b
+0B5B 120ACE     474            lcall Initial_ALL
+0B5E            475            
+0B5E 759AAA     476            mov P0MOD, #10101010b
+0B61 759B82     477       mov P1MOD, #10000010b
+0B64            478   
+0B64 12035C     479       lcall ELCD_4BIT
+0B67            480            
+0B67 C0E0       481            push acc
+0B69 7401       481            mov a, #1
+0B6B 14         481            dec a
+0B6C 12039C     481            lcall ?Set_Cursor_1 ; Select column and row
+0B6F D0E0       481            pop acc
+0B71 C083       482            push dph
+0B73 C082       482            push dpl
+0B75 C0E0       482            push acc
+0B77 90087C     482            mov dptr, #Initial_Message
+0B7A 12038F     482            lcall ?Send_Constant_String
+0B7D D0E0       482            pop acc
+0B7F D082       482            pop dpl
+0B81 D083       482            pop dph
+0B83            483            
+0B83 90087C     484            mov dptr, #Initial_Message
+0B86 120735     485            lcall SendString
+0B89 740D       486            mov a, #'\r'
+0B8B 12072D     487            lcall putchar
+0B8E 740A       488            mov a, #'\n'
+0B90 12072D     489            lcall putchar
+0B93            490            
+0B93 75A180     491            mov ADC_C, #0x80
+0B96 120473     492            lcall Wait25ms
 0B99            493            
-0B99 020BDC     494            ljmp skip_debug_stuff 
-0B9C            495                    
-0B9C C2AF       496                    clr EA
-0B9E 856730     497   mov x+0, SecondsCounter+0
-0BA1 753100     497   mov x+1, #0
-0BA4 753200     497   mov x+2, #0
-0BA7 753300     497   mov x+3, #0
-0BAA 12000E     498                    lcall hex2bcd
-0BAD A838       499                    mov R0, bcd+0
-0BAF 1208D8     500                    lcall Display_BCD_7_Seg_HEX10
-0BB2            501                    
-0BB2 856830     502   mov x+0, SecondsCounterTotal+0
-0BB5 753100     502   mov x+1, #0
-0BB8 753200     502   mov x+2, #0
-0BBB 753300     502   mov x+3, #0
-0BBE 12000E     503                    lcall hex2bcd
-0BC1 A838       504                    mov R0, bcd+0
-0BC3 1208E9     505                    lcall Display_BCD_7_Seg_HEX32
-0BC6            506                    
-0BC6 856930     507   mov x+0, MinutesCounterTotal+0
-0BC9 753100     507   mov x+1, #0
-0BCC 753200     507   mov x+2, #0
-0BCF 753300     507   mov x+3, #0
-0BD2 12000E     508                    lcall hex2bcd
-0BD5 A838       509                    mov R0, bcd+0
-0BD7 1208FA     510                    lcall Display_BCD_7_Seg_HEX54
-0BDA            511                    
-0BDA D2AF       512                    setb EA
-0BDC            513            
-0BDC            514            skip_debug_stuff:
-0BDC            515   
-0BDC            516   
-0BDC 200405     517            jb State0Flag, skiptemptemptemp
-0BDF 300302     518            jnb QuarterSecondsFlag, skiptemptemptemp
-0BE2 8003       519            sjmp skiptemoteteipj
-0BE4            520            skiptemptemptemp:
-0BE4            521            
-0BE4 020CF9     522            ljmp skiptemptemptemptemp
-0BE7            523            skiptemoteteipj:
-0BE7            524            
-0BE7 C203       525            clr QuarterSecondsFlag
-0BE9 C2AF       526            clr EA
-0BEB 75A100     527       mov ADC_C, #LM335_ADC
-0BEE            528   
-0BEE 753300     529       mov x+3, #0
-0BF1 753200     530       mov x+2, #0
-0BF4 85A331     531       mov x+1, ADC_H
-0BF7 85A230     532       mov x+0, ADC_L
-0BFA            533   
-0BFA 753488     534            mov y+0, #low (5000 % 0x10000) 
-0BFD 753513     534            mov y+1, #high(5000 % 0x10000) 
-0C00 753600     534            mov y+2, #low (5000 / 0x10000) 
-0C03 753700     534            mov y+3, #high(5000 / 0x10000) 
-0C06 12016C     535       lcall mul32
-0C09 753400     536            mov y+0, #low (4096 % 0x10000) 
-0C0C 753510     536            mov y+1, #high(4096 % 0x10000) 
-0C0F 753600     536            mov y+2, #low (4096 / 0x10000) 
-0C12 753700     536            mov y+3, #high(4096 / 0x10000) 
-0C15 120260     537       lcall div32
-0C18            538       
-0C18 85304A     539       mov V_tc+0, x+0
-0C1B 85314B     540       mov V_tc+1, x+1
-0C1E 85324C     541       mov V_tc+2, x+2
-0C21 85334D     542       mov V_tc+3, x+3
-0C24            543   
-0C24 75A101     544       mov ADC_C, #OP07_ADC
-0C27            545   
-0C27 753300     546       mov x+3, #0
-0C2A 753200     547       mov x+2, #0
-0C2D 85A331     548       mov x+1, ADC_H
-0C30 85A230     549       mov x+0, ADC_L
-0C33            550   
-0C33 753488     551            mov y+0, #low (5000 % 0x10000) 
-0C36 753513     551            mov y+1, #high(5000 % 0x10000) 
-0C39 753600     551            mov y+2, #low (5000 / 0x10000) 
-0C3C 753700     551            mov y+3, #high(5000 / 0x10000) 
-0C3F 12016C     552       lcall mul32
-0C42 753400     553            mov y+0, #low (4096 % 0x10000) 
-0C45 753510     553            mov y+1, #high(4096 % 0x10000) 
-0C48 753600     553            mov y+2, #low (4096 / 0x10000) 
-0C4B 753700     553            mov y+3, #high(4096 / 0x10000) 
-0C4E 120260     554       lcall div32
-0C51            555   
-0C51 75340A     556            mov y+0, #low (10 % 0x10000) 
-0C54 753500     556            mov y+1, #high(10 % 0x10000) 
-0C57 753600     556            mov y+2, #low (10 / 0x10000) 
-0C5A 753700     556            mov y+3, #high(10 / 0x10000) 
-0C5D 120260     557       lcall div32
-0C60 753411     558            mov y+0, #low (273 % 0x10000) 
-0C63 753501     558            mov y+1, #high(273 % 0x10000) 
-0C66 753600     558            mov y+2, #low (273 / 0x10000) 
-0C69 753700     558            mov y+3, #high(273 / 0x10000) 
-0C6C 1200D6     559       lcall sub32
-0C6F            560       
-0C6F 85304E     561       mov V_cj+0, x+0
-0C72 85314F     562       mov V_cj+1, x+1
-0C75 853250     563       mov V_cj+2, x+2
-0C78 853351     564       mov V_cj+3, x+3
-0C7B            565   
-0C7B 854A30     566       mov x+0, V_tc+0
-0C7E 854B31     567       mov x+1, V_tc+1
-0C81 854C32     568       mov x+2, V_tc+2
-0C84 854D33     569       mov x+3, V_tc+3
-0C87            570   
-0C87 753410     571            mov y+0, #low (10000 % 0x10000) 
-0C8A 753527     571            mov y+1, #high(10000 % 0x10000) 
-0C8D 753600     571            mov y+2, #low (10000 / 0x10000) 
-0C90 753700     571            mov y+3, #high(10000 / 0x10000) 
-0C93 12016C     572       lcall mul32
-0C96 75340C     573            mov y+0, #low (12300 % 0x10000) 
-0C99 753530     573            mov y+1, #high(12300 % 0x10000) 
-0C9C 753600     573            mov y+2, #low (12300 / 0x10000) 
-0C9F 753700     573            mov y+3, #high(12300 / 0x10000) 
-0CA2 120260     574       lcall div32
-0CA5            575   
-0CA5 853034     576       mov y+0, x+0
-0CA8 853135     577       mov y+1, x+1
-0CAB 853236     578       mov y+2, x+2
-0CAE 853337     579       mov y+3, x+3
-0CB1            580   
-0CB1 854E30     581       mov x+0, V_cj+0
-0CB4 854F31     582       mov x+1, V_cj+1
-0CB7 855032     583       mov x+2, V_cj+2
-0CBA 855133     584       mov x+3, V_cj+3
-0CBD            585       
-0CBD C034       586       push y+0
-0CBF C035       587       push y+1
-0CC1 C036       588       push y+2
-0CC3 C037       589       push y+3
-0CC5            590       
-0CC5 75340A     591            mov y+0, #low (10 % 0x10000) 
-0CC8 753500     591            mov y+1, #high(10 % 0x10000) 
-0CCB 753600     591            mov y+2, #low (10 / 0x10000) 
-0CCE 753700     591            mov y+3, #high(10 / 0x10000) 
-0CD1 12016C     592       lcall mul32
-0CD4            593       
-0CD4 D037       594       pop y+3
-0CD6 D036       595       pop y+2
-0CD8 D035       596       pop y+1
-0CDA D034       597       pop y+0
-0CDC            598       
-0CDC 1200B3     599       lcall add32
-0CDF            600       
-0CDF 853052     601       mov tempFinal+0, x+0
-0CE2 853153     602       mov tempFinal+1, x+1
-0CE5 853254     603       mov tempFinal+2, x+2
-0CE8 853355     604       mov tempFinal+3, x+3
-0CEB            605   
-0CEB 12000E     606       lcall hex2bcd
-0CEE 120740     607       lcall Display_Voltage_7seg
-0CF1 120764     608       lcall Display_Voltage_LCD
-0CF4 1207CF     609       lcall Display_Voltage_Serial
-0CF7            610       
-0CF7 D2AF       611            setb EA
-0CF9            612            
-0CF9            613            skiptemptemptemptemp:
-0CF9            614       
-0CF9            615   
-0CF9 20040F     616            jb State0Flag, skip_button
-0CFC 20820C     617            jb START_BUTTON, skip_button
-0CFF 120473     618            lcall Wait25ms
-0D02 208206     619            jb START_BUTTON, skip_button
-0D05 3082FD     620            jnb START_BUTTON, $
-0D08            621            
-0D08 756A00     622                    mov FSM_state, #0x00
-0D0B            623            skip_button:
-0D0B            624   
-0D0B            625       
-0D0B            626   ;-------------------------------------------------------------------------------
-0D0B            627   ;FSM
+0B99            494   loop:
+0B99            495            
+0B99 020BDC     496            ljmp skip_debug_stuff 
+0B9C            497                    
+0B9C C2AF       498                    clr EA
+0B9E 856730     499   mov x+0, SecondsCounter+0
+0BA1 753100     499   mov x+1, #0
+0BA4 753200     499   mov x+2, #0
+0BA7 753300     499   mov x+3, #0
+0BAA 12000E     500                    lcall hex2bcd
+0BAD A838       501                    mov R0, bcd+0
+0BAF 1208D8     502                    lcall Display_BCD_7_Seg_HEX10
+0BB2            503                    
+0BB2 856830     504   mov x+0, SecondsCounterTotal+0
+0BB5 753100     504   mov x+1, #0
+0BB8 753200     504   mov x+2, #0
+0BBB 753300     504   mov x+3, #0
+0BBE 12000E     505                    lcall hex2bcd
+0BC1 A838       506                    mov R0, bcd+0
+0BC3 1208E9     507                    lcall Display_BCD_7_Seg_HEX32
+0BC6            508                    
+0BC6 856930     509   mov x+0, MinutesCounterTotal+0
+0BC9 753100     509   mov x+1, #0
+0BCC 753200     509   mov x+2, #0
+0BCF 753300     509   mov x+3, #0
+0BD2 12000E     510                    lcall hex2bcd
+0BD5 A838       511                    mov R0, bcd+0
+0BD7 1208FA     512                    lcall Display_BCD_7_Seg_HEX54
+0BDA            513                    
+0BDA D2AF       514                    setb EA
+0BDC            515            
+0BDC            516            skip_debug_stuff:
+0BDC            517   
+0BDC            518   
+0BDC 200405     519            jb State0Flag, skiptemptemptemp
+0BDF 300302     520            jnb QuarterSecondsFlag, skiptemptemptemp
+0BE2 8003       521            sjmp skiptemoteteipj
+0BE4            522            skiptemptemptemp:
+0BE4            523            
+0BE4 020CF9     524            ljmp skiptemptemptemptemp
+0BE7            525            skiptemoteteipj:
+0BE7            526            
+0BE7 C203       527            clr QuarterSecondsFlag
+0BE9 C2AF       528            clr EA
+0BEB 75A100     529       mov ADC_C, #LM335_ADC
+0BEE            530   
+0BEE 753300     531       mov x+3, #0
+0BF1 753200     532       mov x+2, #0
+0BF4 85A331     533       mov x+1, ADC_H
+0BF7 85A230     534       mov x+0, ADC_L
+0BFA            535   
+0BFA 753488     536            mov y+0, #low (5000 % 0x10000) 
+0BFD 753513     536            mov y+1, #high(5000 % 0x10000) 
+0C00 753600     536            mov y+2, #low (5000 / 0x10000) 
+0C03 753700     536            mov y+3, #high(5000 / 0x10000) 
+0C06 12016C     537       lcall mul32
+0C09 753400     538            mov y+0, #low (4096 % 0x10000) 
+0C0C 753510     538            mov y+1, #high(4096 % 0x10000) 
+0C0F 753600     538            mov y+2, #low (4096 / 0x10000) 
+0C12 753700     538            mov y+3, #high(4096 / 0x10000) 
+0C15 120260     539       lcall div32
+0C18            540       
+0C18 85304A     541       mov V_tc+0, x+0
+0C1B 85314B     542       mov V_tc+1, x+1
+0C1E 85324C     543       mov V_tc+2, x+2
+0C21 85334D     544       mov V_tc+3, x+3
+0C24            545   
+0C24 75A101     546       mov ADC_C, #OP07_ADC
+0C27            547   
+0C27 753300     548       mov x+3, #0
+0C2A 753200     549       mov x+2, #0
+0C2D 85A331     550       mov x+1, ADC_H
+0C30 85A230     551       mov x+0, ADC_L
+0C33            552   
+0C33 753488     553            mov y+0, #low (5000 % 0x10000) 
+0C36 753513     553            mov y+1, #high(5000 % 0x10000) 
+0C39 753600     553            mov y+2, #low (5000 / 0x10000) 
+0C3C 753700     553            mov y+3, #high(5000 / 0x10000) 
+0C3F 12016C     554       lcall mul32
+0C42 753400     555            mov y+0, #low (4096 % 0x10000) 
+0C45 753510     555            mov y+1, #high(4096 % 0x10000) 
+0C48 753600     555            mov y+2, #low (4096 / 0x10000) 
+0C4B 753700     555            mov y+3, #high(4096 / 0x10000) 
+0C4E 120260     556       lcall div32
+0C51            557   
+0C51 75340A     558            mov y+0, #low (10 % 0x10000) 
+0C54 753500     558            mov y+1, #high(10 % 0x10000) 
+0C57 753600     558            mov y+2, #low (10 / 0x10000) 
+0C5A 753700     558            mov y+3, #high(10 / 0x10000) 
+0C5D 120260     559       lcall div32
+0C60 753411     560            mov y+0, #low (273 % 0x10000) 
+0C63 753501     560            mov y+1, #high(273 % 0x10000) 
+0C66 753600     560            mov y+2, #low (273 / 0x10000) 
+0C69 753700     560            mov y+3, #high(273 / 0x10000) 
+0C6C 1200D6     561       lcall sub32
+0C6F            562       
+0C6F 85304E     563       mov V_cj+0, x+0
+0C72 85314F     564       mov V_cj+1, x+1
+0C75 853250     565       mov V_cj+2, x+2
+0C78 853351     566       mov V_cj+3, x+3
+0C7B            567   
+0C7B 854A30     568       mov x+0, V_tc+0
+0C7E 854B31     569       mov x+1, V_tc+1
+0C81 854C32     570       mov x+2, V_tc+2
+0C84 854D33     571       mov x+3, V_tc+3
+0C87            572   
+0C87 753410     573            mov y+0, #low (10000 % 0x10000) 
+0C8A 753527     573            mov y+1, #high(10000 % 0x10000) 
+0C8D 753600     573            mov y+2, #low (10000 / 0x10000) 
+0C90 753700     573            mov y+3, #high(10000 / 0x10000) 
+0C93 12016C     574       lcall mul32
+0C96 75340C     575            mov y+0, #low (12300 % 0x10000) 
+0C99 753530     575            mov y+1, #high(12300 % 0x10000) 
+0C9C 753600     575            mov y+2, #low (12300 / 0x10000) 
+0C9F 753700     575            mov y+3, #high(12300 / 0x10000) 
+0CA2 120260     576       lcall div32
+0CA5            577   
+0CA5 853034     578       mov y+0, x+0
+0CA8 853135     579       mov y+1, x+1
+0CAB 853236     580       mov y+2, x+2
+0CAE 853337     581       mov y+3, x+3
+0CB1            582   
+0CB1 854E30     583       mov x+0, V_cj+0
+0CB4 854F31     584       mov x+1, V_cj+1
+0CB7 855032     585       mov x+2, V_cj+2
+0CBA 855133     586       mov x+3, V_cj+3
+0CBD            587       
+0CBD C034       588       push y+0
+0CBF C035       589       push y+1
+0CC1 C036       590       push y+2
+0CC3 C037       591       push y+3
+0CC5            592       
+0CC5 75340A     593            mov y+0, #low (10 % 0x10000) 
+0CC8 753500     593            mov y+1, #high(10 % 0x10000) 
+0CCB 753600     593            mov y+2, #low (10 / 0x10000) 
+0CCE 753700     593            mov y+3, #high(10 / 0x10000) 
+0CD1 12016C     594       lcall mul32
+0CD4            595       
+0CD4 D037       596       pop y+3
+0CD6 D036       597       pop y+2
+0CD8 D035       598       pop y+1
+0CDA D034       599       pop y+0
+0CDC            600       
+0CDC 1200B3     601       lcall add32
+0CDF            602       
+0CDF 853052     603       mov tempFinal+0, x+0
+0CE2 853153     604       mov tempFinal+1, x+1
+0CE5 853254     605       mov tempFinal+2, x+2
+0CE8 853355     606       mov tempFinal+3, x+3
+0CEB            607   
+0CEB 12000E     608       lcall hex2bcd
+0CEE 120740     609       lcall Display_Voltage_7seg
+0CF1 120764     610       lcall Display_Voltage_LCD
+0CF4 1207CF     611       lcall Display_Voltage_Serial
+0CF7            612       
+0CF7 D2AF       613            setb EA
+0CF9            614            
+0CF9            615            skiptemptemptemptemp:
+0CF9            616       
+0CF9            617   
+0CF9 20040F     618            jb State0Flag, skip_button
+0CFC 20820C     619            jb START_BUTTON, skip_button
+0CFF 120473     620            lcall Wait25ms
+0D02 208206     621            jb START_BUTTON, skip_button
+0D05 3082FD     622            jnb START_BUTTON, $
+0D08            623            
+0D08 756A00     624                    mov FSM_state, #0x00
+0D0B            625            skip_button:
+0D0B            626   
+0D0B            627       
 0D0B            628   ;-------------------------------------------------------------------------------
-0D0B            629   
-0D0B 300209     630            jnb state_flag, no_new_state
-0D0E            631            
-0D0E C202       632            clr state_flag
-0D10 C2AF       633            clr EA
-0D12 756700     634            mov SecondsCounter, #0x00
-0D15 D2AF       635            setb EA
-0D17            636            no_new_state:
-0D17            637   
-0D17 75E800     638            mov LEDRA, #0
-0D1A            639   
-0D1A            640   FSM_state0:
-0D1A E56A       641            mov a, FSM_state
-0D1C B40002     642            cjne a, #0, FSM_state1_continue_move
-0D1F 8003       643            sjmp FSM_state1_skip_move
-0D21            644            
-0D21            645            FSM_state1_continue_move:
-0D21 020D60     646            ljmp FSM_state1
-0D24            647            
-0D24            648            FSM_state1_skip_move:
+0D0B            629   ;FSM
+0D0B            630   ;-------------------------------------------------------------------------------
+0D0B            631   
+0D0B 300209     632            jnb state_flag, no_new_state
+0D0E            633            
+0D0E C202       634            clr state_flag
+0D10 C2AF       635            clr EA
+0D12 756700     636            mov SecondsCounter, #0x00
+0D15 D2AF       637            setb EA
+0D17            638            no_new_state:
+0D17            639   
+0D17 75E800     640            mov LEDRA, #0
+0D1A            641   
+0D1A            642   FSM_state0:
+0D1A E56A       643            mov a, FSM_state
+0D1C B40002     644            cjne a, #0, FSM_state1_continue_move
+0D1F 8003       645            sjmp FSM_state1_skip_move
+0D21            646            
+0D21            647            FSM_state1_continue_move:
+0D21 020D60     648            ljmp FSM_state1
 0D24            649            
-0D24 D204       650            setb State0Flag
-0D26            651            
-0D26 C2AF       652            clr EA
-0D28 1204E4     653            lcall Keypad
-0D2B 1203C7     654       lcall Display
-0D2E 5003       655       jnc  skip_keypad
-0D30 12042D     656       lcall Shift_Digits_Left
-0D33            657      
-0D33            658            skip_keypad:
-0D33 D2AF       659                    setb EA
-0D35            660            
-0D35            661            noChange:
-0D35 D2E8       662                    setb LEDRA.0
-0D37 C280       663                    clr SSR_PIN
-0D39            664   
-0D39 20E811     665            jb SWA.0, FSM_done_state_0_skip
-0D3C            666            
-0D3C 20820B     667            jb START_BUTTON, FSM_done_state_0_Continue
-0D3F 120473     668            lcall Wait25ms
-0D42 208205     669            jb START_BUTTON, FSM_done_state_0_Continue
-0D45 3082FD     670            jnb START_BUTTON, $
-0D48 8003       671                    sjmp FSM_done_state_0_Skip
-0D4A            672                    
-0D4A            673            FSM_done_state_0_Continue:
-0D4A 020FF4     674                    ljmp FSM_done
-0D4D            675                    
-0D4D            676            FSM_done_state_0_Skip:
-0D4D            677                    
-0D4D C2AF       678                    clr EA
-0D4F 12091D     679                    lcall Over_Under_Check_Rewrite
-0D52 D2AF       680                    setb EA
-0D54            681            
-0D54 756400     682                    mov active_param, #0
-0D57            683            
-0D57 D202       684                    setb state_flag
-0D59 C204       685                    clr State0Flag
-0D5B 056A       686                    inc FSM_state
-0D5D 020FF4     687            ljmp FSM_done
-0D60            688   
-0D60            689   FSM_state1:      
-0D60 E56A       690            mov a, FSM_state
-0D62 B40102     691            cjne a, #1, FSM_state2_continue_move
-0D65 8003       692            sjmp FSM_state2_skip_move
-0D67            693            
-0D67            694            FSM_state2_continue_move:
-0D67 020E05     695            ljmp FSM_state2
-0D6A            696            
-0D6A            697            FSM_state2_skip_move:
-0D6A            698            
-0D6A D2E9       699            setb LEDRA.1
-0D6C            700   
-0D6C D280       701            setb SSR_PIN
-0D6E            702   
-0D6E C2AF       703            clr EA
-0D70            704            
-0D70 75303C     705            mov x+0, #low (60 % 0x10000) 
-0D73 753100     705            mov x+1, #high(60 % 0x10000) 
-0D76 753200     705            mov x+2, #low (60 / 0x10000) 
-0D79 753300     705            mov x+3, #high(60 / 0x10000) 
-0D7C 856734     706   mov y+0, SecondsCounter+0
-0D7F 753500     706   mov y+1, #0
-0D82 753600     706   mov y+2, #0
-0D85 753700     706   mov y+3, #0
-0D88 120116     707            lcall x_gt_y
-0D8B 300023     708            jnb mf, emergency_check
-0D8E C200       709            clr mf
-0D90            710            
-0D90 855230     711   mov x+0, tempFinal+0
-0D93 855331     711   mov x+1, tempFinal+1
-0D96 855432     711   mov x+2, tempFinal+2
-0D99 855533     711   mov x+3, tempFinal+3
-0D9C 753432     712            mov y+0, #low (50 % 0x10000) 
-0D9F 753500     712            mov y+1, #high(50 % 0x10000) 
-0DA2 753600     712            mov y+2, #low (50 / 0x10000) 
-0DA5 753700     712            mov y+3, #high(50 / 0x10000) 
-0DA8 1200FA     713            lcall x_lt_y
-0DAB 300003     714            jnb mf, emergency_check
-0DAE 756A00     715            mov FSM_State, #0x00
-0DB1            716            emergency_check:
-0DB1            717   
-0DB1 C200       718            clr mf
-0DB3            719            
-0DB3 855838     720            mov bcd+0, soak_temp+0
-0DB6 855939     721       mov bcd+1, soak_temp+1
-0DB9 753A00     722       mov bcd+2, #0
-0DBC 753B00     723       mov bcd+3, #0
-0DBF 753C00     724       mov bcd+4, #0
-0DC2 12005B     725       lcall bcd2hex
-0DC5            726       
-0DC5 75340A     727            mov y+0, #low (10 % 0x10000) 
-0DC8 753500     727            mov y+1, #high(10 % 0x10000) 
-0DCB 753600     727            mov y+2, #low (10 / 0x10000) 
-0DCE 753700     727            mov y+3, #high(10 / 0x10000) 
-0DD1            728       
-0DD1 12016C     729       lcall mul32
-0DD4            730           
-0DD4 853034     731       mov y+0, x+0
-0DD7 853135     732       mov y+1, x+1
-0DDA 853236     733       mov y+2, x+2
-0DDD 853337     734       mov y+3, x+3
-0DE0            735       
-0DE0 855230     736   mov x+0, tempFinal+0
-0DE3 855331     736   mov x+1, tempFinal+1
-0DE6 855432     736   mov x+2, tempFinal+2
-0DE9 855533     736   mov x+3, tempFinal+3
-0DEC            737   
-0DEC C200       738            clr mf
-0DEE 120116     739            lcall x_gt_y
-0DF1            740            
-0DF1 D2AF       741            setb EA
-0DF3            742            
-0DF3 20E908     743            jb SWA.1, FSM_done_state_1_skip
-0DF6            744            
-0DF6 300002     745            jnb mf, FSM_done_state_1_Continue 
-0DF9 8003       746            sjmp FSM_done_state_1_Skip
-0DFB            747            FSM_done_state_1_Continue:
-0DFB 020FF4     748            ljmp FSM_done
-0DFE            749            FSM_done_state_1_Skip:
-0DFE            750            
-0DFE D202       751                    setb state_flag
-0E00 056A       752                    inc FSM_state
-0E02 020FF4     753            ljmp FSM_done
-0E05            754   
-0E05            755   FSM_state2:      
-0E05 E56A       756            mov a, FSM_state
-0E07 B40202     757            cjne a, #2, FSM_state3_continue_move
-0E0A 8003       758            sjmp FSM_state3_skip_move
-0E0C            759            
-0E0C            760            FSM_state3_continue_move:
-0E0C 020EB6     761            ljmp FSM_state3
-0E0F            762            
-0E0F            763            FSM_state3_skip_move:
-0E0F D2EA       764            setb LEDRA.2
-0E11            765            
-0E11 C2AF       766            clr EA
-0E13            767            
-0E13 855A38     768            mov bcd+0, soak_time+0
-0E16 855B39     769       mov bcd+1, soak_time+1
-0E19 753A00     770       mov bcd+2, #0
-0E1C 753B00     771       mov bcd+3, #0
-0E1F 753C00     772       mov bcd+4, #0
-0E22 12005B     773       lcall bcd2hex
-0E25            774           
-0E25 85305C     775       mov soak_time_hex+0, x+0
-0E28 85315D     776       mov soak_time_hex+1, x+1
-0E2B            777       
-0E2B 753014     778            mov x+0, #20
-0E2E 753100     778            mov x+1, #0
-0E31 753200     778            mov x+2, #0
-0E34 753300     778            mov x+3, #0
-0E37 855A34     778   mov y+0, soak_time+0
-0E3A 855B35     778   mov y+1, soak_time+1
-0E3D 753600     778   mov y+2, #0
-0E40 753700     778   mov y+3, #0
-0E43 12016C     778            lcall mul32
-0E46            778            
-0E46 753464     778            mov y+0, #low (100 % 0x10000) 
-0E49 753500     778            mov y+1, #high(100 % 0x10000) 
-0E4C 753600     778            mov y+2, #low (100 / 0x10000) 
-0E4F 753700     778            mov y+3, #high(100 / 0x10000) 
-0E52 120260     778            lcall div32
-0E55            778            
-0E55 853056     778            mov timeOn+0, x+0
-0E58 853157     778            mov timeOn+1, x+1
-0E5B            779            
-0E5B 856730     780   mov x+0, SecondsCounter+0
-0E5E 753100     780   mov x+1, #0
-0E61 753200     780   mov x+2, #0
-0E64 753300     780   mov x+3, #0      
-0E67 855634     781   mov y+0, timeOn+0
-0E6A 855735     781   mov y+1, timeOn+1
-0E6D 753600     781   mov y+2, #0
-0E70 753700     781   mov y+3, #0
-0E73 C200       782            clr mf
-0E75 120116     783            lcall x_gt_y
-0E78 D2AF       784            setb EA
-0E7A 300004     785            jnb mf, ssr_off
-0E7D C280       786            clr SSR_PIN
-0E7F 8002       787            sjmp ssr_on
-0E81            788   
-0E81            789            ssr_off:
-0E81 D280       790                    setb SSR_PIN
-0E83            791            ssr_on:
-0E83            792            
-0E83 C2AF       793            clr EA
-0E85 856730     794   mov x+0, SecondsCounter+0
-0E88 753100     794   mov x+1, #0
-0E8B 753200     794   mov x+2, #0
-0E8E 753300     794   mov x+3, #0 
-0E91 855C34     795   mov y+0, soak_time_hex+0
-0E94 855D35     795   mov y+1, soak_time_hex+1
-0E97 753600     795   mov y+2, #0
-0E9A 753700     795   mov y+3, #0
-0E9D C200       796            clr mf  
-0E9F 120116     797            lcall x_gt_y
-0EA2 D2AF       798            setb EA
-0EA4            799            
-0EA4 20EA08     800            jb SWA.2, FSM_done_state_2_skip
-0EA7            801            
-0EA7 300002     802            jnb mf, FSM_done_state_2_Continue
-0EAA 8003       803            sjmp FSM_done_state_2_Skip
-0EAC            804            FSM_done_state_2_Continue:
-0EAC 020FF4     805            ljmp FSM_done
-0EAF            806            FSM_done_state_2_Skip:
-0EAF            807                    
-0EAF D202       808                    setb state_flag
-0EB1 056A       809                    inc FSM_state
-0EB3 020FF4     810            ljmp FSM_done
-0EB6            811   
-0EB6            812   FSM_state3:      
-0EB6 E56A       813            mov a, FSM_state
-0EB8 B40358     814            cjne a, #3, FSM_state4
-0EBB D2EB       815            setb LEDRA.3
-0EBD            816   
-0EBD D280       817            setb SSR_PIN
-0EBF            818   
-0EBF C2AF       819            clr EA
-0EC1            820            
-0EC1 855E38     821            mov bcd+0, reflow_temp+0
-0EC4 855F39     822       mov bcd+1, reflow_temp+1
-0EC7 753A00     823       mov bcd+2, #0
-0ECA 753B00     824       mov bcd+3, #0
-0ECD 753C00     825       mov bcd+4, #0
-0ED0 12005B     826       lcall bcd2hex
-0ED3            827       
-0ED3 75340A     828            mov y+0, #low (10 % 0x10000) 
-0ED6 753500     828            mov y+1, #high(10 % 0x10000) 
-0ED9 753600     828            mov y+2, #low (10 / 0x10000) 
-0EDC 753700     828            mov y+3, #high(10 / 0x10000) 
-0EDF            829       
-0EDF 12016C     830       lcall mul32
-0EE2            831           
-0EE2 853034     832       mov y+0, x+0
-0EE5 853135     833       mov y+1, x+1
-0EE8 853236     834       mov y+2, x+2
-0EEB 853337     835       mov y+3, x+3
-0EEE            836            
-0EEE 855234     837   mov y+0, tempFinal+0
-0EF1 855335     837   mov y+1, tempFinal+1
-0EF4 855436     837   mov y+2, tempFinal+2
-0EF7 855537     837   mov y+3, tempFinal+3
-0EFA C200       838            clr mf
-0EFC 120116     839            lcall x_gt_y
-0EFF D2AF       840            setb EA
-0F01            841            
-0F01 20EB08     842            jb SWA.3, FSM_done_state_3_skip
-0F04            843            
-0F04 200002     844            jb mf, FSM_done_state_3_Continue 
-0F07 8003       845            sjmp FSM_done_state_3_Skip
-0F09            846            FSM_done_state_3_Continue:
-0F09 020FF4     847            ljmp FSM_done
-0F0C            848            FSM_done_state_3_Skip:
-0F0C            849            
-0F0C D202       850                    setb state_flag
-0F0E 056A       851                    inc FSM_state
-0F10 020FF4     852            ljmp FSM_done
-0F13            853   
-0F13            854   FSM_state4:      
-0F13            855   
-0F13 E56A       856            mov a, FSM_state
-0F15 B40402     857            cjne a, #4, FSM_state5_continue_move
-0F18 8003       858            sjmp FSM_state5_skip_move
-0F1A            859            FSM_state5_continue_move:
-0F1A 020FBF     860            ljmp FSM_state5
-0F1D            861            FSM_state5_skip_move:
-0F1D            862            
-0F1D D2EC       863            setb LEDRA.4
-0F1F            864            
-0F1F C2AF       865            clr EA
-0F21 856038     866            mov bcd+0, reflow_time+0
-0F24 856139     867       mov bcd+1, reflow_time+1
-0F27 753A00     868       mov bcd+2, #0
-0F2A 753B00     869       mov bcd+3, #0
-0F2D 753C00     870       mov bcd+4, #0
-0F30 12005B     871       lcall bcd2hex
-0F33            872           
-0F33 853062     873       mov reflow_time_hex+0, x+0
-0F36 853163     874       mov reflow_time_hex+1, x+1
-0F39            875       
-0F39 753014     876            mov x+0, #20
-0F3C 753100     876            mov x+1, #0
-0F3F 753200     876            mov x+2, #0
-0F42 753300     876            mov x+3, #0
-0F45 856234     876   mov y+0, reflow_time_hex+0
-0F48 856335     876   mov y+1, reflow_time_hex+1
-0F4B 753600     876   mov y+2, #0
-0F4E 753700     876   mov y+3, #0
-0F51 12016C     876            lcall mul32
-0F54            876            
-0F54 753464     876            mov y+0, #low (100 % 0x10000) 
-0F57 753500     876            mov y+1, #high(100 % 0x10000) 
-0F5A 753600     876            mov y+2, #low (100 / 0x10000) 
-0F5D 753700     876            mov y+3, #high(100 / 0x10000) 
-0F60 120260     876            lcall div32
-0F63            876            
-0F63 853056     876            mov timeOn+0, x+0
-0F66 853157     876            mov timeOn+1, x+1
-0F69 856730     877   mov x+0, SecondsCounter+0
-0F6C 753100     877   mov x+1, #0
-0F6F 753200     877   mov x+2, #0
-0F72 753300     877   mov x+3, #0
-0F75 855634     878   mov y+0, timeOn+0
-0F78 855735     878   mov y+1, timeOn+1
-0F7B 753600     878   mov y+2, #0
-0F7E 753700     878   mov y+3, #0 
-0F81 C200       879            clr mf  
-0F83 120116     880            lcall x_gt_y 
-0F86            881            
-0F86 D2AF       882            setb EA
-0F88 300004     883            jnb mf, ssr_off1
-0F8B C280       884            clr SSR_PIN
-0F8D 8002       885            sjmp ssr_on1
-0F8F            886   
-0F8F            887            ssr_off1:
-0F8F D280       888                    setb SSR_PIN
-0F91            889            ssr_on1:
-0F91            890   
-0F91 C2AF       891            clr EA
-0F93            892   
-0F93 856230     893   mov x+0, reflow_time_hex+0
-0F96 856331     893   mov x+1, reflow_time_hex+1
-0F99 753200     893   mov x+2, #0
-0F9C 753300     893   mov x+3, #0
-0F9F 856734     894   mov y+0, SecondsCounter+0
-0FA2 753500     894   mov y+1, #0
-0FA5 753600     894   mov y+2, #0
-0FA8 753700     894   mov y+3, #0
-0FAB C200       895            clr mf
-0FAD 120116     896            lcall x_gt_y
-0FB0 D2AF       897            setb EA
-0FB2            898            
-0FB2 20EC03     899            jb SWA.4, FSM_done_state_4_Skip
-0FB5 20003C     900            jb mf, FSM_done
-0FB8            901            
-0FB8            902            FSM_done_state_4_Skip:
-0FB8            903            
-0FB8 D202       904                    setb state_flag
-0FBA 056A       905                    inc FSM_state
-0FBC 020FF4     906            ljmp FSM_done
-0FBF            907   
-0FBF            908   FSM_state5:      
-0FBF            909            
-0FBF E56A       910            mov a, FSM_state
-0FC1 B40530     911            cjne a, #5, FSM_done
-0FC4 D2ED       912            setb LEDRA.5
-0FC6            913   
-0FC6 C280       914            clr SSR_PIN
-0FC8            915            
-0FC8 C2AF       916            clr EA
-0FCA 855230     917   mov x+0, tempFinal+0
-0FCD 855331     917   mov x+1, tempFinal+1
-0FD0 855432     917   mov x+2, tempFinal+2
-0FD3 855533     917   mov x+3, tempFinal+3
-0FD6 7534DC     918            mov y+0, #low (220 % 0x10000) 
-0FD9 753500     918            mov y+1, #high(220 % 0x10000) 
-0FDC 753600     918            mov y+2, #low (220 / 0x10000) 
-0FDF 753700     918            mov y+3, #high(220 / 0x10000) 
-0FE2 C200       919            clr mf
-0FE4 1200FA     920            lcall x_lt_y
-0FE7 D2AF       921            setb EA
-0FE9            922            
-0FE9 20ED03     923            jb SWA.5, FSM_done_state_5_Skip
-0FEC 300005     924            jnb mf, FSM_done
-0FEF            925            
-0FEF            926            FSM_done_state_5_Skip:
-0FEF            927            
-0FEF D202       928                    setb state_flag
-0FF1 756A00     929                    mov FSM_state, #0x00
-0FF4            930   
-0FF4            931            FSM_done:
-0FF4            932   
-0FF4 020B99     933            ljmp loop
-0FF7            934   
-0FF7            935   END
+0D24            650            FSM_state1_skip_move:
+0D24 D2E8       651            setb LEDRA.0
+0D26 C280       652            clr SSR_PIN
+0D28 D204       653            setb State0Flag
+0D2A            654            
+0D2A C2AF       655            clr EA
+0D2C 1204E4     656            lcall Keypad
+0D2F 1203C7     657       lcall Display
+0D32 5003       658       jnc  skip_keypad
+0D34 12042D     659       lcall Shift_Digits_Left
+0D37            660      
+0D37            661            skip_keypad:
+0D37 D2AF       662                    setb EA
+0D39            663            
+0D39 20E811     664            jb SWA.0, FSM_done_state_0_skip
+0D3C            665            
+0D3C 20820B     666            jb START_BUTTON, FSM_done_state_0_Continue
+0D3F 120473     667            lcall Wait25ms
+0D42 208205     668            jb START_BUTTON, FSM_done_state_0_Continue
+0D45 3082FD     669            jnb START_BUTTON, $
+0D48 8003       670                    sjmp FSM_done_state_0_Skip
+0D4A            671                    
+0D4A            672            FSM_done_state_0_Continue:
+0D4A 020FF4     673                    ljmp FSM_done
+0D4D            674                    
+0D4D            675            FSM_done_state_0_Skip:
+0D4D            676                    
+0D4D C2AF       677                    clr EA
+0D4F 12091D     678                    lcall Over_Under_Check_Rewrite
+0D52 D2AF       679                    setb EA
+0D54            680            
+0D54 756400     681                    mov active_param, #0
+0D57            682            
+0D57 D202       683                    setb state_flag
+0D59 C204       684                    clr State0Flag
+0D5B 056A       685                    inc FSM_state
+0D5D 020FF4     686            ljmp FSM_done
+0D60            687   
+0D60            688   FSM_state1:      
+0D60 E56A       689            mov a, FSM_state
+0D62 B40102     690            cjne a, #1, FSM_state2_continue_move
+0D65 8003       691            sjmp FSM_state2_skip_move
+0D67            692            
+0D67            693            FSM_state2_continue_move:
+0D67 020E05     694            ljmp FSM_state2
+0D6A            695            
+0D6A            696            FSM_state2_skip_move:
+0D6A            697            
+0D6A D2E9       698            setb LEDRA.1
+0D6C            699   
+0D6C D280       700            setb SSR_PIN
+0D6E            701   
+0D6E C2AF       702            clr EA
+0D70            703            
+0D70 75303C     704            mov x+0, #low (60 % 0x10000) 
+0D73 753100     704            mov x+1, #high(60 % 0x10000) 
+0D76 753200     704            mov x+2, #low (60 / 0x10000) 
+0D79 753300     704            mov x+3, #high(60 / 0x10000) 
+0D7C 856734     705   mov y+0, SecondsCounter+0
+0D7F 753500     705   mov y+1, #0
+0D82 753600     705   mov y+2, #0
+0D85 753700     705   mov y+3, #0
+0D88 120116     706            lcall x_gt_y
+0D8B 300023     707            jnb mf, emergency_check
+0D8E C200       708            clr mf
+0D90            709            
+0D90 855230     710   mov x+0, tempFinal+0
+0D93 855331     710   mov x+1, tempFinal+1
+0D96 855432     710   mov x+2, tempFinal+2
+0D99 855533     710   mov x+3, tempFinal+3
+0D9C 753432     711            mov y+0, #low (50 % 0x10000) 
+0D9F 753500     711            mov y+1, #high(50 % 0x10000) 
+0DA2 753600     711            mov y+2, #low (50 / 0x10000) 
+0DA5 753700     711            mov y+3, #high(50 / 0x10000) 
+0DA8 1200FA     712            lcall x_lt_y
+0DAB 300003     713            jnb mf, emergency_check
+0DAE 756A00     714            mov FSM_State, #0x00
+0DB1            715            emergency_check:
+0DB1            716   
+0DB1 C200       717            clr mf
+0DB3            718            
+0DB3 855838     719            mov bcd+0, soak_temp+0
+0DB6 855939     720       mov bcd+1, soak_temp+1
+0DB9 753A00     721       mov bcd+2, #0
+0DBC 753B00     722       mov bcd+3, #0
+0DBF 753C00     723       mov bcd+4, #0
+0DC2 12005B     724       lcall bcd2hex
+0DC5            725       
+0DC5 75340A     726            mov y+0, #low (10 % 0x10000) 
+0DC8 753500     726            mov y+1, #high(10 % 0x10000) 
+0DCB 753600     726            mov y+2, #low (10 / 0x10000) 
+0DCE 753700     726            mov y+3, #high(10 / 0x10000) 
+0DD1            727       
+0DD1 12016C     728       lcall mul32
+0DD4            729           
+0DD4 853034     730       mov y+0, x+0
+0DD7 853135     731       mov y+1, x+1
+0DDA 853236     732       mov y+2, x+2
+0DDD 853337     733       mov y+3, x+3
+0DE0            734       
+0DE0 855230     735   mov x+0, tempFinal+0
+0DE3 855331     735   mov x+1, tempFinal+1
+0DE6 855432     735   mov x+2, tempFinal+2
+0DE9 855533     735   mov x+3, tempFinal+3
+0DEC            736   
+0DEC C200       737            clr mf
+0DEE 120116     738            lcall x_gt_y
+0DF1            739            
+0DF1 D2AF       740            setb EA
+0DF3            741            
+0DF3 20E908     742            jb SWA.1, FSM_done_state_1_skip
+0DF6            743            
+0DF6 300002     744            jnb mf, FSM_done_state_1_Continue 
+0DF9 8003       745            sjmp FSM_done_state_1_Skip
+0DFB            746            FSM_done_state_1_Continue:
+0DFB 020FF4     747            ljmp FSM_done
+0DFE            748            FSM_done_state_1_Skip:
+0DFE            749            
+0DFE D202       750                    setb state_flag
+0E00 056A       751                    inc FSM_state
+0E02 020FF4     752            ljmp FSM_done
+0E05            753   
+0E05            754   FSM_state2:      
+0E05 E56A       755            mov a, FSM_state
+0E07 B40202     756            cjne a, #2, FSM_state3_continue_move
+0E0A 8003       757            sjmp FSM_state3_skip_move
+0E0C            758            
+0E0C            759            FSM_state3_continue_move:
+0E0C 020EB6     760            ljmp FSM_state3
+0E0F            761            
+0E0F            762            FSM_state3_skip_move:
+0E0F D2EA       763            setb LEDRA.2
+0E11            764            
+0E11 C2AF       765            clr EA
+0E13            766            
+0E13 855A38     767            mov bcd+0, soak_time+0
+0E16 855B39     768       mov bcd+1, soak_time+1
+0E19 753A00     769       mov bcd+2, #0
+0E1C 753B00     770       mov bcd+3, #0
+0E1F 753C00     771       mov bcd+4, #0
+0E22 12005B     772       lcall bcd2hex
+0E25            773           
+0E25 85305C     774       mov soak_time_hex+0, x+0
+0E28 85315D     775       mov soak_time_hex+1, x+1
+0E2B            776       
+0E2B 753014     777            mov x+0, #20
+0E2E 753100     777            mov x+1, #0
+0E31 753200     777            mov x+2, #0
+0E34 753300     777            mov x+3, #0
+0E37 855A34     777   mov y+0, soak_time+0
+0E3A 855B35     777   mov y+1, soak_time+1
+0E3D 753600     777   mov y+2, #0
+0E40 753700     777   mov y+3, #0
+0E43 12016C     777            lcall mul32
+0E46            777            
+0E46 753464     777            mov y+0, #low (100 % 0x10000) 
+0E49 753500     777            mov y+1, #high(100 % 0x10000) 
+0E4C 753600     777            mov y+2, #low (100 / 0x10000) 
+0E4F 753700     777            mov y+3, #high(100 / 0x10000) 
+0E52 120260     777            lcall div32
+0E55            777            
+0E55 853056     777            mov timeOn+0, x+0
+0E58 853157     777            mov timeOn+1, x+1
+0E5B            778            
+0E5B 856730     779   mov x+0, SecondsCounter+0
+0E5E 753100     779   mov x+1, #0
+0E61 753200     779   mov x+2, #0
+0E64 753300     779   mov x+3, #0      
+0E67 855634     780   mov y+0, timeOn+0
+0E6A 855735     780   mov y+1, timeOn+1
+0E6D 753600     780   mov y+2, #0
+0E70 753700     780   mov y+3, #0
+0E73 C200       781            clr mf
+0E75 120116     782            lcall x_gt_y
+0E78 D2AF       783            setb EA
+0E7A 300004     784            jnb mf, ssr_off
+0E7D C280       785            clr SSR_PIN
+0E7F 8002       786            sjmp ssr_on
+0E81            787   
+0E81            788            ssr_off:
+0E81 D280       789                    setb SSR_PIN
+0E83            790            ssr_on:
+0E83            791            
+0E83 C2AF       792            clr EA
+0E85 856730     793   mov x+0, SecondsCounter+0
+0E88 753100     793   mov x+1, #0
+0E8B 753200     793   mov x+2, #0
+0E8E 753300     793   mov x+3, #0 
+0E91 855C34     794   mov y+0, soak_time_hex+0
+0E94 855D35     794   mov y+1, soak_time_hex+1
+0E97 753600     794   mov y+2, #0
+0E9A 753700     794   mov y+3, #0
+0E9D C200       795            clr mf  
+0E9F 120116     796            lcall x_gt_y
+0EA2 D2AF       797            setb EA
+0EA4            798            
+0EA4 20EA08     799            jb SWA.2, FSM_done_state_2_skip
+0EA7            800            
+0EA7 300002     801            jnb mf, FSM_done_state_2_Continue
+0EAA 8003       802            sjmp FSM_done_state_2_Skip
+0EAC            803            FSM_done_state_2_Continue:
+0EAC 020FF4     804            ljmp FSM_done
+0EAF            805            FSM_done_state_2_Skip:
+0EAF            806                    
+0EAF D202       807                    setb state_flag
+0EB1 056A       808                    inc FSM_state
+0EB3 020FF4     809            ljmp FSM_done
+0EB6            810   
+0EB6            811   FSM_state3:      
+0EB6 E56A       812            mov a, FSM_state
+0EB8 B40358     813            cjne a, #3, FSM_state4
+0EBB D2EB       814            setb LEDRA.3
+0EBD            815   
+0EBD D280       816            setb SSR_PIN
+0EBF            817   
+0EBF C2AF       818            clr EA
+0EC1            819            
+0EC1 855E38     820            mov bcd+0, reflow_temp+0
+0EC4 855F39     821       mov bcd+1, reflow_temp+1
+0EC7 753A00     822       mov bcd+2, #0
+0ECA 753B00     823       mov bcd+3, #0
+0ECD 753C00     824       mov bcd+4, #0
+0ED0 12005B     825       lcall bcd2hex
+0ED3            826       
+0ED3 75340A     827            mov y+0, #low (10 % 0x10000) 
+0ED6 753500     827            mov y+1, #high(10 % 0x10000) 
+0ED9 753600     827            mov y+2, #low (10 / 0x10000) 
+0EDC 753700     827            mov y+3, #high(10 / 0x10000) 
+0EDF            828       
+0EDF 12016C     829       lcall mul32
+0EE2            830           
+0EE2 853034     831       mov y+0, x+0
+0EE5 853135     832       mov y+1, x+1
+0EE8 853236     833       mov y+2, x+2
+0EEB 853337     834       mov y+3, x+3
+0EEE            835            
+0EEE 855234     836   mov y+0, tempFinal+0
+0EF1 855335     836   mov y+1, tempFinal+1
+0EF4 855436     836   mov y+2, tempFinal+2
+0EF7 855537     836   mov y+3, tempFinal+3
+0EFA C200       837            clr mf
+0EFC 120116     838            lcall x_gt_y
+0EFF D2AF       839            setb EA
+0F01            840            
+0F01 20EB08     841            jb SWA.3, FSM_done_state_3_skip
+0F04            842            
+0F04 200002     843            jb mf, FSM_done_state_3_Continue 
+0F07 8003       844            sjmp FSM_done_state_3_Skip
+0F09            845            FSM_done_state_3_Continue:
+0F09 020FF4     846            ljmp FSM_done
+0F0C            847            FSM_done_state_3_Skip:
+0F0C            848            
+0F0C D202       849                    setb state_flag
+0F0E 056A       850                    inc FSM_state
+0F10 020FF4     851            ljmp FSM_done
+0F13            852   
+0F13            853   FSM_state4:      
+0F13            854   
+0F13 E56A       855            mov a, FSM_state
+0F15 B40402     856            cjne a, #4, FSM_state5_continue_move
+0F18 8003       857            sjmp FSM_state5_skip_move
+0F1A            858            FSM_state5_continue_move:
+0F1A 020FBF     859            ljmp FSM_state5
+0F1D            860            FSM_state5_skip_move:
+0F1D            861            
+0F1D D2EC       862            setb LEDRA.4
+0F1F            863            
+0F1F C2AF       864            clr EA
+0F21 856038     865            mov bcd+0, reflow_time+0
+0F24 856139     866       mov bcd+1, reflow_time+1
+0F27 753A00     867       mov bcd+2, #0
+0F2A 753B00     868       mov bcd+3, #0
+0F2D 753C00     869            mov bcd+4, #0
+0F30 12005B     870       lcall bcd2hex
+0F33            871           
+0F33 853062     872       mov reflow_time_hex+0, x+0
+0F36 853163     873       mov reflow_time_hex+1, x+1
+0F39            874       
+0F39 753014     875            mov x+0, #20
+0F3C 753100     875            mov x+1, #0
+0F3F 753200     875            mov x+2, #0
+0F42 753300     875            mov x+3, #0
+0F45 856234     875   mov y+0, reflow_time_hex+0
+0F48 856335     875   mov y+1, reflow_time_hex+1
+0F4B 753600     875   mov y+2, #0
+0F4E 753700     875   mov y+3, #0
+0F51 12016C     875            lcall mul32
+0F54            875            
+0F54 753464     875            mov y+0, #low (100 % 0x10000) 
+0F57 753500     875            mov y+1, #high(100 % 0x10000) 
+0F5A 753600     875            mov y+2, #low (100 / 0x10000) 
+0F5D 753700     875            mov y+3, #high(100 / 0x10000) 
+0F60 120260     875            lcall div32
+0F63            875            
+0F63 853056     875            mov timeOn+0, x+0
+0F66 853157     875            mov timeOn+1, x+1
+0F69 856730     876   mov x+0, SecondsCounter+0
+0F6C 753100     876   mov x+1, #0
+0F6F 753200     876   mov x+2, #0
+0F72 753300     876   mov x+3, #0
+0F75 855634     877   mov y+0, timeOn+0
+0F78 855735     877   mov y+1, timeOn+1
+0F7B 753600     877   mov y+2, #0
+0F7E 753700     877   mov y+3, #0 
+0F81 C200       878            clr mf  
+0F83 120116     879            lcall x_gt_y 
+0F86            880            
+0F86 D2AF       881            setb EA
+0F88 300004     882            jnb mf, ssr_off1
+0F8B C280       883            clr SSR_PIN
+0F8D 8002       884            sjmp ssr_on1
+0F8F            885   
+0F8F            886            ssr_off1:
+0F8F D280       887                    setb SSR_PIN
+0F91            888            ssr_on1:
+0F91            889   
+0F91 C2AF       890            clr EA
+0F93            891   
+0F93 856230     892   mov x+0, reflow_time_hex+0
+0F96 856331     892   mov x+1, reflow_time_hex+1
+0F99 753200     892   mov x+2, #0
+0F9C 753300     892   mov x+3, #0
+0F9F 856734     893   mov y+0, SecondsCounter+0
+0FA2 753500     893   mov y+1, #0
+0FA5 753600     893   mov y+2, #0
+0FA8 753700     893   mov y+3, #0
+0FAB C200       894            clr mf
+0FAD 120116     895            lcall x_gt_y
+0FB0 D2AF       896            setb EA
+0FB2            897            
+0FB2 20EC03     898            jb SWA.4, FSM_done_state_4_Skip
+0FB5 20003C     899            jb mf, FSM_done
+0FB8            900            
+0FB8            901            FSM_done_state_4_Skip:
+0FB8            902            
+0FB8 D202       903                    setb state_flag
+0FBA 056A       904                    inc FSM_state
+0FBC 020FF4     905            ljmp FSM_done
+0FBF            906   
+0FBF            907   FSM_state5:      
+0FBF            908            
+0FBF E56A       909            mov a, FSM_state
+0FC1 B40530     910            cjne a, #5, FSM_done
+0FC4 D2ED       911            setb LEDRA.5
+0FC6            912   
+0FC6 C280       913            clr SSR_PIN
+0FC8            914            
+0FC8 C2AF       915            clr EA
+0FCA 855230     916   mov x+0, tempFinal+0
+0FCD 855331     916   mov x+1, tempFinal+1
+0FD0 855432     916   mov x+2, tempFinal+2
+0FD3 855533     916   mov x+3, tempFinal+3
+0FD6 753458     917            mov y+0, #low (600 % 0x10000) 
+0FD9 753502     917            mov y+1, #high(600 % 0x10000) 
+0FDC 753600     917            mov y+2, #low (600 / 0x10000) 
+0FDF 753700     917            mov y+3, #high(600 / 0x10000)  ; Not already multiplied by 10
+0FE2 C200       918            clr mf
+0FE4 1200FA     919            lcall x_lt_y
+0FE7 D2AF       920            setb EA
+0FE9            921            
+0FE9 20ED03     922            jb SWA.5, FSM_done_state_5_Skip
+0FEC 300005     923            jnb mf, FSM_done
+0FEF            924            
+0FEF            925            FSM_done_state_5_Skip:
+0FEF            926            
+0FEF D202       927                    setb state_flag
+0FF1 756A00     928                    mov FSM_state, #0x00
+0FF4            929   
+0FF4            930            FSM_done:
+0FF4            931   
+0FF4 020B99     932            ljmp loop
+0FF7            933   
+0FF7            934   END
