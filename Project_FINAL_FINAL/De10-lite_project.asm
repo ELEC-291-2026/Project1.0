@@ -362,10 +362,10 @@ Over_Under_Check_Rewrite:
 		;Min temp check for 
 		Mov_A_to_B(reflow_temp, bcd)
 		lcall bcd2hex
-		load_y(230) ; Our min temp for reflux
+		load_y(220) ; Our min temp for reflux
 		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_reflowtemp_check
-		load_x(230)
+		load_x(220)
 	    lcall hex2bcd
 	    mov reflow_temp+0, 	bcd+0    ;  mode C 230 < t < 240
 	    mov reflow_temp+1, 	bcd+1
@@ -929,14 +929,14 @@ FSM_state1:
 
 	clr EA
 	
-	load_x(60)
-	Load_Y_Var8(SecondsCounter)
+	Load_X_Var8(SecondsCounter)
+	load_y(60)
 	lcall x_gt_y
 	jnb mf, emergency_check
 	clr mf
 	
 	Load_X_Var32(tempFinal)
-	load_y(50)
+	load_y(500)
 	lcall x_lt_y
 	jnb mf, emergency_check
 	mov FSM_State, #0x00
