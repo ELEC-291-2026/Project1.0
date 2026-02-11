@@ -143,12 +143,12 @@ def send_notification(message, file_paths=None):
 # Default reflow profile parameters (will be updated from serial)
 profile_params = {
     'preheat_temp': 150,      # °C
-    'preheat_time': 60,       # seconds
-    'soak_temp': 180,         # °C
-    'soak_time': 90,          # seconds (total time at end of soak)
+    'preheat_time': 30,       # seconds
+    'soak_temp': 140,         # °C
+    'soak_time': 150,          # seconds (total time at end of soak)
     'reflow_temp': 235,       # °C
     'reflow_time': 30,        # seconds above reflow
-    'peak_temp': 245,         # °C
+    'peak_temp': 240,         # °C
     'heating_rate': 1,      # °C/s - maximum heating rate
     'cooling_rate': 1         # °C/s - cooling rate
 }
@@ -182,7 +182,7 @@ def generate_reflow_profile():
     t0 = 0
     
     # Preheat: 25°C → preheat_temp
-    preheat_duration = (profile_params['preheat_temp'] - 25) / profile_params['heating_rate']
+    preheat_duration = (profile_params['preheat_temp'] - 21) / profile_params['heating_rate']
     t1 = t0 + preheat_duration
     
     # Soak ramp: preheat_temp → soak_temp
