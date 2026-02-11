@@ -1,36 +1,17 @@
 ;===========================================================
-; lcd_lib.inc  - High-level LCD helper routines
+; lcd_lib.asm - High-level LCD helper routines
 ;===========================================================
 ; Provides:
-;   LCD_ShowParameter  - Show current active parameter on row 1
-;   LCD_ShowTotalTime  - Show "Tot MM:SS" on row 1
-;   LCD_ShowStateTime  - Show "St  MM:SS" on row 2
-;
-; Relies on:
-;   - Macros: Set_Cursor, Send_Constant_String, Display_char
-;   - Subroutines: ?Display_BCD, Hex_to_bcd_8bit
-;   - Global vars (defined in main dseg):
-;       soak_temp (2 bytes BCD)
-;       soak_time (2 bytes BCD)
-;       reflow_temp (2 bytes BCD)
-;       reflow_time (2 bytes BCD)
-;       active_param (0=A,1=B,2=C,3=D)
-;       SecondsCounterTotal, MinutesCounterTotal, SecondsCounter
+;   LCD_ShowParameter    - Show current active parameter on row 1
+;   LCD_ShowTotalTime    - Show "Tot MM:SS" on row 2
+;   LCD_ShowStateTime    - Show "St  MM:SS" on row 2 (simple)
+;   LCD_ShowStateRunInfo - Show "Sx MM:SS ########" on row 2
 ;===========================================================
 
-cseg
+CSEG
 
 ;-----------------------------------------------------------
 ; LCD_ShowParameter
-;   Uses active_param:
-;     0 -> A: soak_temp
-;     1 -> B: soak_time
-;     2 -> C: reflow_temp
-;     3 -> D: reflow_time
-;
-;   Displays on row 1, col 1:
-;     "<Label> XXXX"
-;   e.g.: "A: 0150"
 ;-----------------------------------------------------------
 LCD_ShowParameter:
     ; Save registers we use
@@ -98,21 +79,21 @@ LSP_Done:
 ;-----------------------------------------------------------
 ; LCD_ShowTotalTime
 ;   Displays total elapsed time in MM:SS format:
-;     Row 1: "Tot MM:SS"
+;     Row 2: "Tot MM:SS"
 ;-----------------------------------------------------------
 LCD_ShowTotalTime:
     push acc
     push b
     push ar0
 
-    ; Row 1, col 1: "Tot "
-    Set_Cursor(1,1)
+    ; Row 2, col 1: "Tot "
+    Set_Cursor(2,1)
     Send_Constant_String(#TotalLbl)
 
     ; Minutes
     mov a, MinutesCounterTotal
-    lcall Hex_to_bcd_8bit      ; result in R0
-    lcall ?Display_BCD       ; prints 2 digits
+    lcall Hex_to_bcd_8bit      ; result in R0 (packed BCD)
+    lcall ?Display_BCD         ; prints 2 digits
 
     ; Colon
     Display_char(#':')
@@ -129,15 +110,8 @@ LCD_ShowTotalTime:
 
 
 ;-----------------------------------------------------------
-; LCD_ShowStateTime
-;   Displays per-state timer, based on SecondsCounter.
-;   DOES NOT MODIFY SecondsCounter.
-;   Converts:
-;       minutes = SecondsCounter / 60
-;       seconds = SecondsCounter % 60
-;
-;   Displays on row 2:
-;       "St  MM:SS"
+; LCD_ShowStateTime (simple)
+;   "St  MM:SS" on row 2
 ;-----------------------------------------------------------
 LCD_ShowStateTime:
     push acc
@@ -177,11 +151,60 @@ LCD_ShowStateTime:
 
 
 ;-----------------------------------------------------------
+; LCD_ShowStateRunInfo
+;   Row 2:
+;      "S  MM:SS"
+;   - S      : literal 'S'
+;   - MM:SS  : SecondsCounter converted to mm:ss
+;
+;   (No progress bar for now; avoids ELCD_Write_Data dependency.)
+;-----------------------------------------------------------
+LCD_ShowStateRunInfo:
+    push acc
+    push b
+    push ar0
+    push ar1
+    push ar7
+
+    ; Row 2, col 1
+    Set_Cursor(2,1)
+
+    ; "S "
+    Display_char(#'S')
+    Display_char(#' ')
+
+    ; --- Convert SecondsCounter -> minutes, seconds ---
+    mov a, SecondsCounter
+    mov b, #60
+    div ab              ; A = minutes, B = seconds
+    mov r7, b           ; save seconds
+
+    ; Minutes in A -> BCD -> print
+    lcall Hex_to_bcd_8bit    ; A -> R0 (packed BCD)
+    lcall ?Display_BCD       ; prints MM
+
+    ; Colon
+    Display_char(#':')
+
+    ; Seconds in r7 -> BCD -> print
+    mov a, r7
+    lcall Hex_to_bcd_8bit
+    lcall ?Display_BCD       ; prints SS
+
+    pop ar7
+    pop ar1
+    pop ar0
+    pop b
+    pop acc
+    ret
+
+
+;-----------------------------------------------------------
 ; Label strings
 ;-----------------------------------------------------------
 ParamA_Label: db  'A: ', 0        ; soak_temp
 ParamB_Label: db  'B: ', 0        ; soak_time
 ParamC_Label: db  'C: ', 0        ; reflow_temp
 ParamD_Label: db  'D: ', 0        ; reflow_time
-TotalLbl: db  'Tot ', 0
-StateLbl: db  'St  ', 0
+TotalLbl:     db  'Tot ', 0
+StateLbl:     db  'St  ', 0
