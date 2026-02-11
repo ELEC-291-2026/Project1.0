@@ -19,81 +19,95 @@
 ;===========================================================
 
 cseg
-
-;-----------------------------------------------------------
-; LCD_ShowParameter
-;   Uses active_param:
-;     0 -> A: soak_temp
-;     1 -> B: soak_time
-;     2 -> C: reflow_temp
-;     3 -> D: reflow_time
-;
-;   Displays on row 1, col 1:
-;     "<Label> XXXX"
-;   e.g.: "A: 0150"
-;-----------------------------------------------------------
+/// LCD show paramters 
 LCD_ShowParameter:
-    ; Save registers we use
+
     push acc
     push ar0
     push ar1
 
-    mov a, active_param
-    jz  LSP_A           ; 0 -> A
-    cjne a, #1, LSP_NotB
-    sjmp LSP_B
-LSP_NotB:
-    cjne a, #2, LSP_NotC
-    sjmp LSP_C
-LSP_NotC:
-    ; anything else -> D
-    sjmp LSP_D
-
-;----- A: soak_temp -----
-LSP_A:
+    ;========================
+    ; ROW 1
+    ; Soak Temp + Soak Time
+    ;========================
     Set_Cursor(1,1)
-    Send_Constant_String(#ParamA_Label)
+
+    ; "ST="
+    mov a, #'S'
+    lcall ?WriteData
+    mov a, #'T'
+    lcall ?WriteData
+    mov a, #'='
+    lcall ?WriteData
+
+    ; soak_temp
     mov r0, soak_temp+1
     lcall ?Display_BCD
     mov r0, soak_temp+0
     lcall ?Display_BCD
-    sjmp LSP_Done
 
-;----- B: soak_time -----
-LSP_B:
-    Set_Cursor(1,1)
-    Send_Constant_String(#ParamB_Label)
+    ; space
+    mov a, #' '
+    lcall ?WriteData
+
+    ; "STm="
+    mov a, #'T'
+    lcall ?WriteData
+    mov a, #'m'
+    lcall ?WriteData
+    mov a, #'='
+    lcall ?WriteData
+
+    ; soak_time
     mov r0, soak_time+1
     lcall ?Display_BCD
     mov r0, soak_time+0
     lcall ?Display_BCD
-    sjmp LSP_Done
 
-;----- C: reflow_temp -----
-LSP_C:
-    Set_Cursor(1,1)
-    Send_Constant_String(#ParamC_Label)
+
+    ;========================
+    ; ROW 2
+    ; Reflow Temp + Reflow Time
+    ;========================
+    Set_Cursor(2,1)
+
+    ; "RT="
+    mov a, #'R'
+    lcall ?WriteData
+    mov a, #'T'
+    lcall ?WriteData
+    mov a, #'='
+    lcall ?WriteData
+
+    ; reflow_temp
     mov r0, reflow_temp+1
     lcall ?Display_BCD
     mov r0, reflow_temp+0
     lcall ?Display_BCD
-    sjmp LSP_Done
 
-;----- D: reflow_time -----
-LSP_D:
-    Set_Cursor(1,1)
-    Send_Constant_String(#ParamD_Label)
+    ; space
+    mov a, #' '
+    lcall ?WriteData
+
+    ; "RTm="
+    mov a, #'T'
+    lcall ?WriteData
+    mov a, #'m'
+    lcall ?WriteData
+    mov a, #'='
+    lcall ?WriteData
+
+    ; reflow_time
     mov r0, reflow_time+1
     lcall ?Display_BCD
     mov r0, reflow_time+0
     lcall ?Display_BCD
 
-LSP_Done:
+
     pop ar1
     pop ar0
     pop acc
     ret
-
 
 ;-----------------------------------------------------------
 ; LCD_ShowTotalTime
