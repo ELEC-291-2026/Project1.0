@@ -68,9 +68,31 @@ SIMPLE_RHYTHM:
 	DB low(No_Note),  high(No_Note),  250    
     DB low(No_Note),  high(No_Note),  250    
 	DB low(R_E5),  high(R_E5),  250
+    DB low(R_E6),  high(R_E6),  250  
+	DB low(R_Ds6), high(R_Ds6), 250  
+    DB low(R_E6),  high(R_E6),  250  
+	DB low(R_Ds6), high(R_Ds6), 250  
+    DB low(R_E6),  high(R_E6),  250  
+    DB low(R_B6),  high(R_B6),  250 
+	DB low(R_Ds6), high(R_Ds6), 250  
+    DB low(R_C6),  high(R_C6),  250    
+    DB low(R_A5),  high(R_A5),  250    
+	DB low(No_Note),  high(No_Note),  250    
+    DB low(No_Note),  high(No_Note),  250 
+	DB low(R_C5),  high(R_C5),  250  
+	DB low(R_E5),  high(R_E5),  250  
+	DB low(R_A5),  high(R_A5),  250  
+	DB low(R_B5),  high(R_B5),  250  
+	DB low(No_Note),  high(No_Note),  250    
+    DB low(No_Note),  high(No_Note),  250 
+	DB low(R_C5),  high(R_C5),  250  
+	DB low(R_C6),  high(R_C6),  250 
+	DB low(R_B5),  high(R_B5),  250 
+	DB low(R_A5),  high(R_A5),  250 
+	DB low(No_Note),  high(No_Note),  250    
+    DB low(No_Note),  high(No_Note),  250 
+	SONG_LEN EQU 47    ; number of notes
 
-SONG_LEN EQU 24    ; number of notes
-	
 	
 	
 Play_song:
