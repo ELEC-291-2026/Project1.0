@@ -866,7 +866,7 @@ FSM_state4:
     mov bcd+1, reflow_time+1
     mov bcd+2, #0
     mov bcd+3, #0
-    mov bcd+4, #0
+	mov bcd+4, #0
     lcall bcd2hex
         
     mov reflow_time_hex+0, x+0
@@ -914,7 +914,7 @@ FSM_state5:
 	
 	clr EA
 	Load_X_Var32(tempFinal)
-	load_y(220)
+	load_y(600) ; Not already multiplied by 10
 	clr mf
 	lcall x_lt_y
 	setb EA
