@@ -467,71 +467,64 @@ loop:
 	
 	skip_debug_stuff:
 
-	
+	clr EA
 	underflow_soaktemp:
 		;Min temp check for 
-		clr EA
-		cjne FSM_State, 0, underflow_soaktemp_check
+		mov a, FSM_State
+		cjne a, #0, underflow_soaktemp_check
 		Mov_A_to_B(soak_temp,bcd)
 		lcall bcd2hex
 		load_y(130) ; Our min temp
-		x_lt_y ;mf 1 if true
+		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_soaktemp_check
-		mov soak_temp+0, 130
-		mov soak_temp+1, 0
-		mov soak_temp+2, 0
-		mov soak_temp+3, 0
-		setb EA
+	    lcall hex2bcd
+	    mov soak_temp+0, 	bcd+0    ; mode A 150 +-20
+	    mov soak_temp+1, 	bcd+1
 	underflow_soaktemp_check:
 
 	overflow_soaktemp:
 		;Max temp check for 
-		clr EA
-		cjne FSM_State, 0, underflow_soaktemp_check
+		mov a, FSM_State
+		cjne a, #0, underflow_soaktemp_check
 		Mov_A_to_B(soak_temp,bcd)
 		lcall bcd2hex
-		load_y(170) ; Our max temp
+		lcall load_y(170) ; Our max temp
 		x_gt_y ;mf 1 if true
 		jnb mf, underflow_soaktemp_check
-		mov soak_temp+0, 170
-		mov soak_temp+1, 0
-		mov soak_temp+2, 0
-		mov soak_temp+3, 0
-		setb EA
+	    lcall hex2bcd
+	    mov soak_temp+0, 	bcd+0    ; mode A 150 +-20
+	    mov soak_temp+1, 	bcd+1
 	overflow_soaktemp_check:
 
 	underflow_soaktime:
 		;Max temp check for 
-		clr EA
-		cjne FSM_State, 0, underflow_soaktime_check
+		mov a, FSM_State
+		cjne a, #0, underflow_soaktime_check
 		Mov_A_to_B(soak_temp,bcd)
 		lcall bcd2hex
 		load_y(60) ; Our max temp
-		x_gt_y ;mf 1 if true
+		lcall x_gt_y ;mf 1 if true
 		jnb mf, underflow_soaktemp_check
-		mov soak_temp+0, 60
-		mov soak_temp+1, 0
-		mov soak_temp+2, 0
-		mov soak_temp+3, 0
-		setb EA
+		lcall hex2bcd
+	    mov soak_time+0, 	bcd+0    ; mode A 150 +-20
+	    mov soak_time+1, 	bcd+1
 	underflow_soaktime_check:
 
 	overflow_soaktime:
 		;Max temp check for 
-		clr EA
-		cjne FSM_State, 0, underflow_soaktemp_check
+		mov a, FSM_State
+		cjne a, #0, underflow_soaktemp_check
 		Mov_A_to_B(soak_temp,bcd)
 		lcall bcd2hex
 		load_y(120) ; Our max temp
-		x_gt_y ;mf 1 if true
+		lcall x_gt_y ;mf 1 if true
 		jnb mf, overflow_soaktime_check
-		mov soak_temp+0, 120
-		mov soak_temp+1, 0
-		mov soak_temp+2, 0
-		mov soak_temp+3, 0
-		setb EA
+		lcall hex2bcd
+	    mov soak_time+0, 	bcd+0    ; mode A 150 +-20
+	    mov soak_time+1, 	bcd+1
 	overflow_soaktime_check:
 
+	setb EA
 
 	jb State0Flag, skiptemptemptemp
 	jnb QuarterSecondsFlag, skiptemptemptemp
