@@ -51,8 +51,13 @@ org 0x002B
 
 ; In the 8051 we can define direct access variables starting at location 0x30 up to location 0x7F
 dseg at 0x30
-Count1ms:     ds 2 ; Used to determine when half second has passed
-BCD_counter:  ds 1 ; The BCD counter incrememted in the ISR and displayed in the main loop
+Count1ms:     ds 2
+
+song_idx:     ds 1   ; which note we�re on
+note_ms:      ds 2   ; how long current note has played (ms)
+
+tone_rh:      ds 1   ; Timer0 reload high byte for current note
+tone_rl:      ds 1   ; Timer0 reload low byte for current note
 
 ; In the 8051 we have variables that are 1-bit in size.  We can use the setb, clr, jb, and jnb
 ; instructions with these variables.  This is how you define a 1-bit variable:
@@ -70,6 +75,46 @@ ELCD_D4 equ P3.1
 ELCD_D5 equ P2.7
 ELCD_D6 equ P2.5
 ELCD_D7 equ P2.3
+
+; -------- Note reload values (CLK = 33,333,333 Hz, prescaler = 12) --------
+; Timer0 overflow rate = 2*freq (because we toggle pin each overflow)
+
+R_A4  EQU 0F3ABh   ; 440.00 Hz
+R_B4  EQU 0F504h   ; 493.88 Hz
+R_C5  EQU 0F5A2h   ; 523.25 Hz
+R_D5  EQU 0F6C3h   ; 587.33 Hz
+R_E5  EQU 0F7C5h   ; 659.26 Hz
+R_F5  EQU 0F83Bh   ; 698.46 Hz
+R_G5  EQU 0F914h   ; 783.99 Hz
+
+REST  EQU 00000h   ; special: silence (we�ll stop Timer0)
+
+; Song event format per note:
+;   DW reload_value
+;   DW duration_ms
+;
+; ABC scale: A B C D E F G | G F E D C B A
+ABC_SONG:
+    DW R_A4, 250
+    DW R_B4, 250
+    DW R_C5, 250
+    DW R_D5, 250
+    DW R_E5, 250
+    DW R_F5, 250
+    DW R_G5, 400
+    DW REST, 100
+    DW R_G5, 250
+    DW R_F5, 250
+    DW R_E5, 250
+    DW R_D5, 250
+    DW R_C5, 250
+    DW R_B4, 250
+    DW R_A4, 500
+    DW REST, 300
+
+ABC_SONG_LEN EQU 16    ; number of (reload,duration) pairs above
+
+
 $NOLIST
 $include(LCD_4bit_DE10Lite.inc) ; A library of LCD related functions and utility macros
 $LIST
@@ -174,30 +219,6 @@ Timer2_ISR_done:
 	pop acc
 	reti
 
-; Look-up table for the 7-seg displays. (Segments are turn on with zero) 
-T_7seg:
-    DB 0xC0, 0xF9, 0xA4, 0xB0, 0x99        ; 0 TO 4
-    DB 0x92, 0x82, 0xF8, 0x80, 0x90        ; 4 TO 9
-    DB 0x88, 0x83, 0xC6, 0xA1, 0x86, 0x8E  ; A to F
-
-; Displays a BCD number in HEX1-HEX0
-Display_BCD_7_Seg:
-	
-	mov dptr, #T_7seg
-
-	mov a, BCD_counter
-	swap a
-	anl a, #0FH
-	movc a, @a+dptr
-	mov HEX1, a
-	
-	mov a, BCD_counter
-	anl a, #0FH
-	movc a, @a+dptr
-	mov HEX0, a
-	
-	ret
-
 ;---------------------------------;
 ; Main program. Includes hardware ;
 ; initialization and 'forever'    ;
@@ -208,6 +229,8 @@ main:
     mov SP, #0x7F
     lcall Timer0_Init
     lcall Timer2_Init
+	    mov song_idx, #0
+    lcall Load_Song_Note
     ; We use the pins of P0 to control the LCD.  Configure as outputs.
     mov P0MOD, #01111111b ; P0.0 to P0.6 are outputs.  ('1' makes the pin output)
     ; We use pins P1.5 and P1.1 as outputs also.  Configure accordingly.
@@ -218,12 +241,6 @@ main:
     mov LEDRA, #0 ; LEDRA is bit addressable
     mov LEDRB, #0 ; LEDRB is NOT bit addresable
     setb EA   ; Enable Global interrupts
-    lcall ELCD_4BIT ; Configure LCD in four bit mode
-    ; For convenience a few handy macros are included in 'LCD_4bit_DE1Lite.inc':
-	Set_Cursor(1, 1)
-    Send_Constant_String(#Initial_Message)
-    setb half_seconds_flag
-	mov BCD_counter, #0x00 ; Initialize counter to zero
 	
 	; After initialization the program stays in this 'forever' loop
 loop:
@@ -245,8 +262,5 @@ loop_a:
 	jnb half_seconds_flag, loop
 loop_b:
     clr half_seconds_flag ; We clear this flag in the main loop, but it is set in the ISR for timer 2
-	Set_Cursor(1, 14)     ; the place in the LCD where we want the BCD counter value
-	Display_BCD(BCD_counter) ; This macro is also in 'LCD_4bit_DE1Lite.inc'
-	lcall Display_BCD_7_Seg ; Also display the counter using the 7-segment displays.
     ljmp loop
 END

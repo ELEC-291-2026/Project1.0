@@ -5,11 +5,14 @@ $LIST
 
 
 CLK           	EQU 33333333 ; Microcontroller system crystal frequency in Hz
-TIMER0_RATE   	EQU 1000     ; 1000Hz, for a timer tick of 1ms
+TIMER0_RATE   	EQU 1024     ; 1000Hz, for a timer tick of 1ms
 TIMER0_RELOAD 	EQU ((65536-(CLK/(12*TIMER0_RATE))))
 FREQ   			EQU 33333333
 BAUD   			EQU 115200
 T2LOAD 			EQU 65536-(FREQ/(32*BAUD))
+
+TONE_1024 EQU ((65536-(CLK/1024)))
+TONE_4096 EQU ((65536-(CLK/4096)))
 
 ;PIN Assignemet
 ;Need to figure out wich ADC pins the LM335 and OP07 are on 
@@ -25,11 +28,16 @@ org 0x0000
 org 0x000B
 	ljmp Timer0_ISR
 
+Profile:  db 'PROFILE,', 0
+Comma:    db ',', 0
+
 dseg at 0x30
 ; For math 
 x:			ds 4
 y:			ds 4
 bcd:		ds 5
+
+
 
 math_space: ds 5
 
@@ -57,6 +65,7 @@ SecondsCounterTotal: ds 1
 MinutesCounterTotal: ds 1
 ; Each FSM has its own state counter
 FSM_state:  ds 1
+Timer0Reload:   ds 2
 
 bseg
 ; For each pushbutton we have a flag.  The corresponding FSM will set this
@@ -66,6 +75,7 @@ ssr_f    	: dbit 1
 state_flag	: dbit 1
 QuarterSecondsFlag : dbit 1
 State0Flag : dbit 1
+SpeakerFlag : dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
@@ -86,6 +96,8 @@ SOUND_OUT equ P0.4
 
 
 Initial_Message:  db 'Tmperature Test', 0
+
+
 
 cseg
 ;----------------------FUNCTIONS----------------
@@ -115,6 +127,13 @@ Timer0_ISR:
 	mov TH0, #high(TIMER0_RELOAD)
 	mov TL0, #low(TIMER0_RELOAD)
 	setb TR0
+	
+	
+	
+	
+	jnb SpeakerFlag, skip_speaker
+	cpl SOUND_OUT
+	skip_speaker:
 	
 	; Increment the timers for each FSM. That is all we do here!
 	inc FSM_timer 
@@ -420,10 +439,14 @@ Initial_ALL:
 	setb state_flag
 	clr QuarterSecondsFlag
 	setb State0Flag
+	clr SpeakerFlag
 	
 	mov MinutesCounterTotal, #0x00
 	mov SecondsCounterTotal, #0x00
     mov QuarterSecondsCounter, #0x00
+    
+    mov  Timer0Reload+1, #high(TONE_4096)
+    mov  Timer0Reload+0, #low(TONE_4096)
     
     load_x(300)
     lcall hex2bcd
@@ -467,7 +490,7 @@ Initial_ALL:
 	
 	
 main:
-	mov P0MOD, #10101011b
+	mov P0MOD, #10111011b
     mov P1MOD, #10000010b
 	lcall Initial_ALL
 	
@@ -524,6 +547,7 @@ loop:
 	
 	clr QuarterSecondsFlag
 	clr EA
+	
     mov ADC_C, #LM335_ADC
 
     mov x+3, #0
@@ -629,10 +653,15 @@ loop:
 
 	jnb state_flag, no_new_state
 	
-	clr state_flag
-	clr EA
-	mov SecondsCounter, #0x00
-	setb EA
+		clr state_flag
+		clr EA
+		mov SecondsCounter, #0x00
+		setb EA
+		
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
 	no_new_state:
 
 	mov LEDRA, #0
@@ -674,6 +703,7 @@ FSM_state0:
 		
 		clr EA
 		lcall Over_Under_Check_Rewrite
+		lcall WriteInitialVals
 		setb EA
 	
 		mov active_param, #0
@@ -864,7 +894,7 @@ FSM_state4:
     mov bcd+1, reflow_time+1
     mov bcd+2, #0
     mov bcd+3, #0
-    mov bcd+4, #0
+	mov bcd+4, #0
     lcall bcd2hex
         
     mov reflow_time_hex+0, x+0
@@ -912,7 +942,7 @@ FSM_state5:
 	
 	clr EA
 	Load_X_Var32(tempFinal)
-	load_y(220)
+	load_y(600) ; Not already multiplied by 10
 	clr mf
 	lcall x_lt_y
 	setb EA
@@ -924,6 +954,27 @@ FSM_state5:
 	
 		setb state_flag
 		mov FSM_state, #0x00
+		
+				
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
+		
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
+				
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
+					
+		setb SpeakerFlag
+		lcall Wait25ms
+		lcall Wait25ms
+		clr SpeakerFlag
 
 	FSM_done:
 
