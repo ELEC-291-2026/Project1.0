@@ -53,7 +53,6 @@ active_param:   ds 1
 FSM_timer:  ds 1
 QuarterSecondsCounter: ds 1
 SecondsCounter: ds 1
-half_seconds_flag: dbit 1 ; Set to one in the ISR every time 500 ms had passed
 SecondsCounterTotal: ds 1
 MinutesCounterTotal: ds 1
 ; Each FSM has its own state counter
@@ -88,19 +87,6 @@ SOUND_OUT equ P0.4
 
 Initial_Message:  db 'Tmperature Test', 0
 
-; -------- Note reload values (CLK = 33,333,333 Hz, prescaler = 12) --------
-R_A4  EQU 0F3ABh   ; 440.00 Hz
-R_B4  EQU 0F504h   ; 493.88 Hz
-R_C5  EQU 0F5A2h   ; 523.25 Hz
-R_D5  EQU 0F6C3h   ; 587.33 Hz
-R_E5  EQU 0F7C5h   ; 659.26 Hz
-R_F5  EQU 0F83Bh   ; 698.46 Hz
-R_G5  EQU 0F914h   ; 783.99 Hz
-REST  EQU 00000h
-
-; One note for each FSM State (0 to 5)
-FSM_Melody:
-    DW R_C5, R_D5, R_E5, R_F5, R_G5, R_A4
 
 
 cseg
