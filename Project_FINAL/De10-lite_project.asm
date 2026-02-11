@@ -499,7 +499,7 @@ loop:
 		Mov_A_to_B(soak_time,bcd)
 		lcall bcd2hex
 		load_y(60) ; Our min time
-		lcall x_gt_y ;mf 1 if true
+		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_soaktime_check
 		load_x(60)
 		lcall hex2bcd
@@ -552,7 +552,7 @@ loop:
 		Mov_A_to_B(reflow_time,bcd)
 		lcall bcd2hex
 		load_y(30) ; Our max temp
-		lcall x_gt_y ;mf 1 if true
+		lcall x_lt_y ;mf 1 if true
 		jnb mf, underflow_reflowtime_check
 		load_x(30)
 		lcall hex2bcd
