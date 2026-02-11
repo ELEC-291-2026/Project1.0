@@ -28,17 +28,16 @@ profile_params = {
     'reflow_temp': 235,       # °C
     'reflow_time': 30,        # seconds above reflow
     'peak_temp': 245,         # °C
-    'heating_rate': 2.5,      # °C/s - maximum heating rate
-    'cooling_rate': 3         # °C/s - cooling rate
+    'heating_rate': 2,      # °C/s - maximum heating rate
+    'cooling_rate': 1         # °C/s - cooling rate
 }
 
 profile_updated = False
 
+profile_received = False
+
 def parse_profile_command(text):
-    """Parse profile parameters from serial input
-    Format: PROFILE,soak_temp,soak_time,reflow_temp,reflow_time[,peak_temp][,heating_rate][,cooling_rate]
-    """
-    global profile_updated
+    global profile_updated, profile_received
     if text.startswith("PROFILE,"):
         try:
             parts = text.split(',')
@@ -47,8 +46,8 @@ def parse_profile_command(text):
             profile_params['reflow_temp'] = float(parts[3])
             profile_params['reflow_time'] = float(parts[4])
             profile_updated = True
-            print(f"Profile updated: Soak {profile_params['soak_temp']}°C/{profile_params['soak_time']}s, "
-                  f"Reflow {profile_params['reflow_temp']}°C/{profile_params['reflow_time']}s, ")
+            profile_received = True  # Add this
+            print(f"Profile updated and ready to start!")
             return True
         except Exception as e:
             print(f"Error parsing profile command: {e}")
@@ -136,7 +135,16 @@ def get_state_color(state):
     return colors.get(state, 'white')
 
 def data_gen():
+    global profile_received
     t = data_gen.t
+    
+    # Wait for profile
+    while not profile_received:
+        strin = ser.readline()
+        text = strin.decode('ascii').strip()
+        parse_profile_command(text)
+    
+    print("Profile received! Starting acquisition...")
     while True:
         strin = ser.readline()
         text = strin.decode('ascii').strip()
@@ -178,13 +186,13 @@ def run(data):
         ax1.set_title(f"Reflow Soldering  |  Time: {t_seconds:.1f}s  |  State: {current_state}  |  Samples: {t}")
         
         delta = y - target_temp
-        text.set_text(f"Temp: {y:.2f}°C  Target: {target_temp:.2f}°C  Δ: {delta:+.2f}°C")
+        text.set_text(f"Temp: {y:.2f}°C  Target: {target_temp:.2f}C  Δ: {delta:+.2f}°C")
 
         window = 10
         if len(ydata) >= window:
             avg = np.mean(ydata[-window:])
             std = np.std(ydata[-window:])
-            stats_text.set_text(f"Avg: {avg:.2f}°C  σ: {std:.2f}°C")
+            stats_text.set_text(f"Avg: {avg:.2f}C  σ: {std:.2f}C")
 
         if len(xdata) > 1:
             pts = np.array([xdata, ydata]).T.reshape(-1, 1, 2)
@@ -262,7 +270,7 @@ ax1.set_ylim(5, 50)
 ax1.set_xlim(0, xsize)
 ax1.grid(True, which="both", linestyle="--", alpha=0.5)
 ax1.tick_params(axis='both', labelsize=10)
-ax1.set_ylabel("Temperature (°C)")
+ax1.set_ylabel("Temperature (C)")
 ax1.set_title("Temperature over Time")
 ax1.margins(y=0.2)
 
@@ -281,8 +289,8 @@ ax2.set_xlim(0, initial_profile_time * 1.1)
 
 ax2.grid(True, which="both", linestyle="--", alpha=0.5)
 ax2.tick_params(axis='both', labelsize=10)
-ax2.set_xlabel("Time (samples @ 200ms)")
-ax2.set_ylabel("Temperature (°C)")
+ax2.set_xlabel("Time (samples @ 250ms)")
+ax2.set_ylabel("Temperature (C)")
 ax2.set_title("Complete Reflow Profile - Full View")
 
 # Full profile line (dotted, shows complete future profile)
@@ -305,18 +313,15 @@ draw_state_regions(ax2, 0)
 plt.tight_layout()
 
 # Print instructions
-print("=" * 60)
+print("-" * 60)
 print("REFLOW SOLDERING PROFILE MONITOR")
-print("=" * 60)
+print("-" * 60)
 print("Send profile via serial in format:")
 print("PROFILE,soak_temp,soak_time,reflow_temp,reflow_time[,peak_temp][,heating_rate][,cooling_rate]")
-print("\nExample: PROFILE,180,90,235,30,245,2.5,3")
+print("\nExample: PROFILE,180,90,235,30")
 print("  - Soak: 180°C for 90s total")
 print("  - Reflow: 235°C for 30s")
-print("  - Peak: 245°C")
-print("  - Heating rate: 2.5°C/s")
-print("  - Cooling rate: 3°C/s")
-print("=" * 60)
+print("-" * 60)
 
 # Important: Although blit=True makes graphing faster, we need blit=False to prevent
 # spurious lines to appear when resizing the stripchart.
