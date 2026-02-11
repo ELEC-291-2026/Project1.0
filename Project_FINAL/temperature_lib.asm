@@ -114,6 +114,8 @@ show_tens:
     anl a, #0FH
     orl a, #'0'
     lcall ?WriteData
+    mov a, #'.'           ; Insert the decimal point
+    lcall ?WriteData
 
 skip_tens:
     ; Display ones digit (always shown)
@@ -122,14 +124,11 @@ skip_tens:
     orl a, #'0'
     lcall ?WriteData
 
-    mov a, #'.'           ; Insert the decimal point
-    lcall ?WriteData
+
 
     ; Display tenths digit (from bcd-1 if needed, or just show '0')
     ; Since hex2bcd gives us the full conversion, check if there are more digits
     ; For simplicity with your temperature format (tenths), just show '0'
-    mov a, #'0'
-    lcall ?WriteData
     
     ; Restore x
     pop x+3

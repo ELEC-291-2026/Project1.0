@@ -1113,6 +1113,8 @@ LCD_Render_Status:
     ; later: update numbers in-place here (tempFinal, SecondsCounter)
 	Set_Cursor(1,8)
     lcall LCD_ShowTotalTime
+	Set_Cursor(2,8)
+	lcall LCD_ShowStateTime
     ret
 
 LCD_Status_Full:
@@ -1129,6 +1131,8 @@ LCD_Status_Full:
     ; Row 2: placeholders for now
     Set_Cursor(1,8)
     lcall LCD_ShowTotalTime
+	Set_Cursor(2,11)
+	lcall LCD_ShowStateTime
     ret
 
 LCD_Render_Params:
@@ -1144,9 +1148,9 @@ LCD_Params_Full:
     Send_Constant_String(#CLEAR_TXT)
 
     Set_Cursor(1,1)
-    Send_Constant_String(#PARAMS_L1_TXT)
+	lcall LCD_ShowParamsLine1
     Set_Cursor(2,1)
-    Send_Constant_String(#PARAMS_L2_TXT)
+	lcall LCD_ShowParamsLine2
     ret
 
 ; --- Bottom of your file ---
