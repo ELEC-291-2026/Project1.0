@@ -1,5 +1,7 @@
 # Reflow Oven Controller
 
+![Image](1.jpg)
+
 ## Hardware Overview
 * Microcontroller: DE10-Lite/DE1-SoC
 * Amplifier: OP07PC
