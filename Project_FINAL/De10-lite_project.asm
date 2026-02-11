@@ -29,7 +29,7 @@ org 0x000B
 	ljmp Timer0_ISR
 
 Profile:  db 'PROFILE,', 0
-Comma:    db ',', 0
+DONE:    db 'DONE', 0
 
 dseg at 0x30
 ; For math 
@@ -998,12 +998,14 @@ FSM_state5:
 		
 				
 		lcall Play_song
-		
-		mov a, #'0'
-		lcall putchar
+
+		;Just added this to fix discrod integration
+		mov dptr, #DONE
+    	lcall SendString
 
 	FSM_done:
 
 	ljmp loop
 
 END
+
