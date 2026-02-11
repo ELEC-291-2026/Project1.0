@@ -85,7 +85,7 @@ SIMPLE_RHYTHM:
 	DB low(R_B5),  high(R_B5),  250  
 	DB low(No_Note),  high(No_Note),  250    
     DB low(No_Note),  high(No_Note),  250 
-	DB low(R_C5),  high(R_C5),  250  
+	DB low(R_E5),  high(R_E5),  250  
 	DB low(R_C6),  high(R_C6),  250 
 	DB low(R_B5),  high(R_B5),  250 
 	DB low(R_A5),  high(R_A5),  250 
