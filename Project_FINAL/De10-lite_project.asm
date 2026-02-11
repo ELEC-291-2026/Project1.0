@@ -69,6 +69,7 @@ ssr_f    	: dbit 1
 state_flag	: dbit 1
 QuarterSecondsFlag : dbit 1
 State0Flag : dbit 1
+SpeakerFlag : dbit 1
 
 $include(math32.asm)
 $include(LCD_4bit_DE10Lite_no_RW.inc) ; A library of LCD related functions and utility macros
@@ -120,6 +121,11 @@ Timer0_ISR:
 	mov TH0, #high(TIMER0_RELOAD)
 	mov TL0, #low(TIMER0_RELOAD)
 	setb TR0
+	
+	
+	jnb SpeakerFlag, skip_speaker
+	cpl SOUND_OUT
+	skip_speaker:
 	
 	; Increment the timers for each FSM. That is all we do here!
 	inc FSM_timer 
@@ -472,7 +478,7 @@ Initial_ALL:
 	
 	
 main:
-	mov P0MOD, #10101011b
+	mov P0MOD, #10101111b
     mov P1MOD, #10000010b
 	lcall Initial_ALL
 	
@@ -529,6 +535,8 @@ loop:
 	
 	clr QuarterSecondsFlag
 	clr EA
+	
+	clr SpeakerFlag
     mov ADC_C, #LM335_ADC
 
     mov x+3, #0
