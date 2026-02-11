@@ -587,7 +587,7 @@ loop:
 		lcall hex2bcd
 	    mov soak_time+0, 	bcd+0    ; mode D  30 < 45
 	    mov soak_time+1, 	bcd+1
-	overflow_soaktime_check:
+	overflow_refluxtime_check:
 
 	setb EA
 
