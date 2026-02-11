@@ -93,8 +93,8 @@ ELCD_D5 equ P0.5
 ELCD_D6 equ P0.3
 ELCD_D7 equ P0.1
 SSR_PIN equ P0.0
-START_BUTTON equ P0.2
-SOUND_OUT equ P0.4
+START_BUTTON equ 	P0.2
+SOUND_OUT equ 		P0.4
 
 
 Initial_Message:  db 'Tmperature Test', 0
