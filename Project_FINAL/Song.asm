@@ -71,15 +71,22 @@ R_C6  EQU 0FAD0h   ; 1046.50 Hz (Do - higher octave)
 ; Each note plays for 400ms
 SIMPLE_RHYTHM:
     DW R_C5, 400    ; Do
-    DW R_D5, 400    ; Re
-    DW R_E5, 400    ; Mi
-    DW R_F5, 400    ; Fa
+    DW R_C5, 400    ; Do
+    DW R_G5, 400    ; Sol
     DW R_G5, 400    ; Sol
     DW R_A5, 400    ; La
-    DW R_B5, 400    ; Si
-    DW R_C6, 600    ; Do (longer final note)
+    DW R_A5, 400    ; La
+    DW R_G5, 600    ; Sol
+    DW R_F5, 400    ; Fa
+    DW R_F5, 400    ; Fa
+    DW R_E5, 400    ; Sol
+    DW R_E5, 400    ; La
+    DW R_D5, 400    ; Si
+    DW R_D5, 400    ; Do (longer final note)
+    DW R_C5, 600    ; Do (longer final note)
+    
 
-SONG_LEN EQU 8    ; number of notes
+SONG_LEN EQU 14    ; number of notes
 
 ;---------------------------------;
 ; Load current note from song     ;

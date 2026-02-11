@@ -12,7 +12,7 @@
 0000             14   
 0000             15   ; Reset vector
 0000             16   org 0x0000
-0000 0200F8      17       ljmp main
+0000 020110      17       ljmp main
 0003             18   
 0003             19   ; External interrupt 0 vector (not used in this code)
 0003             20   org 0x0003
@@ -20,7 +20,7 @@
 0004             22   
 0004             23   ; Timer/Counter 0 overflow interrupt vector
 000B             24   org 0x000B
-000B 02009F      25            ljmp Timer0_ISR
+000B 0200B7      25            ljmp Timer0_ISR
 000E             26   
 000E             27   ; External interrupt 1 vector (not used in this code)
 0013             28   org 0x0013
@@ -36,7 +36,7 @@
 0024             38            
 0024             39   ; Timer/Counter 2 overflow interrupt vector
 002B             40   org 0x002B
-002B 0200C1      41            ljmp Timer2_ISR
+002B 0200D9      41            ljmp Timer2_ISR
 002E             42   
 002E             43   ; Variables
 0030             44   dseg at 0x30
@@ -69,217 +69,224 @@
 002E             71   ; Each note plays for 400ms
 002E             72   SIMPLE_RHYTHM:
 002E F5A20190    73       DW R_C5, 400    ; Do
-0032 F6C30190    74       DW R_D5, 400    ; Re
-0036 F7C50190    75       DW R_E5, 400    ; Mi
-003A F83B0190    76       DW R_F5, 400    ; Fa
-003E F9140190    77       DW R_G5, 400    ; Sol
+0032 F5A20190    74       DW R_C5, 400    ; Do
+0036 F9140190    75       DW R_G5, 400    ; Sol
+003A F9140190    76       DW R_G5, 400    ; Sol
+003E F9D60190    77       DW R_A5, 400    ; La
 0042 F9D60190    78       DW R_A5, 400    ; La
-0046 FA820190    79       DW R_B5, 400    ; Si
-004A FAD00258    80       DW R_C6, 600    ; Do (longer final note)
-004E             81   
-004E             82   SONG_LEN EQU 8    ; number of notes
-004E             83   
-004E             84   ;---------------------------------;
-004E             85   ; Load current note from song     ;
-004E             86   ; Input: song_idx (0-7)          ;
-004E             87   ;---------------------------------;
-004E             88   Load_Song_Note:
-004E C0E0        89       push acc
-0050 C083        90       push dph
-0052 C082        91       push dpl
-0054             92       
-0054             93       ; Each note is 4 bytes: 2 for reload, 2 for duration
-0054             94       ; Offset = song_idx * 4
-0054 E532        95       mov a, song_idx
-0056 23          96       rl a              ; *2
-0057 23          97       rl a              ; *4
-0058 54FC        98       anl a, #0FCh      ; Ensure it's a multiple of 4
-005A             99       
-005A 90002E     100       mov dptr, #SIMPLE_RHYTHM
-005D            101       
-005D            102       ; Get reload high byte
-005D 93         103       movc a, @a+dptr
-005E F535       104       mov tone_rh, a
-0060            105       
-0060            106       ; Get reload low byte
-0060 E532       107       mov a, song_idx
-0062 23         108       rl a
-0063 23         109       rl a
-0064 54FC       110       anl a, #0FCh
-0066 04         111       inc a
-0067 93         112       movc a, @a+dptr
-0068 F536       113       mov tone_rl, a
-006A            114       
-006A            115       ; Get duration low byte
-006A E532       116       mov a, song_idx
-006C 23         117       rl a
-006D 23         118       rl a
-006E 54FC       119       anl a, #0FCh
-0070 2402       120       add a, #2
-0072 93         121       movc a, @a+dptr
-0073 F538       122       mov note_dur_h, a
-0075            123       
-0075            124       ; Get duration high byte
-0075 E532       125       mov a, song_idx
-0077 23         126       rl a
-0078 23         127       rl a
-0079 54FC       128       anl a, #0FCh
-007B 2403       129       add a, #3
-007D 93         130       movc a, @a+dptr
-007E F537       131       mov note_dur_l, a
-0080            132       
-0080            133       ; Reset note timing counter
-0080 E4         134       clr a
-0081 F533       135       mov note_ms+0, a
-0083 F534       136       mov note_ms+1, a
-0085            137       
-0085            138       ; Load timer and start
-0085 85358C     139       mov TH0, tone_rh
-0088 85368A     140       mov TL0, tone_rl
-008B D28C       141       setb TR0              ; Start Timer0
-008D            142       
-008D D082       143       pop dpl
-008F D083       144       pop dph
-0091 D0E0       145       pop acc
-0093 22         146       ret
-0094            147   
-0094            148   ;---------------------------------;
-0094            149   ; Routine to initialize the ISR   ;
-0094            150   ; for timer 0                     ;
-0094            151   ;---------------------------------;
-0094            152   Timer0_Init:
-0094 E589       153            mov a, TMOD
-0096 54F0       154            anl a, #0xf0 ; Clear the bits for timer 0
-0098 4401       155            orl a, #0x01 ; Configure timer 0 as 16-timer
-009A F589       156            mov TMOD, a
-009C            157            
-009C            158            ; Don't start timer yet - Load_Song_Note will do it
-009C D2A9       159       setb ET0  ; Enable timer 0 interrupt
-009E 22         160            ret
-009F            161   
-009F            162   ;---------------------------------;
-009F            163   ; ISR for timer 0.                ;
-009F            164   ; Generates square wave for tone  ;
-009F            165   ;---------------------------------;
-009F            166   Timer0_ISR:
-009F            167            ; Reload timer with current note's value
-009F 85358C     168            mov TH0, tone_rh
-00A2 85368A     169            mov TL0, tone_rl
-00A5 B284       170            cpl SOUND_OUT ; Toggle speaker
-00A7 32         171            reti
-00A8            172   
-00A8            173   ;---------------------------------;
-00A8            174   ; Routine to initialize the ISR   ;
-00A8            175   ; for timer 2                     ;
-00A8            176   ;---------------------------------;
-00A8            177   Timer2_Init:
-00A8 75C800     178            mov T2CON, #0 ; Stop timer/counter.  Autoreload mode.
-00AB 75CDF5     179            mov TH2, #high(TIMER2_RELOAD)
-00AE 75CC27     180            mov TL2, #low(TIMER2_RELOAD)
-00B1            181            ; Set the reload value
-00B1 75CBF5     182            mov RCAP2H, #high(TIMER2_RELOAD)
-00B4 75CA27     183            mov RCAP2L, #low(TIMER2_RELOAD)
-00B7            184            ; Init One millisecond interrupt counter
-00B7 E4         185            clr a
-00B8 F530       186            mov Count1ms+0, a
-00BA F531       187            mov Count1ms+1, a
-00BC            188            ; Enable the timer and interrupts
-00BC D2AD       189       setb ET2  ; Enable timer 2 interrupt
-00BE D2CA       190       setb TR2  ; Enable timer 2
-00C0 22         191            ret
-00C1            192   
-00C1            193   ;---------------------------------;
-00C1            194   ; ISR for timer 2 (1ms tick)      ;
-00C1            195   ; Handles note timing             ;
-00C1            196   ;---------------------------------;
-00C1            197   Timer2_ISR:
-00C1 C2CF       198            clr TF2  ; Timer 2 doesn't clear TF2 automatically
-00C3 B291       199            cpl P1.1 ; Debug: Check interrupt rate with oscilloscope
-00C5            200            
-00C5 C0E0       201            push acc
-00C7 C0D0       202            push psw
-00C9            203            
-00C9            204            ; Only process if song is playing
-00C9 300027     205            jnb song_playing, Timer2_ISR_done
-00CC            206            
-00CC            207            ; Increment note duration counter
-00CC 0533       208            inc note_ms+0
-00CE E533       209            mov a, note_ms+0
-00D0 7002       210            jnz Check_Note_Duration
-00D2 0534       211            inc note_ms+1
-00D4            212            
-00D4            213   Check_Note_Duration:
-00D4            214            ; Check if note duration has elapsed
-00D4 E533       215            mov a, note_ms+0
-00D6 B5371A     216            cjne a, note_dur_l, Timer2_ISR_done
-00D9 E534       217            mov a, note_ms+1
-00DB B53815     218            cjne a, note_dur_h, Timer2_ISR_done
-00DE            219            
-00DE            220            ; Note duration elapsed - advance to next note
-00DE E532       221            mov a, song_idx
-00E0 04         222            inc a
-00E1            223            
-00E1            224            ; Check if song is finished
-00E1 B4080A     225            cjne a, #SONG_LEN, Next_Note_OK
-00E4            226            
-00E4            227            ; *** SONG FINISHED - STOP PLAYING ***
-00E4 C200       228            clr song_playing
-00E6 C28C       229            clr TR0               ; Stop Timer0
-00E8 C284       230            clr SOUND_OUT         ; Turn off speaker
-00EA D2E8       231            setb LEDRA.0          ; Turn on LED to show song finished
-00EC 8005       232            sjmp Timer2_ISR_done
-00EE            233            
-00EE            234   Next_Note_OK:
-00EE F532       235            mov song_idx, a
-00F0 12004E     236            lcall Load_Song_Note
-00F3            237            
-00F3            238   Timer2_ISR_done:
-00F3 D0D0       239            pop psw
-00F5 D0E0       240            pop acc
-00F7 32         241            reti
-00F8            242   
-00F8            243   ;---------------------------------;
-00F8            244   ; Main program. Includes hardware ;
-00F8            245   ; initialization and 'forever'    ;
-00F8            246   ; loop.                           ;
-00F8            247   ;---------------------------------;
-00F8            248   main:
-00F8            249            ; Initialization
-00F8 75817F     250       mov SP, #0x7F
-00FB            251       
-00FB            252       ; Configure I/O pins
-00FB 759A10     253       mov P0MOD, #00010000b ; P0.4 (SOUND_OUT) is output
-00FE 759B02     254       mov P1MOD, #00000010b ; P1.1 is output (debug)
-0101            255       
-0101            256       ; Turn off all the LEDs
-0101 75E800     257       mov LEDRA, #0
-0104 759500     258       mov LEDRB, #0
-0107            259       
-0107            260       ; Initialize timers
-0107 120094     261       lcall Timer0_Init
-010A 1200A8     262       lcall Timer2_Init
-010D            263       
-010D            264       ; Initialize song (but don't play yet)
-010D 753200     265       mov song_idx, #0
-0110 C200       266       clr song_playing      ; Wait for button press
-0112            267       
-0112 D2AF       268       setb EA   ; Enable Global interrupts
-0114            269            
-0114            270            ; Main loop - wait for button to play
-0114            271   loop:
-0114            272            ; Press KEY.1 to play the rhythm
-0114 20F9FD     273            jb KEY.1, loop
-0117 30F9FD     274            jnb KEY.1, $          ; Wait for release
-011A            275            
-011A            276            ; Only play if not already playing
-011A 2000F7     277            jb song_playing, loop
-011D            278            
-011D            279            ; Start playing from beginning
-011D C2E8       280            clr LEDRA.0           ; Turn off LED
-011F 753200     281            mov song_idx, #0
-0122 12004E     282            lcall Load_Song_Note
-0125 D200       283            setb song_playing
-0127            284            
-0127 80EB       285            sjmp loop
-0129            286   
-0129            287   EN
+0046 F9140258    79       DW R_G5, 600    ; Sol
+004A F83B0190    80       DW R_F5, 400    ; Fa
+004E F83B0190    81       DW R_F5, 400    ; Fa
+0052 F7C50190    82       DW R_E5, 400    ; Sol
+0056 F7C50190    83       DW R_E5, 400    ; La
+005A F6C30190    84       DW R_D5, 400    ; Si
+005E F6C30190    85       DW R_D5, 400    ; Do (longer final note)
+0062 F5A20258    86       DW R_C5, 600    ; Do (longer final note)
+0066             87       
+0066             88   
+0066             89   SONG_LEN EQU 14    ; number of notes
+0066             90   
+0066             91   ;---------------------------------;
+0066             92   ; Load current note from song     ;
+0066             93   ; Input: song_idx (0-7)          ;
+0066             94   ;---------------------------------;
+0066             95   Load_Song_Note:
+0066 C0E0        96       push acc
+0068 C083        97       push dph
+006A C082        98       push dpl
+006C             99       
+006C            100       ; Each note is 4 bytes: 2 for reload, 2 for duration
+006C            101       ; Offset = song_idx * 4
+006C E532       102       mov a, song_idx
+006E 23         103       rl a              ; *2
+006F 23         104       rl a              ; *4
+0070 54FC       105       anl a, #0FCh      ; Ensure it's a multiple of 4
+0072            106       
+0072 90002E     107       mov dptr, #SIMPLE_RHYTHM
+0075            108       
+0075            109       ; Get reload high byte
+0075 93         110       movc a, @a+dptr
+0076 F535       111       mov tone_rh, a
+0078            112       
+0078            113       ; Get reload low byte
+0078 E532       114       mov a, song_idx
+007A 23         115       rl a
+007B 23         116       rl a
+007C 54FC       117       anl a, #0FCh
+007E 04         118       inc a
+007F 93         119       movc a, @a+dptr
+0080 F536       120       mov tone_rl, a
+0082            121       
+0082            122       ; Get duration low byte
+0082 E532       123       mov a, song_idx
+0084 23         124       rl a
+0085 23         125       rl a
+0086 54FC       126       anl a, #0FCh
+0088 2402       127       add a, #2
+008A 93         128       movc a, @a+dptr
+008B F538       129       mov note_dur_h, a
+008D            130       
+008D            131       ; Get duration high byte
+008D E532       132       mov a, song_idx
+008F 23         133       rl a
+0090 23         134       rl a
+0091 54FC       135       anl a, #0FCh
+0093 2403       136       add a, #3
+0095 93         137       movc a, @a+dptr
+0096 F537       138       mov note_dur_l, a
+0098            139       
+0098            140       ; Reset note timing counter
+0098 E4         141       clr a
+0099 F533       142       mov note_ms+0, a
+009B F534       143       mov note_ms+1, a
+009D            144       
+009D            145       ; Load timer and start
+009D 85358C     146       mov TH0, tone_rh
+00A0 85368A     147       mov TL0, tone_rl
+00A3 D28C       148       setb TR0              ; Start Timer0
+00A5            149       
+00A5 D082       150       pop dpl
+00A7 D083       151       pop dph
+00A9 D0E0       152       pop acc
+00AB 22         153       ret
+00AC            154   
+00AC            155   ;---------------------------------;
+00AC            156   ; Routine to initialize the ISR   ;
+00AC            157   ; for timer 0                     ;
+00AC            158   ;---------------------------------;
+00AC            159   Timer0_Init:
+00AC E589       160            mov a, TMOD
+00AE 54F0       161            anl a, #0xf0 ; Clear the bits for timer 0
+00B0 4401       162            orl a, #0x01 ; Configure timer 0 as 16-timer
+00B2 F589       163            mov TMOD, a
+00B4            164            
+00B4            165            ; Don't start timer yet - Load_Song_Note will do it
+00B4 D2A9       166       setb ET0  ; Enable timer 0 interrupt
+00B6 22         167            ret
+00B7            168   
+00B7            169   ;---------------------------------;
+00B7            170   ; ISR for timer 0.                ;
+00B7            171   ; Generates square wave for tone  ;
+00B7            172   ;---------------------------------;
+00B7            173   Timer0_ISR:
+00B7            174            ; Reload timer with current note's value
+00B7 85358C     175            mov TH0, tone_rh
+00BA 85368A     176            mov TL0, tone_rl
+00BD B284       177            cpl SOUND_OUT ; Toggle speaker
+00BF 32         178            reti
+00C0            179   
+00C0            180   ;---------------------------------;
+00C0            181   ; Routine to initialize the ISR   ;
+00C0            182   ; for timer 2                     ;
+00C0            183   ;---------------------------------;
+00C0            184   Timer2_Init:
+00C0 75C800     185            mov T2CON, #0 ; Stop timer/counter.  Autoreload mode.
+00C3 75CDF5     186            mov TH2, #high(TIMER2_RELOAD)
+00C6 75CC27     187            mov TL2, #low(TIMER2_RELOAD)
+00C9            188            ; Set the reload value
+00C9 75CBF5     189            mov RCAP2H, #high(TIMER2_RELOAD)
+00CC 75CA27     190            mov RCAP2L, #low(TIMER2_RELOAD)
+00CF            191            ; Init One millisecond interrupt counter
+00CF E4         192            clr a
+00D0 F530       193            mov Count1ms+0, a
+00D2 F531       194            mov Count1ms+1, a
+00D4            195            ; Enable the timer and interrupts
+00D4 D2AD       196       setb ET2  ; Enable timer 2 interrupt
+00D6 D2CA       197       setb TR2  ; Enable timer 2
+00D8 22         198            ret
+00D9            199   
+00D9            200   ;---------------------------------;
+00D9            201   ; ISR for timer 2 (1ms tick)      ;
+00D9            202   ; Handles note timing             ;
+00D9            203   ;---------------------------------;
+00D9            204   Timer2_ISR:
+00D9 C2CF       205            clr TF2  ; Timer 2 doesn't clear TF2 automatically
+00DB B291       206            cpl P1.1 ; Debug: Check interrupt rate with oscilloscope
+00DD            207            
+00DD C0E0       208            push acc
+00DF C0D0       209            push psw
+00E1            210            
+00E1            211            ; Only process if song is playing
+00E1 300027     212            jnb song_playing, Timer2_ISR_done
+00E4            213            
+00E4            214            ; Increment note duration counter
+00E4 0533       215            inc note_ms+0
+00E6 E533       216            mov a, note_ms+0
+00E8 7002       217            jnz Check_Note_Duration
+00EA 0534       218            inc note_ms+1
+00EC            219            
+00EC            220   Check_Note_Duration:
+00EC            221            ; Check if note duration has elapsed
+00EC E533       222            mov a, note_ms+0
+00EE B5371A     223            cjne a, note_dur_l, Timer2_ISR_done
+00F1 E534       224            mov a, note_ms+1
+00F3 B53815     225            cjne a, note_dur_h, Timer2_ISR_done
+00F6            226            
+00F6            227            ; Note duration elapsed - advance to next note
+00F6 E532       228            mov a, song_idx
+00F8 04         229            inc a
+00F9            230            
+00F9            231            ; Check if song is finished
+00F9 B40E0A     232            cjne a, #SONG_LEN, Next_Note_OK
+00FC            233            
+00FC            234            ; *** SONG FINISHED - STOP PLAYING ***
+00FC C200       235            clr song_playing
+00FE C28C       236            clr TR0               ; Stop Timer0
+0100 C284       237            clr SOUND_OUT         ; Turn off speaker
+0102 D2E8       238            setb LEDRA.0          ; Turn on LED to show song finished
+0104 8005       239            sjmp Timer2_ISR_done
+0106            240            
+0106            241   Next_Note_OK:
+0106 F532       242            mov song_idx, a
+0108 120066     243            lcall Load_Song_Note
+010B            244            
+010B            245   Timer2_ISR_done:
+010B D0D0       246            pop psw
+010D D0E0       247            pop acc
+010F 32         248            reti
+0110            249   
+0110            250   ;---------------------------------;
+0110            251   ; Main program. Includes hardware ;
+0110            252   ; initialization and 'forever'    ;
+0110            253   ; loop.                           ;
+0110            254   ;---------------------------------;
+0110            255   main:
+0110            256            ; Initialization
+0110 75817F     257       mov SP, #0x7F
+0113            258       
+0113            259       ; Configure I/O pins
+0113 759A10     260       mov P0MOD, #00010000b ; P0.4 (SOUND_OUT) is output
+0116 759B02     261       mov P1MOD, #00000010b ; P1.1 is output (debug)
+0119            262       
+0119            263       ; Turn off all the LEDs
+0119 75E800     264       mov LEDRA, #0
+011C 759500     265       mov LEDRB, #0
+011F            266       
+011F            267       ; Initialize timers
+011F 1200AC     268       lcall Timer0_Init
+0122 1200C0     269       lcall Timer2_Init
+0125            270       
+0125            271       ; Initialize song (but don't play yet)
+0125 753200     272       mov song_idx, #0
+0128 C200       273       clr song_playing      ; Wait for button press
+012A            274       
+012A D2AF       275       setb EA   ; Enable Global interrupts
+012C            276            
+012C            277            ; Main loop - wait for button to play
+012C            278   loop:
+012C            279            ; Press KEY.1 to play the rhythm
+012C 20F9FD     280            jb KEY.1, loop
+012F 30F9FD     281            jnb KEY.1, $          ; Wait for release
+0132            282            
+0132            283            ; Only play if not already playing
+0132 2000F7     284            jb song_playing, loop
+0135            285            
+0135            286            ; Start playing from beginning
+0135 C2E8       287            clr LEDRA.0           ; Turn off LED
+0137 753200     288            mov song_idx, #0
+013A 120066     289            lcall Load_Song_Note
+013D D200       290            setb song_playing
+013F            291            
+013F 80EB       292            sjmp loop
+0141            293   
+0141            294   EN
