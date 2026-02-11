@@ -1155,7 +1155,14 @@ FSM_state5:
 		setb state_flag
 		mov FSM_state, #0x00
 		
-		Set_Cursor(2, 1)
+		;Just added this to fix discrod integration
+		mov dptr, #DONE
+    	lcall SendString
+
+		mov a, #'\r'
+  		lcall putchar
+    	mov a, #'\n'
+   		lcall putchar
 		
 		jnb screen_flag, skip_song_1
 			lcall Play_song1
@@ -1165,14 +1172,6 @@ FSM_state5:
 			lcall Play_song2
 		skip_song_2:
 
-		;Just added this to fix discrod integration
-		mov dptr, #DONE
-    	lcall SendString
-
-		mov a, #'\r'
-  		lcall putchar
-    	mov a, #'\n'
-   		lcall putchar
 		
 
 
