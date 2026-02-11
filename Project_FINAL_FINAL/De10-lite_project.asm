@@ -1164,17 +1164,16 @@ FSM_state5:
 		jb screen_flag, skip_song_2
 			lcall Play_song2
 		skip_song_2:
-		
-		mov a, #'0'
-		lcall putchar
+
+		;Just added this to fix discrod integration
+		mov dptr, #DONE
+    	lcall SendString
+
 
 	FSM_done:
-	;Just added this to fix discrod integration
-	mov dptr, #DONE
-    lcall SendString
-
 	ljmp loop
 	
 
 END
+
 
