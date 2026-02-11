@@ -151,6 +151,7 @@ Timer0_ISR:
 	
 	jnb SpeakerFlag, skip_speaker
 	cpl SOUND_OUT
+	ljmp FSM_timer_done
 	skip_speaker:
 	
 	; Increment the timers for each FSM. That is all we do here!
