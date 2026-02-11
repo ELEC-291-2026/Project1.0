@@ -4,6 +4,8 @@ import matplotlib.animation as animation
 import serial
 import sys
 import math
+from matplotlib.collections import LineCollection
+import matplotlib.cm as cm
 
 # Serial connection setup
 ser = serial.Serial(
@@ -43,18 +45,21 @@ def parse_profile_command(text):
     try:
         parts = text.split(',')
         
-        profile_params['soak_temp'] = float(parts[1])
-        profile_params['soak_time'] = float(parts[2])
-        profile_params['reflow_temp'] = float(parts[3])
-        profile_params['reflow_time'] = float(parts[4])
+        # Values come as 4-digit BCD with last digit as tenths (e.g., "1800" = 180.0)
+        profile_params['soak_temp'] = float(parts[1]) / 10.0
+        profile_params['soak_time'] = float(parts[2]) / 10.0
+        profile_params['reflow_temp'] = float(parts[3]) / 10.0
+        profile_params['reflow_time'] = float(parts[4]) / 10.0
 
         profile_received = True
         profile_updated = True
-        print("Profile received and updated")
+        print(f"Profile received: Soak {profile_params['soak_temp']}°C for {profile_params['soak_time']}s, "
+              f"Reflow {profile_params['reflow_temp']}°C for {profile_params['reflow_time']}s")
         return True
 
     except Exception as e:
         print(f"Error parsing profile: {e}")
+        print(f"Received: {text}")
         return False
 
 
@@ -127,6 +132,10 @@ def data_gen():
 
     while True:
         text = ser.readline().decode().strip()
+        
+        # Debug: print what we received
+        if text:
+            print(f"Received: '{text}'")
 
         # Check if this is a profile command
         if parse_profile_command(text):
@@ -148,6 +157,8 @@ def data_gen():
 
 def update_plot(data):
     """Animation update function"""
+    global profile_updated
+    
     sample, temp = data
 
     # Add new data points
@@ -158,7 +169,7 @@ def update_plot(data):
     target_data.append(target_temp)
 
     # Update x-axis to show rolling window
-    ax.set_xlim(max(0, sample - GRAPH_WINDOW_SIZE), sample + 1)
+    ax1.set_xlim(max(0, sample - GRAPH_WINDOW_SIZE), sample + 1)
 
     # Update plot lines
     line_actual.set_data(xdata, ydata)
@@ -166,22 +177,72 @@ def update_plot(data):
 
     # Update title with current time and state
     elapsed = sample * SAMPLE_PERIOD
-    ax.set_title(f"Time: {elapsed:.1f}s | State: {state}")
+    ax1.set_title(f"Time: {elapsed:.1f}s | State: {state}")
 
-    return line_actual, line_target
+    # Update prediction graph when profile changes
+    if profile_updated and temp_profile:
+        profile_updated = False
+        
+        # Clear waiting text
+        ax1.clear()
+        ax1.set_ylim(0, 260)
+        ax1.set_xlim(max(0, sample - GRAPH_WINDOW_SIZE), sample + 1)
+        ax1.set_xlabel("Time (samples)")
+        ax1.set_ylabel("Temperature (°C)")
+        ax1.grid(True, alpha=0.3)
+        ax1.legend(loc='upper left')
+        
+        ax2.clear()
+        ax2.set_xlabel("Time (s)")
+        ax2.set_ylabel("Temperature (°C)")
+        ax2.set_title("Full Reflow Profile")
+        ax2.grid(True, alpha=0.3)
+        
+        # Generate prediction curve
+        times = [t for t, _, _ in temp_profile]
+        temps = [temp for _, temp, _ in temp_profile]
+        
+        # Re-create lines after clearing
+        line_actual.set_data(xdata, ydata)
+        line_target.set_data(xdata, target_data)
+        ax1.add_line(line_actual)
+        ax1.add_line(line_target)
+        
+        prediction_line.set_data(times, temps)
+        ax2.add_line(prediction_line)
+        ax2.set_xlim(0, max(times) if times else 1)
+        ax2.set_ylim(0, 260)
+        ax2.legend(loc='upper left')
+
+    return line_actual, line_target, prediction_line
 
 
-# Set up the plot
-fig, ax = plt.subplots(figsize=(12, 6))
-ax.set_ylim(0, 260)
-ax.set_xlim(0, GRAPH_WINDOW_SIZE)
-ax.set_xlabel("Time (samples)")
-ax.set_ylabel("Temperature (°C)")
-ax.grid(True, alpha=0.3)
+# Set up the plot with prediction graph
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
 
-line_actual, = ax.plot([], [], 'b-', linewidth=2, label="Actual Temperature")
-line_target, = ax.plot([], [], 'r--', linewidth=2, label="Target Temperature")
-ax.legend(loc='upper left')
+# Main temperature graph
+ax1.set_ylim(0, 260)
+ax1.set_xlim(0, GRAPH_WINDOW_SIZE)
+ax1.set_xlabel("Time (samples)")
+ax1.set_ylabel("Temperature (°C)")
+ax1.grid(True, alpha=0.3)
+ax1.text(GRAPH_WINDOW_SIZE/2, 130, 'Waiting for profile...', 
+         ha='center', va='center', fontsize=20, color='gray')
+
+line_actual, = ax1.plot([], [], 'b-', linewidth=2, label="Actual Temperature")
+line_target, = ax1.plot([], [], 'r--', linewidth=2, label="Target Temperature")
+ax1.legend(loc='upper left')
+
+# Prediction graph (full profile view)
+ax2.set_xlabel("Time (s)")
+ax2.set_ylabel("Temperature (°C)")
+ax2.set_title("Full Reflow Profile")
+ax2.set_xlim(0, 100)
+ax2.set_ylim(0, 260)
+ax2.grid(True, alpha=0.3)
+ax2.text(50, 130, 'Waiting for profile...', 
+         ha='center', va='center', fontsize=20, color='gray')
+prediction_line, = ax2.plot([], [], 'r--', linewidth=2, label="Target Profile")
 
 # Start the animation
 print("=" * 50)
@@ -189,7 +250,8 @@ print("REFLOW PROFILE MONITOR")
 print("=" * 50)
 print("Waiting for profile data...")
 print("Expected format: PROFILE,soak_temp,soak_time,reflow_temp,reflow_time")
-print("Example: PROFILE,180,90,235,30")
+print("Example: PROFILE,1800,0900,2350,0300 (values are 10x with decimal)")
+print("         (means: 180.0°C, 90.0s, 235.0°C, 30.0s)")
 print("=" * 50)
 
 ani = animation.FuncAnimation(
