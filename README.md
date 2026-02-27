@@ -5,10 +5,10 @@
 </p>
 
 ## Hardware Overview
-* Microcontroller: DE10-Lite/DE1-SoC
+* Microcontroller: DE10-Lite/DE1-SoC 8052 soft processor
 * Amplifier: OP07PC
 * Capacitors: 2 10uF
-* Thermocouple
+* K-type Thermocouple
 * Keypad
 * Resistor 330 Ohms
 * Speaker CEM-1302
