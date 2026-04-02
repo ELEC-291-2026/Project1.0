@@ -45,14 +45,15 @@ completed. Ten beeps when there is an error.
 # Keyboard sound mode
 - custom music note characters
 - allows you to make song
-# 2 songs you can pick
+# Two songs you can pick
 - 2 fully done songs that will play at the end when its done
 - can chose between them  
-# python cool graph
+# Python cool graph
 - shows prediction graph by taking in the parameters
 - dynamically resizes based on current temp
-- changes colour the hotter it is  
-# discord messaging
+- changes colour the hotter it is
+  
+# Discord messaging
 - When the cook cycle elapses, members of the community will be notified on discord, so you can monitor your it from wherever you are
 
 ## LCD
