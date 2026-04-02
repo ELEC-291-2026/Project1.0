@@ -35,16 +35,6 @@ personal computer
 completed. Ten beeps when there is an error.
 
 ## Extra functionality 
-  - Show a warning message whenever there is a very large deviation in temperatures
-  - Change the oven activation so that we have to hold it down for 3 seconds to start the process
-  - Add a progress indicator and progress bar
-  - Settable songs with 2 octaves played once done
-
-## Extra features for Python
-  - Temp change in Fahrenheit, Kelvins, Celcius
-  - Notification on phone
-
-## EXTRA FINAL (the final features that made it to the end
 
 # Microwave mode
 - has a timer
@@ -66,5 +56,5 @@ completed. Ten beeps when there is an error.
 - When the cook cycle elapses, members of the community will be notified on discord, so you can monitor your it from wherever you are
 
 ## LCD
-- State 0: paramters on the 7segs, temperature of oven and time on the LCD
+- State 0: Paramters on the 7 segments, temperature of oven and time on the LCD
 - State 1-5: oven temperature on the 7segs, and 2 screens on LCD: one parameters, one oven temperature/total time on first row, second row is progress bar and state running time and state number
