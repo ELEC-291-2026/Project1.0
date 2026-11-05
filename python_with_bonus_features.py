@@ -96,9 +96,25 @@ def generate_excel_report(file_path):
     print("✅ Excel report created successfully!")
 
 # --- Smart Notification Settings ---
-# This is the "target" where our notifications go. Discord's Webhook API 
+# This is the "target" where our notifications go. Discord's Webhook API
 # allows our script to post messages directly to a channel via the internet.
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1471005567177986182/jn6fy27IzxZ0d9MfQwmBaPWUp83ynQLdEiD4y9NGUPayPYACDkOPIJjouZMTopHHVq_R"
+#
+# A webhook URL is a password: anyone who has it can post to the channel.
+# Never paste it into this file. Either set the DISCORD_WEBHOOK_URL
+# environment variable, or put the URL alone in discord_webhook.txt next to
+# this script (that file is in .gitignore, so it never gets committed).
+# With neither, the script runs normally and just skips the Discord messages.
+def _load_webhook_url():
+    url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+    if url:
+        return url
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "discord_webhook.txt")
+    if os.path.exists(path):
+        with open(path) as f:
+            return f.read().strip()
+    return ""
+
+DISCORD_WEBHOOK_URL = _load_webhook_url()
 
 def send_notification(message, file_paths=None):
     """
